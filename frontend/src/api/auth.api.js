@@ -1,7 +1,8 @@
 import api from './axios';
 
 export async function sendOtp(phone) {
-  const res = await api.post('/api/auth/login', { phone });
+  // OTP is sent by notification-service
+  const res = await api.post('/api/notifications/send-otp', { phone });
   return res.data;
 }
 
