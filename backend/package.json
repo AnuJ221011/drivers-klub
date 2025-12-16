@@ -1,0 +1,44 @@
+{
+  "name": "driversklub-backend",
+  "version": "1.0.0",
+  "description": "This README would normally document whatever steps are necessary to get your application up and running.",
+  "main": "index.js",
+  "scripts": {
+    "auth": "nodemon services/auth-service/index.js",
+    "driver": "nodemon services/driver-service/index.js",
+    "vehicle": "nodemon services/vehicle-service/index.js",
+    "assignment": "nodemon services/daily-assignment-service/index.js",
+    "trip": "nodemon services/trip-service/index.js",
+    "notification": "nodemon services/notification-service/index.js",
+    "gateway": "nodemon services/api-gateway/index.js",
+    "dev": "concurrently -k -n AUTH,DRIVER,VEHICLE,ASSIGNMENT,TRIP,NOTIFY,GATEWAY -c blue,green,yellow,magenta,cyan,white,red \"npm run auth\" \"npm run driver\" \"npm run vehicle\" \"npm run assignment\" \"npm run trip\" \"npm run notification\" \"npm run gateway\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://respare-project-admin@bitbucket.org/respare/driversklub-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://bitbucket.org/respare/driversklub-backend/issues"
+  },
+  "homepage": "https://bitbucket.org/respare/driversklub-backend#readme",
+  "dependencies": {
+    "@prisma/client": "^6.19.1",
+    "axios": "^1.13.2",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "http-proxy-middleware": "^3.0.5",
+    "jsonwebtoken": "^9.0.3",
+    "prisma": "^6.19.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.1.11"
+  }
+}

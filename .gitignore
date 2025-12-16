@@ -1,0 +1,8 @@
+# Ignore all node_modules anywhere
+**/node_modules/
+
+# Ignore all .env files
+**/.env
+
+# Ignore Prisma generated folder (backend)
+backend/generated/prisma
