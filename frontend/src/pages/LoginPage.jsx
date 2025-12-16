@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { sendOtp, verifyOtp } from '../api/auth.api';
+import { login, sendOtp, verifyOtp } from '../api/auth.api';
 import { setAuthToken, setLoggedIn } from '../utils/auth';
 
 function normalizePhone(value) {
@@ -35,12 +35,18 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const data = await sendOtp(normalized);
-      toast.success(data?.message || 'OTP sent successfully');
+      // 1) create/fetch user + token (backend logic)
+      const loginData = await login(normalized);
+      const token = loginData?.token || null;
+      setLoginToken(token);
+
+      // 2) request OTP (needs token because notifications is behind gateway auth)
+      const otpData = await sendOtp(normalized, token);
+      toast.success(otpData?.message || 'OTP sent successfully');
       setStep('verify');
       setTimeout(() => otpRef.current?.focus?.(), 50);
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Failed to send OTP');
+      toast.error(err?.response?.data?.message || 'Failed to start login');
     } finally {
       setLoading(false);
     }
