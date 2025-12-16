@@ -1,6 +1,7 @@
 import prisma from '../../shared/prisma.js';
 import { generateToken } from '../../shared/jwt.js';
 import crypto from 'crypto';
+import axios from 'axios';
 
 // LOGIN USER
 export const login = async (req, res) => {
@@ -11,36 +12,20 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: 'Phone number is required' });
     }
 
-    // Check if user exists
-    let user = await prisma.user.findUnique({
-      where: { phone },
-    });
+    // Send OTP via notification-service (WhatsApp with SMS fallback)
+    const notificationBaseUrl =
+      process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3006';
 
-    // If not exists, create user (default role: DRIVER)
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          name: 'New User',
-          phone,
-          role: 'DRIVER',
-        },
-      });
-    }
+    await axios.post(`${notificationBaseUrl}/notifications/send-otp`, { phone });
 
-    // Generate JWT
-    const token = generateToken({
-      userId: user.id,
-      role: user.role,
-    });
-
-    res.json({
-      message: 'Login successful',
-      token,
-      user,
-    });
+    res.json({ message: 'OTP sent successfully' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    const msg =
+      error?.response?.data?.message ||
+      error?.message ||
+      'Failed to send OTP';
+    res.status(500).json({ message: msg });
   }
 };
 
