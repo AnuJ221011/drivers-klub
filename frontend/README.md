@@ -1,91 +1,73 @@
-# DriversKlub Frontend
+# React + TypeScript + Vite
 
-This is the frontend application for the **DriversKlub** project, built using **React** with **Vite**. The application communicates with the backend via an **API Gateway**.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
----
+Currently, two official plugins are available:
 
-## Project Structure
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-.
-├── package.json
-├── vite.config.js
-├── index.html
-├── public/ # Static assets (images, fonts, icons, etc.)
-├── src/
-│ ├── main.jsx # App entry point
-│ ├── index.css # Global CSS
-│ ├── App.jsx # Main App component
-│ ├── App.css # App-level CSS
-│ ├── api/ # API request modules (axios wrappers)
-│ │ ├── axios.js
-│ │ ├── auth.api.js
-│ │ ├── driver.api.js
-│ │ ├── trip.api.js
-│ │ ├── vehicle.api.js
-│ │ ├── notification.api.js
-│ │ └── assignment.api.js
-│ ├── assets/ # Images, fonts, icons
-│ ├── components/ # Reusable UI components
-│ │ ├── Button.jsx
-│ │ ├── Input.jsx
-│ │ ├── Loader.jsx
-│ │ ├── Navbar.jsx
-│ │ └── Sidebar.jsx
-│ ├── features/ # Feature-specific modules
-│ │ ├── assignments/
-│ │ ├── notifications/
-│ │ ├── trips/
-│ │ └── vehicles/
-│ ├── pages/ # Top-level pages/routes
-│ │ ├── Dashboard.jsx
-│ │ ├── DriversPage.jsx
-│ │ ├── LoginPage.jsx
-│ │ ├── TripsPage.jsx
-│ │ └── VehiclesPage.jsx
-│ └── utils/ # Helper functions
-│ ├── auth.js # Authentication helpers
-│ └── constants.js # Constant values
-└── README.md
+## React Compiler
 
----
+The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
 
-## Setup Instructions
+## Expanding the ESLint configuration
 
-1. **Clone the repository**:
-```bash
-git clone https://github.com/AnuJ221011/driversklub-frontend.git
-cd driversklub-frontend
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-2. **Install dependencies**:
-```bash
-npm install
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-
-3. **Start the development server**:
-```bash
-npm run dev
-```
-
-4. **Build the production version**:
-```bash
-npm run build
-```
-
-## Notes
-
-- The src/api folder contains Axios wrappers for interacting with the backend API via the API Gateway.
-
-- The src/components folder has reusable UI components like Button, Loader, Navbar, and Sidebar.
-
-- The src/features folder groups feature-specific logic, such as trips, drivers, vehicles, notifications, and assignments.
-
-- Pages under src/pages are top-level route components.
-
-- Global helpers and constants are in src/utils.
-
-## License
-
-MIT License
-
-Copyright (c) 2025 TriboreFin LLC
