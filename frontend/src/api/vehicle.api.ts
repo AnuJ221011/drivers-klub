@@ -1,4 +1,5 @@
 import api from './axios';
+import type { Driver } from './driver.api';
 
 export type Vehicle = {
   id: string;
@@ -10,7 +11,7 @@ export type Vehicle = {
   isActive: boolean;
   createdAt: string;
   driverId?: string | null;
-  driver?: unknown;
+  driver?: Driver;
 };
 
 export async function getVehicles(): Promise<Vehicle[]> {
