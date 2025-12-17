@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { getAuthToken, clearAuthToken } from '../utils/auth';
 
 const api = axios.create({
@@ -8,7 +8,7 @@ const api = axios.create({
   },
 });
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = getAuthToken();
   if (token) {
     config.headers = config.headers || {};
@@ -29,3 +29,4 @@ api.interceptors.response.use(
 );
 
 export default api;
+

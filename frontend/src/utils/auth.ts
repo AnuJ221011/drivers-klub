@@ -1,11 +1,11 @@
 const TOKEN_KEY = 'dk_admin_token';
 
-export function setAuthToken(token) {
+export function setAuthToken(token: string | null | undefined) {
   if (!token) return;
   localStorage.setItem(TOKEN_KEY, token);
 }
 
-export function getAuthToken() {
+export function getAuthToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
@@ -22,6 +22,7 @@ export function clearLoggedIn() {
   // no-op; token presence is the source of truth
 }
 
-export function isAuthenticated() {
+export function isAuthenticated(): boolean {
   return Boolean(getAuthToken());
 }
+

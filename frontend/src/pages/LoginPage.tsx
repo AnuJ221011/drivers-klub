@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -7,7 +7,7 @@ import Button from '../components/Button';
 import { login, sendOtp, verifyOtp } from '../api/auth.api';
 import { setAuthToken, setLoggedIn } from '../utils/auth';
 
-function normalizePhone(value) {
+function normalizePhone(value: string): string {
   // Keep digits and leading + only
   const trimmed = (value || '').trim();
   if (!trimmed) return '';
@@ -15,20 +15,22 @@ function normalizePhone(value) {
   return trimmed.replace(/\D/g, '');
 }
 
+type Step = 'send' | 'verify';
+
 export default function LoginPage() {
   const navigate = useNavigate();
 
-  const [step, setStep] = useState('send'); // 'send' | 'verify'
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<Step>('send');
+  const [phone, setPhone] = useState<string>('');
+  const [otp, setOtp] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const otpRef = useRef(null);
+  const otpRef = useRef<HTMLInputElement | null>(null);
 
   const canSend = useMemo(() => normalizePhone(phone).length >= 10, [phone]);
   const canVerify = useMemo(() => otp.trim().length >= 4, [otp]);
 
-  async function handleSendOtp(e) {
+  async function handleSendOtp(e?: FormEvent) {
     e?.preventDefault?.();
     const normalized = normalizePhone(phone);
     if (!normalized) return toast.error('Please enter phone number');
@@ -37,22 +39,22 @@ export default function LoginPage() {
     try {
       // 1) create/fetch user + token (backend logic)
       const loginData = await login(normalized);
-      const token = loginData?.token || null;
-      setLoginToken(token);
+      const token = loginData?.token;
 
       // 2) request OTP (needs token because notifications is behind gateway auth)
       const otpData = await sendOtp(normalized, token);
+
       toast.success(otpData?.message || 'OTP sent successfully');
       setStep('verify');
       setTimeout(() => otpRef.current?.focus?.(), 50);
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to start login');
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleVerifyOtp(e) {
+  async function handleVerifyOtp(e?: FormEvent) {
     e?.preventDefault?.();
     const normalized = normalizePhone(phone);
     if (!normalized) return toast.error('Phone number missing');
@@ -67,7 +69,7 @@ export default function LoginPage() {
       }
       toast.success(data?.message || 'Verified successfully');
       navigate('/admin/dashboard', { replace: true });
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Invalid or expired OTP');
     } finally {
       setLoading(false);
@@ -100,24 +102,13 @@ export default function LoginPage() {
                 disabled={loading}
               />
 
-              <Button
-                type="submit"
-                loading={loading}
-                disabled={!canSend}
-                className="w-full"
-              >
+              <Button type="submit" loading={loading} disabled={!canSend} className="w-full">
                 Send OTP via WhatsApp
               </Button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <Input
-                id="phone_readonly"
-                label="Phone number"
-                value={normalizePhone(phone)}
-                onChange={() => {}}
-                disabled
-              />
+              <Input id="phone_readonly" label="Phone number" value={normalizePhone(phone)} disabled />
 
               <Input
                 ref={otpRef}
@@ -132,12 +123,7 @@ export default function LoginPage() {
                 disabled={loading}
               />
 
-              <Button
-                type="submit"
-                loading={loading}
-                disabled={!canVerify}
-                className="w-full"
-              >
+              <Button type="submit" loading={loading} disabled={!canVerify} className="w-full">
                 Verify OTP
               </Button>
 
@@ -157,7 +143,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   className="text-sm font-medium text-gray-900 underline underline-offset-4"
-                  onClick={handleSendOtp}
+                  onClick={() => void handleSendOtp()}
                   disabled={loading}
                 >
                   Resend OTP
@@ -170,3 +156,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
