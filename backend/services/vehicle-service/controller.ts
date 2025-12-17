@@ -5,7 +5,7 @@ import { Request, Response } from 'express';
 // CREATE VEHICLE
 export const createVehicle = async (req: Request, res: Response) => {
   try {
-    const { number, brand, model, bodyType, fuelType } = req.body;
+    const { number, brand, model, bodyType, fuelType, isActive } = req.body;
 
     if (!number || !brand || !model || !bodyType || !fuelType) {
       return res.status(400).json({
@@ -30,6 +30,7 @@ export const createVehicle = async (req: Request, res: Response) => {
         model,
         bodyType,
         fuelType,
+        ...(typeof isActive === 'boolean' ? { isActive } : {}),
       },
     });
 

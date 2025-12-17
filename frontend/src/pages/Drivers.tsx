@@ -1,52 +1,63 @@
+import { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
+import { Pencil } from 'lucide-react';
 
+import Drawer from '../components/layout/Drawer';
+import Table from '../components/ui/Table';
+import DriverDrawer from '../components/driver/DriverDrawer';
+import AddDriver from '../components/driver/AddDriver';
+import Modal from '../components/layout/Modal';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import type { Column } from '../components/ui/Table';
 
-import { useState } from "react";
-import { Pencil } from "lucide-react";
-import Drawer from "../components/layout/Drawer";
-import Table from "../components/ui/Table";
-import DriverDrawer from "../components/driver/DriverDrawer";
-import AddDriver from "../components/driver/AddDriver";
-import Modal from "../components/layout/Modal";
-import Input from "../components/ui/Input";
-import Button from "../components/ui/Button";
-import type { Column } from "../components/ui/Table";
+import { getDrivers, type Driver } from '../api/driver.api';
 
-type DriverStatus = "Active" | "Inactive";
-
-
-interface Driver {
-  id: string;
-  name: string;
-  phone: string;
-  status: DriverStatus;
-  rating?: number;
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object') {
+    const maybeAny = err as { response?: { data?: unknown } };
+    const data = maybeAny.response?.data;
+    if (data && typeof data === 'object' && 'message' in data) {
+      return String((data as Record<string, unknown>).message);
+    }
+  }
+  return fallback;
 }
-
-const drivers: Driver[] = [
-  {
-    id: "1",
-    name: "Durmesh",
-    phone: "+918859946508",
-    status: "Active",
-    rating: 4.5,
-  },
-  {
-    id: "2",
-    name: "Pushpendr",
-    phone: "+918954353407",
-    status: "Active",
-  },
-  {
-    id: "3",
-    name: "Harendra Singh",
-    phone: "+919639158317",
-    status: "Active",
-  },
-];
 
 export default function DriverManagement() {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [open, setOpen] = useState(false);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchPhone, setSearchPhone] = useState('');
+  const [searchName, setSearchName] = useState('');
+
+  async function refreshDrivers() {
+    setLoading(true);
+    try {
+      const data = await getDrivers();
+      setDrivers(data);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to load drivers'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshDrivers();
+  }, []);
+
+  const filteredDrivers = useMemo(() => {
+    const phoneNeedle = (searchPhone || '').trim();
+    const nameNeedle = (searchName || '').trim().toLowerCase();
+
+    return drivers.filter((d) => {
+      const phoneOk = !phoneNeedle || (d.phone || '').includes(phoneNeedle);
+      const nameOk = !nameNeedle || (d.name || '').toLowerCase().includes(nameNeedle);
+      return phoneOk && nameOk;
+    });
+  }, [drivers, searchPhone, searchName]);
 
   const columns: Column<Driver>[] = [
     {
@@ -71,8 +82,12 @@ export default function DriverManagement() {
       key: "status",
       label: "Status",
       render: (d) => (
-        <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">
-          {d.status}
+        <span
+          className={`px-2 py-1 rounded-full text-xs ${
+            d.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          }`}
+        >
+          {d.isActive ? 'Active' : 'Inactive'}
         </span>
       ),
     },
@@ -101,7 +116,10 @@ export default function DriverManagement() {
         </Button>
 
         <Modal open={open} onClose={() => setOpen(false)} title="Add Driver">
-          <AddDriver onClose={() => setOpen(false)} />
+          <AddDriver
+            onClose={() => setOpen(false)}
+            onCreated={() => void refreshDrivers()}
+          />
         </Modal>
       </div>
 
@@ -109,14 +127,22 @@ export default function DriverManagement() {
       <div className="flex gap-4">
         <Input
           placeholder="Search by Phone Number"
+          value={searchPhone}
+          onChange={(e) => setSearchPhone(e.target.value)}
         />
         <Input
           placeholder="Search by Name"
+          value={searchName}
+          onChange={(e) => setSearchName(e.target.value)}
         />
       </div>
 
       {/* Table */}
-      <Table data={drivers} columns={columns} />
+      {loading ? (
+        <div className="text-sm text-black/60">Loading drivers…</div>
+      ) : (
+        <Table data={filteredDrivers} columns={columns} />
+      )}
 
       {/* Drawer */}
       <Drawer
