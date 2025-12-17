@@ -1,7 +1,9 @@
 import prisma from '../../shared/prisma.js';
 
+import { Request, Response } from 'express';
+
 // CREATE TRIP
-export const createTrip = async (req, res) => {
+export const createTrip = async (req: Request, res: Response) => {
   try {
     const { bookingId, passenger, pickup, drop } = req.body;
 
@@ -41,7 +43,7 @@ export const createTrip = async (req, res) => {
 };
 
 // ALLOT TRIP TO DRIVER
-export const allotTrip = async (req, res) => {
+export const allotTrip = async (req: Request, res: Response) => {
   try {
     const { tripId, driverId } = req.body;
 
@@ -101,7 +103,7 @@ export const allotTrip = async (req, res) => {
 };
 
 // GET ALL TRIPS
-export const getTrips = async (req, res) => {
+export const getTrips = async (req: Request, res: Response) => {
   try {
     const trips = await prisma.trip.findMany({
       include: {
@@ -119,7 +121,7 @@ export const getTrips = async (req, res) => {
 };
 
 // UPDATE TRIP STATUS (Driver App)
-export const updateTripStatus = async (req, res) => {
+export const updateTripStatus = async (req: Request, res: Response) => {
   try {
     const { tripId, status } = req.body;
 

@@ -2,8 +2,10 @@ import prisma from '../../shared/prisma.js';
 import { generateToken } from '../../shared/jwt.js';
 import crypto from 'crypto';
 
+import { Request, Response } from 'express';
+
 // LOGIN USER
-export const login = async (req, res) => {
+export const login = async (req: Request, res: Response) => {
   try {
     const { phone } = req.body;
 
@@ -46,7 +48,7 @@ export const login = async (req, res) => {
 
 
 // VERIFY OTP
-export const verifyOtp = async (req, res) => {
+export const verifyOtp = async (req: Request, res: Response) => {
   try {
     const { phone, otp } = req.body;
 

@@ -2,7 +2,9 @@ import crypto from 'crypto';
 import prisma from '../../shared/prisma.js';
 import { sendWhatsappOtp, sendSmsOtp } from './exotel.js';
 
-export const sendOtp = async (req, res) => {
+import { Request, Response } from 'express';
+
+export const sendOtp = async (req: Request, res: Response) => {
   try {
     const { phone } = req.body;
 

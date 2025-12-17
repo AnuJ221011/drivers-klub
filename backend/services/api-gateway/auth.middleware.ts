@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 
-export const verifyToken = (req, res, next) => {
+import { Request, Response, NextFunction } from 'express';
+
+export const verifyToken = (req: Request & { user?: any }, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -18,7 +20,12 @@ export const verifyToken = (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error("JWT_SECRET is not defined");
+    }
+
+    const decoded = jwt.verify(token, secret);
 
     // attach user info to request
     req.user = decoded;

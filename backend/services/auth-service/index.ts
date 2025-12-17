@@ -9,7 +9,7 @@ app.use(express.json());
 
 app.use('/auth', authRoutes);
 
-app.get('/health', (req, res) => {
+app.get('/health', (req: express.Request, res: express.Response) => {
   res.json({ status: 'Auth service running' });
 });
 

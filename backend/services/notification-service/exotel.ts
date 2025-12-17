@@ -11,7 +11,7 @@ const auth = {
 };
 
 // SEND WHATSAPP OTP
-export async function sendWhatsappOtp(phone, otp) {
+export async function sendWhatsappOtp(phone: string, otp: string) {
   const url = `https://api.exotel.com/v2/accounts/${EXOTEL_SID}/messages`;
 
   const payload = {
@@ -33,7 +33,7 @@ export async function sendWhatsappOtp(phone, otp) {
 }
 
 // SEND SMS OTP (FALLBACK)
-export async function sendSmsOtp(phone, otp) {
+export async function sendSmsOtp(phone: string, otp: string) {
   const url = `https://api.exotel.com/v1/Accounts/${EXOTEL_SID}/Sms/send.json`;
 
   const payload = {

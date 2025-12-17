@@ -4,13 +4,15 @@
   "description": "This README would normally document whatever steps are necessary to get your application up and running.",
   "main": "index.js",
   "scripts": {
-    "auth": "nodemon services/auth-service/index.js",
-    "driver": "nodemon services/driver-service/index.js",
-    "vehicle": "nodemon services/vehicle-service/index.js",
-    "assignment": "nodemon services/daily-assignment-service/index.js",
-    "trip": "nodemon services/trip-service/index.js",
-    "notification": "nodemon services/notification-service/index.js",
-    "gateway": "nodemon services/api-gateway/index.js",
+    "auth": "nodemon --exec \"node --loader ts-node/esm\" services/auth-service/index.ts",
+    "driver": "nodemon --exec \"node --loader ts-node/esm\" services/driver-service/index.ts",
+    "vehicle": "nodemon --exec \"node --loader ts-node/esm\" services/vehicle-service/index.ts",
+    "assignment": "nodemon --exec \"node --loader ts-node/esm\" services/daily-assignment-service/index.ts",
+    "trip": "nodemon --exec \"node --loader ts-node/esm\" services/trip-service/index.ts",
+    "notification": "nodemon --exec \"node --loader ts-node/esm\" services/notification-service/index.ts",
+    "gateway": "nodemon --exec \"node --loader ts-node/esm\" services/api-gateway/index.ts",
+    "build": "tsc",
+    "check": "tsc --noEmit",
     "dev": "concurrently -k -n AUTH,DRIVER,VEHICLE,ASSIGNMENT,TRIP,NOTIFY,GATEWAY -c blue,green,yellow,magenta,cyan,white,red \"npm run auth\" \"npm run driver\" \"npm run vehicle\" \"npm run assignment\" \"npm run trip\" \"npm run notification\" \"npm run gateway\""
   },
   "repository": {
@@ -38,7 +40,14 @@
     "prisma": "^6.19.1"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.0.2",
     "concurrently": "^9.2.1",
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }

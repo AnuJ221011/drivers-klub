@@ -3,8 +3,6 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 export const authProxy = createProxyMiddleware({
   target: 'http://localhost:3001',
   changeOrigin: true,
-
-  // 🔥 THIS LINE FIXES EVERYTHING
   pathRewrite: {
     '^/login': '/auth/login',
     '^/verify-otp': '/auth/verify-otp',

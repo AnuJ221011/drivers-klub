@@ -1,7 +1,9 @@
 import prisma from '../../shared/prisma.js';
 
+import { Request, Response } from 'express';
+
 // CREATE DRIVER
-export const createDriver = async (req, res) => {
+export const createDriver = async (req: Request, res: Response) => {
   try {
     const { name, phone } = req.body;
 
@@ -39,7 +41,7 @@ export const createDriver = async (req, res) => {
 };
 
 // GET ALL DRIVERS
-export const getDrivers = async (req, res) => {
+export const getDrivers = async (req: Request, res: Response) => {
   try {
     const drivers = await prisma.driver.findMany({
       orderBy: { createdAt: 'desc' },

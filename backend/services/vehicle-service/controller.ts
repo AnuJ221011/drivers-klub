@@ -1,7 +1,9 @@
 import prisma from '../../shared/prisma.js';
 
+import { Request, Response } from 'express';
+
 // CREATE VEHICLE
-export const createVehicle = async (req, res) => {
+export const createVehicle = async (req: Request, res: Response) => {
   try {
     const { number, brand, model, bodyType, fuelType } = req.body;
 
@@ -42,7 +44,7 @@ export const createVehicle = async (req, res) => {
 };
 
 // ASSIGN VEHICLE TO DRIVER
-export const assignVehicleToDriver = async (req, res) => {
+export const assignVehicleToDriver = async (req: Request, res: Response) => {
   try {
     const { vehicleId, driverId } = req.body;
 
@@ -70,7 +72,7 @@ export const assignVehicleToDriver = async (req, res) => {
 };
 
 // GET ALL VEHICLES
-export const getVehicles = async (req, res) => {
+export const getVehicles = async (req: Request, res: Response) => {
   try {
     const vehicles = await prisma.vehicle.findMany({
       include: {

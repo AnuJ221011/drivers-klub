@@ -1,7 +1,9 @@
 import prisma from '../../shared/prisma.js';
 
+import { Request, Response } from 'express';
+
 // Assign vehicle to driver for today
-export const assignVehicleForToday = async (req, res) => {
+export const assignVehicleForToday = async (req: Request, res: Response) => {
   try {
     const { driverId, vehicleId } = req.body;
 
@@ -43,7 +45,7 @@ export const assignVehicleForToday = async (req, res) => {
 };
 
 // Get today assignment for a driver
-export const getTodayAssignmentByDriver = async (req, res) => {
+export const getTodayAssignmentByDriver = async (req: Request, res: Response) => {
   try {
     const { driverId } = req.params;
 
