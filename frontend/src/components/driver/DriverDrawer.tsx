@@ -15,31 +15,27 @@ export default function DriverDrawer({ driver }: Props) {
       <Input
         label="Driver Name"
         defaultValue={driver.name}
+        disabled
       />
 
       <Input
         label="Phone Number"
         defaultValue={driver.phone}
+        disabled
       />
 
       <Select
         label="Status"
-        defaultValue={driver.status}
+        value={driver.isActive ? 'Active' : 'Inactive'}
         options={[
           { label: "Active", value: "Active" },
           { label: "Inactive", value: "Inactive" },
         ]}
+        disabled
       />
 
-      <Input
-        label="Rating"
-        type="number"
-        step="0.1"
-        defaultValue={driver.rating?.toString()}
-      />
-
-      <Button className="w-full">
-        Save Changes
+      <Button className="w-full" disabled>
+        Save Changes (coming soon)
       </Button>
     </div>
   );

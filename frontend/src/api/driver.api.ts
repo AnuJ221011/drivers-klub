@@ -16,6 +16,7 @@ export async function getDrivers(): Promise<Driver[]> {
 export type CreateDriverInput = {
   name: string;
   phone: string;
+  isActive?: boolean;
 };
 
 export type CreateDriverResponse = {

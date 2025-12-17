@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
 import { Pencil } from "lucide-react";
 
 import Table from "../components/ui/Table";
@@ -12,36 +13,56 @@ import VehicleDrawer from "../components/Vehicle/VehicleDrawer";
 import AddVehicle from "../components/Vehicle/AddVehicle";
 
 import type { Column } from "../components/ui/Table";
+import { getVehicles, type Vehicle } from '../api/vehicle.api';
 
-type Vehicle = {
-  id: string;
-  vehicleNumber: string;
-  brand: string;
-  model: string;
-  bodyType: string;
-  fuelType: string;
-  status: "Active" | "Inactive";
-};
-
-const mockVehicles: Vehicle[] = [
-  {
-    id: "1",
-    vehicleNumber: "UP16QT6201",
-    brand: "Maruti",
-    model: "Dzire",
-    bodyType: "Sedan",
-    fuelType: "Petrol",
-    status: "Active",
-  },
-];
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object') {
+    const maybeAny = err as { response?: { data?: unknown } };
+    const data = maybeAny.response?.data;
+    if (data && typeof data === 'object' && 'message' in data) {
+      return String((data as Record<string, unknown>).message);
+    }
+  }
+  return fallback;
+}
 
 export default function VehicleManagement() {
   const [open, setOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] =
     useState<Vehicle | null>(null);
 
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState(false);
+
   const [searchVehicleNo, setSearchVehicleNo] = useState("");
   const [searchBrand, setSearchBrand] = useState("");
+
+  async function refreshVehicles() {
+    setLoading(true);
+    try {
+      const data = await getVehicles();
+      setVehicles(data);
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to load vehicles'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshVehicles();
+  }, []);
+
+  const filteredVehicles = useMemo(() => {
+    const numberNeedle = (searchVehicleNo || '').trim().toLowerCase();
+    const brandNeedle = (searchBrand || '').trim().toLowerCase();
+
+    return vehicles.filter((v) => {
+      const numOk = !numberNeedle || (v.number || '').toLowerCase().includes(numberNeedle);
+      const brandOk = !brandNeedle || (v.brand || '').toLowerCase().includes(brandNeedle);
+      return numOk && brandOk;
+    });
+  }, [vehicles, searchVehicleNo, searchBrand]);
 
   const columns: Column<Vehicle>[] = [
     {
@@ -49,7 +70,7 @@ export default function VehicleManagement() {
       label: "S.No",
       render: (_, index) => index + 1,
     },
-    { key: "vehicleNumber", label: "Vehicle Number" },
+    { key: "number", label: "Vehicle Number" },
     { key: "brand", label: "Brand" },
     { key: "model", label: "Model" },
     { key: "bodyType", label: "Body Type" },
@@ -58,8 +79,12 @@ export default function VehicleManagement() {
       key: "status",
       label: "Status",
       render: (v) => (
-        <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-700">
-          {v.status}
+        <span
+          className={`px-2 py-1 rounded text-xs ${
+            v.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          }`}
+        >
+          {v.isActive ? 'Active' : 'Inactive'}
         </span>
       ),
     },
@@ -94,9 +119,13 @@ export default function VehicleManagement() {
             <div className="flex gap-4">
               <Input
                 placeholder="Search by Vehicle No."
+                value={searchVehicleNo}
+                onChange={(e) => setSearchVehicleNo(e.target.value)}
               />
               <Input
                 placeholder="Search by brand"
+                value={searchBrand}
+                onChange={(e) => setSearchBrand(e.target.value)}
               />
             </div>
 
@@ -106,11 +135,18 @@ export default function VehicleManagement() {
         onClose={() => setOpen(false)}
         title="Add Vehicle"
       >
-        <AddVehicle onClose={() => setOpen(false)} />
+        <AddVehicle
+          onClose={() => setOpen(false)}
+          onCreated={() => void refreshVehicles()}
+        />
       </Modal>
 
       {/* Table */}
-      <Table columns={columns} data={mockVehicles} />
+      {loading ? (
+        <div className="text-sm text-black/60">Loading vehicles…</div>
+      ) : (
+        <Table columns={columns} data={filteredVehicles} />
+      )}
 
       {/* Edit Drawer */}
       <Drawer
