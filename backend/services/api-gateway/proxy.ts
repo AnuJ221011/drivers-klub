@@ -12,17 +12,17 @@ export const authProxy = createProxyMiddleware({
 export const driverProxy = createProxyMiddleware({
   target: 'http://localhost:3002',
   changeOrigin: true,
-  pathRewrite: {
-    '^/api/drivers': '/drivers',
-  },
+  // NOTE: mounted at `/api/drivers`, so the incoming path here is `/...`
+  // We need to forward `/api/drivers/*` -> `/drivers/*` on the driver service.
+  pathRewrite: (path) => `/drivers${path}`,
 });
 
 export const vehicleProxy = createProxyMiddleware({
   target: 'http://localhost:3003',
   changeOrigin: true,
-  pathRewrite: {
-    '^/api/vehicles': '/vehicles',
-  },
+  // NOTE: mounted at `/api/vehicles`, so the incoming path here is `/...`
+  // We need to forward `/api/vehicles/*` -> `/vehicles/*` on the vehicle service.
+  pathRewrite: (path) => `/vehicles${path}`,
 });
 
 export const assignmentProxy = createProxyMiddleware({
