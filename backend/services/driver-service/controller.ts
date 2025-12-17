@@ -5,7 +5,7 @@ import { Request, Response } from 'express';
 // CREATE DRIVER
 export const createDriver = async (req: Request, res: Response) => {
   try {
-    const { name, phone } = req.body;
+    const { name, phone, isActive } = req.body;
 
     if (!name || !phone) {
       return res.status(400).json({
@@ -27,6 +27,7 @@ export const createDriver = async (req: Request, res: Response) => {
       data: {
         name,
         phone,
+        ...(typeof isActive === 'boolean' ? { isActive } : {}),
       },
     });
 
