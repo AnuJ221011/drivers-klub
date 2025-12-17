@@ -4,6 +4,10 @@ import { Toaster } from 'react-hot-toast';
 
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
+import DriversPage from './pages/DriversPage';
+import VehiclesPage from './pages/VehiclesPage';
+import TripsPage from './pages/TripsPage';
+import TeamManagementPage from './pages/TeamManagementPage';
 import { isAuthenticated } from './utils/auth';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -23,11 +27,16 @@ export default function App() {
         <Route
           path="/admin/dashboard"
           element={
-            <PrivateRoute>
+            // <PrivateRoute>
               <Dashboard />
-            </PrivateRoute>
+            // </PrivateRoute>
           }
-        />
+        >
+          <Route path="drivers" element={<DriversPage />} />
+          <Route path="vehicles" element={<VehiclesPage />} />
+          <Route path="trips" element={<TripsPage />} />
+          <Route path="team" element={<TeamManagementPage />} />
+        </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

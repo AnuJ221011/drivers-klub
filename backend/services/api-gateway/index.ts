@@ -1,5 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import cors from 'cors';
 import { verifyToken } from './auth.middleware.js';
 import {
   authProxy,
@@ -13,6 +14,11 @@ import {
 dotenv.config();
 
 const app = express();
+
+// Cors allowed orign
+app.use(cors({
+  origin: process.env.CORS_ALLOWED_ORIGIN || 'http://localhost:5173',
+}));
 
 // ❌ DO NOT use express.json() here
 
