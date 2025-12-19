@@ -1,18 +1,16 @@
-
 import { Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Sidebar from "../components/layout/SideBar";
 import Header from "../components/layout/Header";
+import { useAuth } from "../context/AuthContext";
 
 export default function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
-  // 🔹 Mock backend data (replace later with API)
-  const admin = {
-    name: "Anuj Kumar",
-    role: "Admin",
-  };
+  const { user, role, userId } = useAuth();
+  const adminName = user?.name || userId || "Admin";
+  const adminRole = role || "SUPER_ADMIN";
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 768px)");
@@ -40,8 +38,8 @@ export default function Dashboard() {
       <div className="flex flex-col flex-1 overflow-hidden">
         <Header
           onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
-          adminName={admin.name}
-          role={admin.role}
+          adminName={adminName}
+          role={adminRole}
         />
 
         <main className="flex-1 overflow-y-auto p-6 pt-3">

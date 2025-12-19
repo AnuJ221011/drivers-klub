@@ -1,53 +1,21 @@
 import api from './axios';
-
-export type AuthUser = {
-  id: string;
-  name: string;
-  phone: string;
-  role: string;
-  isActive?: boolean;
-  createdAt?: string;
-};
-
-export type LoginResponse = {
-  message: string;
-  token: string;
-  user: AuthUser;
-};
+import type { TokenPair } from '../models/auth/tokens';
 
 export type SendOtpResponse = {
   message: string;
 };
 
-export type VerifyOtpResponse = {
-  message: string;
-  token: string;
-  user: AuthUser;
-};
-
-// Step 1: ensure user exists (backend creates if missing) and get a token
-export async function login(phone: string): Promise<LoginResponse> {
-  const res = await api.post<LoginResponse>('/api/auth/login', { phone });
+export async function sendOtp(phone: string): Promise<SendOtpResponse> {
+  const res = await api.post<SendOtpResponse>('/auth/send-otp', { phone });
   return res.data;
 }
 
-// Step 2: request OTP (gateway currently protects notifications routes)
-export async function sendOtp(phone: string, token?: string | null): Promise<SendOtpResponse> {
-  const res = await api.post<SendOtpResponse>(
-    '/api/notifications/send-otp',
-    { phone },
-    token
-      ? {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      : undefined,
-  );
+export async function verifyOtp(phone: string, otp: string): Promise<TokenPair> {
+  const res = await api.post<TokenPair>('/auth/verify-otp', { phone, otp });
   return res.data;
 }
 
-export async function verifyOtp(phone: string, otp: string): Promise<VerifyOtpResponse> {
-  const res = await api.post<VerifyOtpResponse>('/api/auth/verify-otp', { phone, otp });
+export async function refresh(refreshToken: string): Promise<TokenPair> {
+  const res = await api.post<TokenPair>('/auth/refresh', { refreshToken });
   return res.data;
 }

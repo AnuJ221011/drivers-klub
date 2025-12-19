@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Filter, Pencil } from 'lucide-react';
 
@@ -11,7 +11,9 @@ import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import type { Column } from '../components/ui/Table';
 
-import { getDrivers, type Driver } from '../api/driver.api';
+import { getDriversByFleet } from '../api/driver.api';
+import type { Driver } from '../models/driver/driver';
+import { useFleet } from '../context/FleetContext';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -32,22 +34,27 @@ export default function DriverManagement() {
   const [searchPhone, setSearchPhone] = useState('');
   const [searchName, setSearchName] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const { activeFleetId } = useFleet();
 
-  async function refreshDrivers() {
+  const refreshDrivers = useCallback(async () => {
+    if (!activeFleetId) {
+      toast.error('No fleet selected/available');
+      return;
+    }
     setLoading(true);
     try {
-      const data = await getDrivers();
+      const data = await getDriversByFleet(activeFleetId);
       setDrivers(data);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to load drivers'));
     } finally {
       setLoading(false);
     }
-  }
+  }, [activeFleetId]);
 
   useEffect(() => {
     void refreshDrivers();
-  }, []);
+  }, [refreshDrivers]);
 
   const filteredDrivers = useMemo(() => {
     const phoneNeedle = (searchPhone || '').trim();

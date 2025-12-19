@@ -1,7 +1,6 @@
-
-
 import { Home, Car, Users, UserCircle, ArrowRightCircle, X, LogOut } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 type SidebarProps = {
   isOpen: boolean;
@@ -23,6 +22,7 @@ export default function Sidebar({
   isMobile,
   onClose,
 }: SidebarProps) {
+  const { logout } = useAuth();
   return (
     <>
       {/* Overlay (mobile only) */}
@@ -91,8 +91,7 @@ export default function Sidebar({
                          rounded-md text-sm font-medium
                          text-red-500 hover:bg-red-600"
               onClick={() => {
-                // logout logic later
-                console.log("logout");
+                logout();
               }}
             >
               <LogOut size={18} />
@@ -104,4 +103,3 @@ export default function Sidebar({
     </>
   );
 }
-

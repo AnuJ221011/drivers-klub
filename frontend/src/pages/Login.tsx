@@ -4,8 +4,9 @@ import toast from 'react-hot-toast';
 
 import Input from '../components/LoginInput';
 import Button from '../components/ui/Button';
-import { login, sendOtp, verifyOtp } from '../api/auth.api';
-import { setAuthToken, setLoggedIn } from '../utils/auth';
+import { sendOtp, verifyOtp } from '../api/auth.api';
+import { setLoggedIn } from '../utils/auth';
+import { useAuth } from '../context/AuthContext';
 
 function normalizePhone(value: string): string {
   // Keep digits and leading + only
@@ -17,8 +18,20 @@ function normalizePhone(value: string): string {
 
 type Step = 'send' | 'verify';
 
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object') {
+    const maybeAny = err as { response?: { data?: unknown } };
+    const data = maybeAny.response?.data;
+    if (data && typeof data === 'object' && 'message' in data) {
+      return String((data as Record<string, unknown>).message);
+    }
+  }
+  return fallback;
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { setTokens } = useAuth();
 
   const [step, setStep] = useState<Step>('send');
   const [phone, setPhone] = useState<string>('');
@@ -37,18 +50,13 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      // 1) create/fetch user + token (backend logic)
-      const loginData = await login(normalized);
-      const token = loginData?.token;
-
-      // 2) request OTP (needs token because notifications is behind gateway auth)
-      const otpData = await sendOtp(normalized, token);
+      const otpData = await sendOtp(normalized);
 
       toast.success(otpData?.message || 'OTP sent successfully');
       setStep('verify');
       setTimeout(() => otpRef.current?.focus?.(), 50);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to start login');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to send OTP'));
     } finally {
       setLoading(false);
     }
@@ -62,15 +70,15 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const data = await verifyOtp(normalized, otp.trim());
-      if (data?.token) {
-        setAuthToken(data.token);
-        setLoggedIn();
+      const tokens = await verifyOtp(normalized, otp.trim());
+      if (tokens?.accessToken && tokens?.refreshToken) {
+        setTokens(tokens);
       }
-      toast.success(data?.message || 'Verified successfully');
-      navigate('/admin/dashboard', { replace: true });
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Invalid or expired OTP');
+      setLoggedIn();
+      toast.success('Verified successfully');
+      navigate('/admin', { replace: true });
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Invalid or expired OTP'));
     } finally {
       setLoading(false);
     }

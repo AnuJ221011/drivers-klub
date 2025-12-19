@@ -1,6 +1,6 @@
-
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pencil, Filter } from "lucide-react";
+import toast from "react-hot-toast";
 
 import Table from "../components/ui/Table";
 import Button from "../components/ui/Button";
@@ -14,26 +14,34 @@ import AddTeamMember from "../components/TeamManagement/AddTeamMember";
 import TeamDrawer from "../components/TeamManagement/TeamDrawer";
 
 import type { Column } from "../components/ui/Table";
+import type { TeamMember } from "../models/user/team";
+import { getUsers, deactivateUser } from "../api/user.api";
 
-export type TeamMember = {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  role: string;
-  status: "Active" | "Inactive";
-};
+function toRoleLabel(role: string): string {
+  switch (role) {
+    case "SUPER_ADMIN":
+      return "Admin";
+    case "OPERATIONS":
+      return "Operations";
+    case "MANAGER":
+      return "Manager";
+    case "DRIVER":
+      return "Driver";
+    default:
+      return role;
+  }
+}
 
-const mockTeam: TeamMember[] = [
-  {
-    id: "1",
-    name: "Saurabh",
-    phone: "+91 7065381349",
-    email: "saurabh.yadav@tdf.in",
-    role: "Operations Manager",
-    status: "Active",
-  },
-];
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === "object") {
+    const maybeAny = err as { response?: { data?: unknown } };
+    const data = maybeAny.response?.data;
+    if (data && typeof data === "object" && "message" in data) {
+      return String((data as Record<string, unknown>).message);
+    }
+  }
+  return fallback;
+}
 
 export default function Team() {
   const [open, setOpen] = useState(false);
@@ -41,6 +49,48 @@ export default function Team() {
     useState<TeamMember | null>(null);
 
   const [showFilters, setShowFilters] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [searchName, setSearchName] = useState("");
+  const [searchPhone, setSearchPhone] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"" | "Active" | "Inactive">("");
+
+  async function refreshMembers() {
+    setLoading(true);
+    try {
+      const users = await getUsers();
+      setMembers(
+        (users || []).map((u) => ({
+          id: u.id,
+          name: u.name,
+          phone: u.phone,
+          email: "", // backend does not expose email in User model currently
+          role: toRoleLabel(u.role),
+          status: u.isActive ? "Active" : "Inactive",
+        })),
+      );
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Failed to load team"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshMembers();
+  }, []);
+
+  const filteredMembers = useMemo(() => {
+    const nameNeedle = (searchName || "").trim().toLowerCase();
+    const phoneNeedle = (searchPhone || "").trim();
+
+    return members.filter((m) => {
+      const nameOk = !nameNeedle || (m.name || "").toLowerCase().includes(nameNeedle);
+      const phoneOk = !phoneNeedle || (m.phone || "").includes(phoneNeedle);
+      const statusOk = !statusFilter || m.status === statusFilter;
+      return nameOk && phoneOk && statusOk;
+    });
+  }, [members, searchName, searchPhone, statusFilter]);
 
   const columns: Column<TeamMember>[] = [
     {
@@ -56,7 +106,11 @@ export default function Team() {
       key: "status",
       label: "Status",
       render: (m) => (
-        <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">
+        <span
+          className={`px-2 py-1 rounded-full text-xs ${
+            m.status === "Active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+          }`}
+        >
           {m.status}
         </span>
       ),
@@ -106,10 +160,21 @@ export default function Team() {
           gap-4 
         `}
       >
-        <Input  placeholder="Search by Name" className="mb-3" />
-        <Input  placeholder="Search by Phone" className="mb-2"/>
+        <Input
+          placeholder="Search by Name"
+          className="mb-3"
+          value={searchName}
+          onChange={(e) => setSearchName(e.target.value)}
+        />
+        <Input
+          placeholder="Search by Phone"
+          className="mb-2"
+          value={searchPhone}
+          onChange={(e) => setSearchPhone(e.target.value)}
+        />
         <Select
-          
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
           options={[
             { label: "All Status", value: "" },
             { label: "Active", value: "Active" },
@@ -119,11 +184,15 @@ export default function Team() {
       </div>
 
       {/* Table */}
-      <Table columns={columns} data={mockTeam} />
+      {loading ? (
+        <div className="text-sm text-black/60">Loading team…</div>
+      ) : (
+        <Table columns={columns} data={filteredMembers} />
+      )}
 
       {/* Add Modal */}
       <Modal open={open} onClose={() => setOpen(false)} title="Add Team Member">
-        <AddTeamMember onClose={() => setOpen(false)} />
+        <AddTeamMember onClose={() => setOpen(false)} onCreated={() => void refreshMembers()} />
       </Modal>
 
       {/* Edit Drawer */}
@@ -132,7 +201,24 @@ export default function Team() {
         onClose={() => setSelectedMember(null)}
         title="Edit Team Member"
       >
-        <TeamDrawer member={selectedMember} />
+        <TeamDrawer
+          member={selectedMember}
+          onSave={async (updated) => {
+            // Backend currently supports deactivation only.
+            if (updated.status === "Inactive") {
+              try {
+                await deactivateUser(updated.id);
+                toast.success("User deactivated");
+                setSelectedMember(null);
+                await refreshMembers();
+              } catch (err: unknown) {
+                toast.error(getErrorMessage(err, "Failed to deactivate user"));
+              }
+            } else {
+              toast.error("Re-activation not supported yet");
+            }
+          }}
+        />
       </Drawer>
     </div>
   );
