@@ -1,22 +1,13 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "library"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
-////////////////////
-/// ENUMS
-////////////////////
-
+// User Model
 enum UserRole {
   SUPER_ADMIN
   OPERATIONS
@@ -24,150 +15,312 @@ enum UserRole {
   DRIVER
 }
 
-enum TripStatus {
-  BOOKED
-  ALLOTMENT_PENDING
-  DRIVER_ALLOTTED
-  ONGOING
-  COMPLETED
-  CANCELLED
-  FAILED
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  role      UserRole
+  isActive  Boolean  @default(true)
+
+  driver    Driver?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+
+  @@index([role])
 }
 
-enum BodyType {
-  SEDAN
-  SUV
-  HATCHBACK
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  // relation to User
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Otp Model
+model Otp {
+  id          String   @id @default(uuid())
+  phone       String
+  otp         String
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  verified    Boolean  @default(false)
+
+  createdAt  DateTime @default(now())
+
+  @@index([phone])
+}
+
+
+// Fleet Model
+enum FleetType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum FleetStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum FleetManagerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+
+model Fleet {
+  id           String      @id @default(uuid())
+
+  name         String
+  mobile       String      @unique
+  email        String?
+  city         String
+  dob          DateTime?
+
+  fleetType    FleetType
+  gstNumber    String?
+  panNumber    String
+  modeId       String      // CAB, BIKE (future)
+
+  status       FleetStatus @default(ACTIVE)
+
+  // relations
+  // fleetManagers relation
+  fleetManagers FleetManager[]
+  // vehicles relation
+  vehicles      Vehicle[]
+  // drivers relation
+  drivers       Driver[]
+  // assignments relation
+  assignments   Assignment[]
+  // trips relation
+  trips         Trip[]
+
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([mobile])
+  @@index([city])
+}
+
+
+model FleetManager {
+  id             String             @id @default(uuid())
+
+  name           String
+  mobile         String
+  city           String
+  profilePicture String?
+
+  status         FleetManagerStatus @default(ACTIVE)
+  remarks        String?
+  
+  fleetId        String
+  fleet          Fleet              @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([fleetId])
+  @@index([mobile])
+}
+
+// Vehicle Model
+enum VehicleOwnership {
+  OWNED
+  LEASED
 }
 
 enum FuelType {
   PETROL
   DIESEL
   CNG
-  EV
+  ELECTRIC
 }
 
-////////////////////
-/// USERS (ADMIN)
-////////////////////
-
-model User {
-  id       String   @id @default(uuid())
-  name     String
-  phone    String   @unique
-  role     UserRole
-  isActive Boolean  @default(true)
-
-  createdAt DateTime @default(now())
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
 }
-
-////////////////////
-/// DRIVERS
-////////////////////
-
-model Driver {
-  id       String  @id @default(uuid())
-  name     String
-  phone    String  @unique
-  isActive Boolean @default(true)
-
-  trips    Trip[]
-  vehicles Vehicle[]
-
-  dailyAssignments DailyAssignment[]
-
-  createdAt DateTime @default(now())
-}
-
-////////////////////
-/// VEHICLES
-////////////////////
 
 model Vehicle {
-  id       String   @id @default(uuid())
-  number   String   @unique
-  brand    String
-  model    String
-  bodyType BodyType
-  fuelType FuelType
-  isActive Boolean  @default(true)
+  id                String          @id @default(uuid())
 
-  driverId String?
-  driver   Driver? @relation(fields: [driverId], references: [id])
+  fleetId           String
+  fleet             Fleet           @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+  
+  // Assignments relation
+  assignments       Assignment[]
+  // Trips relation
+  trips             Trip[]
 
-  trips Trip[]
 
-  dailyAssignments DailyAssignment[]
 
-  createdAt DateTime @default(now())
+  vehicleNumber     String
+  vehicleName       String
+  vehicleModel      String
+  vehicleColor      String?
+
+  ownership         VehicleOwnership
+  fuelType          FuelType
+
+  rcFrontImage      String?
+  rcBackImage       String?
+
+  permitImage       String?
+  permitExpiry      DateTime?
+
+  fitnessImage      String?
+  fitnessExpiry     DateTime?
+
+  insuranceImage    String?
+  insuranceExpiry   DateTime?
+
+  status            VehicleStatus   @default(ACTIVE)
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([vehicleNumber])
+  @@index([fleetId])
 }
 
-////////////////////
-/// DAILY ASSIGNMENT
-////////////////////
-
-model DailyAssignment {
-  id        String   @id @default(uuid())
-  date      DateTime
-  driverId  String
-  vehicleId String
-
-  driver  Driver  @relation(fields: [driverId], references: [id])
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
-
-  createdAt DateTime @default(now())
-
-  @@unique([date, driverId])
-  @@unique([date, vehicleId])
+// Driver Model
+enum DriverStatus {
+  ACTIVE
+  INACTIVE
 }
 
-////////////////////
-/// TRIPS
-////////////////////
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Driver {
+  id                   String      @id @default(uuid())
+
+  // Relations
+  userId               String      @unique
+  user                 User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fleetId              String
+  fleet                Fleet       @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+  
+  // Assignments realtion
+  assignments          Assignment[]
+  // Trips relation
+  trips                Trip[]
+
+
+
+  // Basic info
+  firstName            String
+  lastName             String
+  mobile               String
+  profilePic           String?
+
+  // KYC documents
+  licenseFront         String?
+  licenseBack          String?
+
+  aadharFront          String?
+  aadharBack           String?
+
+  panCardImage         String?
+  livePhoto            String?
+
+  bankIdProof          String?
+
+  // Status
+  kycStatus            KycStatus   @default(PENDING)
+  status               DriverStatus @default(ACTIVE)
+
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  @@index([fleetId])
+  @@index([mobile])
+}
+
+// Assignment Model for Driver-Vehicle assignment
+enum AssignmentStatus {
+  ACTIVE
+  ENDED
+}
+
+model Assignment {
+  id          String            @id @default(uuid())
+
+  // Relations
+
+  fleetId     String
+  fleet       Fleet             @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+
+  driverId    String
+  driver      Driver            @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  vehicleId   String
+  vehicle     Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  
+  // Trips relation
+  trips       Trip[]
+
+
+  status      AssignmentStatus  @default(ACTIVE)
+
+  startTime   DateTime          @default(now())
+  endTime     DateTime?
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([fleetId])
+  @@index([driverId])
+  @@index([vehicleId])
+}
+
+// Trip Model
+enum TripStatus {
+  CREATED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
 
 model Trip {
-  id        String     @id @default(uuid())
-  bookingId String     @unique
-  passenger String
-  pickup    String
-  drop      String
-  status    TripStatus
+  id          String     @id @default(uuid())
 
-  driverId  String?
-  vehicleId String?
+  fleetId     String
+  fleet       Fleet      @relation(fields: [fleetId], references: [id])
 
-  driver  Driver?  @relation(fields: [driverId], references: [id])
-  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
+  driverId    String
+  driver      Driver     @relation(fields: [driverId], references: [id])
 
-  events TripEvent[]
+  vehicleId   String
+  vehicle     Vehicle    @relation(fields: [vehicleId], references: [id])
 
-  createdAt DateTime @default(now())
-}
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
 
-////////////////////
-/// TRIP EVENTS (AUDIT)
-////////////////////
+  pickup      String
+  drop        String?
 
-model TripEvent {
-  id     String     @id @default(uuid())
-  tripId String
-  status TripStatus
-  note   String?
+  fare        Float?
+  status      TripStatus @default(CREATED)
 
-  trip      Trip     @relation(fields: [tripId], references: [id])
-  createdAt DateTime @default(now())
-}
+  startedAt   DateTime?
+  completedAt DateTime?
 
-////////////////////
-/// WHATSAPP OTP
-////////////////////
-
-model WhatsappOtp {
-  id        String   @id @default(uuid())
-  phone     String
-  otpHash   String
-  expiresAt DateTime
-  verified  Boolean  @default(false)
-
-  createdAt DateTime @default(now())
+  createdAt   DateTime   @default(now())
 }

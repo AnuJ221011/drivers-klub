@@ -1,0 +1,19 @@
+import type { Fleet, FleetStatus, FleetType } from "@prisma/client";
+
+export type CreateFleetInput = {
+  name: string;
+  mobile: string;
+  email?: string;
+  city: string;
+  dob?: string;
+  fleetType: FleetType;
+  gstNumber?: string;
+  panNumber: string;
+  modeId: string;
+};
+
+export type UpdateFleetStatusInput = {
+  status: FleetStatus;
+};
+
+export type FleetEntity = Fleet;
