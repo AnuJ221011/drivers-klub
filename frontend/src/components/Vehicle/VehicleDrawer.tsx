@@ -1,4 +1,4 @@
-import type { Vehicle } from "../../api/vehicle.api";
+import type { Vehicle } from "../../models/vehicle/vehicle";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";

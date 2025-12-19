@@ -2,16 +2,7 @@ import { useEffect, useState } from "react";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
-
-/* Local type (no shared import) */
-type TeamMember = {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  role: string;
-  status: "Active" | "Inactive";
-};
+import type { TeamMember } from "../../models/user/team";
 
 type Props = {
   member: TeamMember | null;

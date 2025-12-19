@@ -6,6 +6,7 @@ import Select from "../ui/Select";
 import Button from "../ui/Button";
 
 import { createDriver } from '../../api/driver.api';
+import { useFleet } from '../../context/FleetContext';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -28,20 +29,23 @@ export default function AddDriver({ onClose, onCreated }: Props) {
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [saving, setSaving] = useState(false);
+  const { activeFleetId } = useFleet();
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return toast.error('Please enter driver name');
     if (!phone.trim()) return toast.error('Please enter phone number');
+    if (!activeFleetId) return toast.error('No fleet selected/available');
 
     setSaving(true);
     try {
-      const data = await createDriver({
+      await createDriver({
         name: name.trim(),
         phone: phone.trim(),
         isActive: status === 'Active',
+        fleetId: activeFleetId,
       });
-      toast.success(data?.message || 'Driver created');
+      toast.success('Driver created');
       onCreated?.();
       onClose();
     } catch (err: unknown) {
