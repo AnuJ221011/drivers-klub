@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
-import Input from '../components/Input';
+import Input from '../components/LoginInput';
 import Button from '../components/ui/Button';
 import { login, sendOtp, verifyOtp } from '../api/auth.api';
 import { setAuthToken, setLoggedIn } from '../utils/auth';

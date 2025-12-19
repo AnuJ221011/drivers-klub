@@ -44,7 +44,7 @@ export default function Dashboard() {
           role={admin.role}
         />
 
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 pt-3">
           <Outlet />
         </main>
       </div>

@@ -37,6 +37,7 @@ export default function AddVehicle({ onClose, onCreated }: Props) {
     if (!number.trim()) return toast.error('Please enter vehicle number');
     if (!brand.trim()) return toast.error('Please enter brand');
     if (!model.trim()) return toast.error('Please enter model');
+    if (!bodyType) return toast.error('Please select body type');
 
     setSaving(true);
     try {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Pencil } from 'lucide-react';
+import { Filter, Pencil } from 'lucide-react';
 
 import Drawer from '../components/layout/Drawer';
 import Table from '../components/ui/Table';
@@ -31,6 +31,7 @@ export default function DriverManagement() {
   const [loading, setLoading] = useState(false);
   const [searchPhone, setSearchPhone] = useState('');
   const [searchName, setSearchName] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   async function refreshDrivers() {
     setLoading(true);
@@ -109,11 +110,22 @@ export default function DriverManagement() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Driver Management</h1>
+        <h1 className="text-xl font-semibold">Drivers</h1>
 
-        <Button onClick={() => setOpen(true)}>
-          + Add Driver
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Mobile filter toggle */}
+          <Button
+            variant="secondary"
+            className="md:hidden"
+            onClick={() => setShowFilters((p) => !p)}
+          >
+            <Filter size={16} />
+          </Button>
+
+          <Button onClick={() => setOpen(true)}>
+            +Driver
+          </Button>
+        </div>
 
         <Modal open={open} onClose={() => setOpen(false)} title="Add Driver">
           <AddDriver
@@ -124,7 +136,12 @@ export default function DriverManagement() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4">
+      
+      <div className={`
+          grid gap-4
+          grid-cols-1 md:grid-cols-2
+          ${showFilters ? "block" : "hidden md:grid"}
+        `}>
         <Input
           placeholder="Search by Phone Number"
           value={searchPhone}

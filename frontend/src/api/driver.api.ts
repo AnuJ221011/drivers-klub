@@ -9,7 +9,8 @@ export type Driver = {
 };
 
 export async function getDrivers(): Promise<Driver[]> {
-  const res = await api.get<Driver[]>('/api/drivers');
+    const res = await api.get<Driver[]>('/api/drivers');
+    console.log(res.data);
   return res.data;
 }
 

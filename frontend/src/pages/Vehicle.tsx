@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Pencil } from "lucide-react";
+import { Filter, Pencil } from "lucide-react";
 
 import Table from "../components/ui/Table";
 import Button from "../components/ui/Button";
@@ -33,7 +33,7 @@ export default function VehicleManagement() {
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(false);
-
+  const [showFilters, setShowFilters] = useState(false);
   const [searchVehicleNo, setSearchVehicleNo] = useState("");
   const [searchBrand, setSearchBrand] = useState("");
 
@@ -107,16 +107,33 @@ export default function VehicleManagement() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-semibold">
-          Vehicle Management
+          Vehicles
         </h1>
 
-        <Button onClick={() => setOpen(true)}>
-          + Add Vehicle
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Mobile filter toggle */}
+          <Button
+                variant="secondary"
+                className="md:hidden"
+                onClick={() => setShowFilters((p) => !p)}
+          >
+                <Filter size={16} />
+          </Button>
+
+          <Button onClick={() => setOpen(true)}>
+            + Vehicle
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
-            <div className="flex gap-4">
+        <div
+            className={`
+            overflow-hidden transition-all duration-300
+            ${showFilters ? "max-h-96" : "max-h-0 md:max-h-none"}
+            `}
+        >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <Input
                 placeholder="Search by Vehicle No."
                 value={searchVehicleNo}
@@ -128,6 +145,7 @@ export default function VehicleManagement() {
                 onChange={(e) => setSearchBrand(e.target.value)}
               />
             </div>
+        </div>
 
       {/* Add Vehicle Modal */}
       <Modal

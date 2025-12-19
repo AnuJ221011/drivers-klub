@@ -1,6 +1,6 @@
 
 
-import { Home, Truck, Users, X, LogOut } from "lucide-react";
+import { Home, Car, Users, UserCircle, ArrowRightCircle, X, LogOut } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 type SidebarProps = {
@@ -11,8 +11,11 @@ type SidebarProps = {
 
 const navItems = [
   { name: "Dashboard", icon: Home, path: "/admin" },
-  { name: "Vehicles", icon: Truck, path: "/admin/vehicles" },
-  { name: "Drivers", icon: Users, path: "/admin/drivers" },
+  { name: "Trips", icon: ArrowRightCircle, path: "/admin/trips" },
+  { name: "Vehicles", icon: Car, path: "/admin/vehicles" },
+  { name: "Drivers", icon: UserCircle, path: "/admin/drivers" },
+  { name: "Team Management", icon: Users, path: "/admin/team-management" },
+
 ];
 
 export default function Sidebar({

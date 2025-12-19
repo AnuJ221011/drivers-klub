@@ -1,4 +1,4 @@
-import type { Vehicle } from "../../utils";
+import type { Vehicle } from "../../api/vehicle.api";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
@@ -29,6 +29,12 @@ export default function VehicleDrawer({ vehicle }: Props) {
         value={vehicle.model}
         disabled
       />
+
+      <Input
+        label="Body Type"
+        value={vehicle.bodyType}
+        disabled
+      />  
 
       <Select
         label="Status"
