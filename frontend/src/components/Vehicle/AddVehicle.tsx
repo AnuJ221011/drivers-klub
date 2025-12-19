@@ -6,6 +6,7 @@ import Select from "../ui/Select";
 import Button from "../ui/Button";
 
 import { createVehicle } from '../../api/vehicle.api';
+import { useFleet } from '../../context/FleetContext';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -31,6 +32,7 @@ export default function AddVehicle({ onClose, onCreated }: Props) {
   const [fuelType, setFuelType] = useState<'PETROL' | 'DIESEL' | 'CNG' | 'EV'>('PETROL');
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [saving, setSaving] = useState(false);
+  const { activeFleetId } = useFleet();
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -38,18 +40,20 @@ export default function AddVehicle({ onClose, onCreated }: Props) {
     if (!brand.trim()) return toast.error('Please enter brand');
     if (!model.trim()) return toast.error('Please enter model');
     if (!bodyType) return toast.error('Please select body type');
+    if (!activeFleetId) return toast.error('No fleet selected/available');
 
     setSaving(true);
     try {
-      const data = await createVehicle({
+      await createVehicle({
         number: number.trim(),
         brand: brand.trim(),
         model: model.trim(),
         bodyType,
         fuelType,
         isActive: status === 'Active',
+        fleetId: activeFleetId,
       });
-      toast.success(data?.message || 'Vehicle created');
+      toast.success('Vehicle created');
       onCreated?.();
       onClose();
     } catch (err: unknown) {

@@ -8,6 +8,7 @@ import { isAuthenticated } from './utils/auth';
 import Vehicle from './pages/Vehicle';
 import Driver from './pages/Drivers';
 import TeamManagement from './pages/Team';
+import Trips from './pages/Trips';
 
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -28,27 +29,34 @@ export default function App() {
         <Route
           path="/admin"
           element={
-            // <PrivateRoute>
+            <PrivateRoute>
               <Dashboard />
-            // </PrivateRoute>
+            </PrivateRoute>
           }
         >
           <Route index element={<div>Welcome to admin</div>} />
-          <Route path="" element={<Dashboard />} />
+          <Route
+            path="trips"
+            element={
+              <PrivateRoute>
+                <Trips />
+              </PrivateRoute>
+            }
+          />
           <Route path="vehicles" element={
-            // <PrivateRoute>
+            <PrivateRoute>
               <Vehicle />
-            // </PrivateRoute>
+            </PrivateRoute>
           } /> 
           <Route path="drivers" element={
-            // <PrivateRoute>
+            <PrivateRoute>
               <Driver />
-            // </PrivateRoute>
+            </PrivateRoute>
           } />
           <Route path="team-management" element={
-            // <PrivateRoute>
+            <PrivateRoute>
               <TeamManagement />
-            // </PrivateRoute>
+            </PrivateRoute>
           } />
         </Route>
 

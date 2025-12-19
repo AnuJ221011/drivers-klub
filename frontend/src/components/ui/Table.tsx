@@ -40,9 +40,7 @@ export default function Table<T>({ columns, data }: TableProps<T>) {
             >
               {columns.map((col) => (
                 <td key={String(col.key)} className="px-4 py-3">
-                  {col.render
-                    ? col.render(row, i)
-                    : (row as any)[col.key]}
+                  {col.render ? col.render(row, i) : (row as Record<string, unknown>)[String(col.key)] as React.ReactNode}
                 </td>
               ))}
             </tr>

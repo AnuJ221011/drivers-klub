@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Filter, Pencil } from "lucide-react";
 
@@ -13,7 +13,9 @@ import VehicleDrawer from "../components/Vehicle/VehicleDrawer";
 import AddVehicle from "../components/Vehicle/AddVehicle";
 
 import type { Column } from "../components/ui/Table";
-import { getVehicles, type Vehicle } from '../api/vehicle.api';
+import { getVehiclesByFleet } from '../api/vehicle.api';
+import type { Vehicle } from '../models/vehicle/vehicle';
+import { useFleet } from '../context/FleetContext';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -36,22 +38,27 @@ export default function VehicleManagement() {
   const [showFilters, setShowFilters] = useState(false);
   const [searchVehicleNo, setSearchVehicleNo] = useState("");
   const [searchBrand, setSearchBrand] = useState("");
+  const { activeFleetId } = useFleet();
 
-  async function refreshVehicles() {
+  const refreshVehicles = useCallback(async () => {
+    if (!activeFleetId) {
+      toast.error('No fleet selected/available');
+      return;
+    }
     setLoading(true);
     try {
-      const data = await getVehicles();
+      const data = await getVehiclesByFleet(activeFleetId);
       setVehicles(data);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to load vehicles'));
     } finally {
       setLoading(false);
     }
-  }
+  }, [activeFleetId]);
 
   useEffect(() => {
     void refreshVehicles();
-  }, []);
+  }, [refreshVehicles]);
 
   const filteredVehicles = useMemo(() => {
     const numberNeedle = (searchVehicleNo || '').trim().toLowerCase();
