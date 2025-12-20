@@ -32,7 +32,7 @@ export default function AddVehicle({ onClose, onCreated }: Props) {
   const [fuelType, setFuelType] = useState<'PETROL' | 'DIESEL' | 'CNG' | 'EV'>('PETROL');
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [saving, setSaving] = useState(false);
-  const { activeFleetId } = useFleet();
+  const { effectiveFleetId } = useFleet();
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -40,7 +40,7 @@ export default function AddVehicle({ onClose, onCreated }: Props) {
     if (!brand.trim()) return toast.error('Please enter brand');
     if (!model.trim()) return toast.error('Please enter model');
     if (!bodyType) return toast.error('Please select body type');
-    if (!activeFleetId) return toast.error('No fleet selected/available');
+    if (!effectiveFleetId) return toast.error('No fleet selected/available');
 
     setSaving(true);
     try {
@@ -51,7 +51,7 @@ export default function AddVehicle({ onClose, onCreated }: Props) {
         bodyType,
         fuelType,
         isActive: status === 'Active',
-        fleetId: activeFleetId,
+        fleetId: effectiveFleetId,
       });
       toast.success('Vehicle created');
       onCreated?.();

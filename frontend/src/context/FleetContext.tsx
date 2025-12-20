@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { getFleets } from '../api/fleet.api';
 import type { Fleet } from '../models/fleet/fleet';
 import { useAuth } from './AuthContext';
+import { getDefaultFleetId } from '../config/defaults';
 
 const ACTIVE_FLEET_KEY = 'dk_active_fleet_id';
 
@@ -11,6 +12,8 @@ type FleetContextValue = {
   fleets: Fleet[];
   fleetsLoading: boolean;
   activeFleetId: string | null;
+  /** Always prefer active fleet; fallback to configured default fleetId */
+  effectiveFleetId: string | null;
   setActiveFleetId: (fleetId: string) => void;
   refreshFleets: () => Promise<void>;
 };
@@ -22,7 +25,7 @@ export function FleetProvider({ children }: { children: ReactNode }) {
   const [fleets, setFleets] = useState<Fleet[]>([]);
   const [fleetsLoading, setFleetsLoading] = useState(false);
   const [activeFleetId, setActiveFleetIdState] = useState<string | null>(() => {
-    return localStorage.getItem(ACTIVE_FLEET_KEY);
+    return localStorage.getItem(ACTIVE_FLEET_KEY) || getDefaultFleetId();
   });
 
   const setActiveFleetId = useCallback((fleetId: string) => {
@@ -31,7 +34,11 @@ export function FleetProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshFleets = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      // Not authenticated (or token not present) — still keep default fleetId if set
+      setActiveFleetIdState((prev) => prev || getDefaultFleetId());
+      return;
+    }
     setFleetsLoading(true);
     try {
       const data = await getFleets();
@@ -45,16 +52,21 @@ export function FleetProvider({ children }: { children: ReactNode }) {
       } else if (data?.[0]?.id) {
         setActiveFleetId(data[0].id);
       } else {
-        setActiveFleetIdState(null);
+        setActiveFleetIdState(getDefaultFleetId());
       }
     } catch (err: unknown) {
+      // If current role can't access /fleets, avoid breaking the app:
+      // fall back to configured default fleetId.
+      setActiveFleetIdState((prev) => prev || getDefaultFleetId());
+
       const maybeAny = err as { response?: { data?: unknown } };
       const data = maybeAny.response?.data;
       const msg =
         data && typeof data === 'object' && 'message' in data
           ? String((data as Record<string, unknown>).message)
-          : 'Failed to load fleets';
-      toast.error(msg);
+          : null;
+      // Only show a toast if no default is configured (otherwise the app works fine).
+      if (!getDefaultFleetId() && msg) toast.error(msg);
     } finally {
       setFleetsLoading(false);
     }
@@ -69,6 +81,7 @@ export function FleetProvider({ children }: { children: ReactNode }) {
       fleets,
       fleetsLoading,
       activeFleetId,
+      effectiveFleetId: activeFleetId || getDefaultFleetId(),
       setActiveFleetId,
       refreshFleets,
     }),

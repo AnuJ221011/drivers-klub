@@ -29,13 +29,13 @@ export default function AddDriver({ onClose, onCreated }: Props) {
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [saving, setSaving] = useState(false);
-  const { activeFleetId } = useFleet();
+  const { effectiveFleetId } = useFleet();
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return toast.error('Please enter driver name');
     if (!phone.trim()) return toast.error('Please enter phone number');
-    if (!activeFleetId) return toast.error('No fleet selected/available');
+    if (!effectiveFleetId) return toast.error('No fleet selected/available');
 
     setSaving(true);
     try {
@@ -43,7 +43,7 @@ export default function AddDriver({ onClose, onCreated }: Props) {
         name: name.trim(),
         phone: phone.trim(),
         isActive: status === 'Active',
-        fleetId: activeFleetId,
+        fleetId: effectiveFleetId,
       });
       toast.success('Driver created');
       onCreated?.();
