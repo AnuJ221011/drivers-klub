@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import type { JwtPayload, TokenPair } from "./auth.types.js";
 import { ApiError } from "../../utils/apiError.js";
+import crypto from "crypto";
 
 const {
     JWT_ACCESS_SECRET,
@@ -19,11 +20,13 @@ const REFRESH_TOKEN_EXPIRES_IN = "7d";
 // Generate Access + Refresh tokens
 export const generateTokens = (payload: JwtPayload): TokenPair => {
     const accessToken = jwt.sign(payload, JWT_ACCESS_SECRET, {
-        expiresIn: ACCESS_TOKEN_EXPIRES_IN
+        expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+        jwtid: crypto.randomUUID()
     });
 
     const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, {
-        expiresIn: REFRESH_TOKEN_EXPIRES_IN
+        expiresIn: REFRESH_TOKEN_EXPIRES_IN,
+        jwtid: crypto.randomUUID()
     });
 
     return { accessToken, refreshToken };

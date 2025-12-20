@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ApiError } from "../utils/apiError.js";
+import { logger } from "../utils/logger.js";
 
 export const errorHandler = (
     err: Error,
@@ -14,6 +15,17 @@ export const errorHandler = (
         statusCode = err.statusCode;
         message = err.message;
     }
+
+    // Always log server-side (helps debug Postman failures)
+    logger.error("Request failed", {
+        method: req.method,
+        path: req.originalUrl,
+        statusCode,
+        message,
+        errorName: err.name,
+        errorMessage: err.message,
+        stack: err.stack
+    });
 
     res.status(statusCode).json({
         success: false,

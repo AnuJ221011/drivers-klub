@@ -64,10 +64,8 @@ export class OtpService {
          * This block exists ONLY because SMS provider (Exotel) is not available.
          * REMOVE this block in production.
          */
-        if (
-            process.env.NODE_ENV !== "production" &&
-            verifiedKey === process.env.OTP_BYPASS_KEY
-        ) {
+        const bypassKey = process.env.OTP_BYPASS_KEY;
+        if (process.env.NODE_ENV !== "production" && bypassKey && verifiedKey === bypassKey) {
             return true;
         }
 
