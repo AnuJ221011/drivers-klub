@@ -1,4 +1,5 @@
 import express, { Application } from "express";
+import cors from "cors";
 import { requestLogger } from "./middlewares/requestLogger.js";
 import { notFound } from "./middlewares/notFound.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
@@ -16,6 +17,28 @@ import tripRoutes from "./modules/trips/trip.routes.js";
 
 
 const app: Application = express();
+
+// CORS (allow frontend dev server)
+const allowedOrigins = new Set<string>([
+    "http://localhost:5173"
+]);
+
+app.use(
+    cors({
+        origin: (origin, callback) => {
+            // allow non-browser clients (Postman/curl) with no Origin header
+            if (!origin) return callback(null, true);
+            if (allowedOrigins.has(origin)) return callback(null, true);
+            return callback(new Error("Not allowed by CORS"));
+        },
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"]
+    })
+);
+
+// Preflight
+app.options("*", cors());
 
 app.use(express.json());
 app.use(requestLogger);
