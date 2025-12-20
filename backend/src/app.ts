@@ -23,22 +23,25 @@ const allowedOrigins = new Set<string>([
     "http://localhost:5173"
 ]);
 
+const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+        // allow non-browser clients (Postman/curl) with no Origin header
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.has(origin)) return callback(null, true);
+        return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+};
+
 app.use(
-    cors({
-        origin: (origin, callback) => {
-            // allow non-browser clients (Postman/curl) with no Origin header
-            if (!origin) return callback(null, true);
-            if (allowedOrigins.has(origin)) return callback(null, true);
-            return callback(new Error("Not allowed by CORS"));
-        },
-        credentials: true,
-        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"]
-    })
+    cors(corsOptions)
 );
 
 // Preflight
-app.options("*", cors());
+// NOTE: Express/router in some versions doesn't accept "*" as a path.
+app.options(/.*/, cors(corsOptions));
 
 app.use(express.json());
 app.use(requestLogger);
