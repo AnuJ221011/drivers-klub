@@ -34,23 +34,23 @@ export default function DriverManagement() {
   const [searchPhone, setSearchPhone] = useState('');
   const [searchName, setSearchName] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const { activeFleetId } = useFleet();
+  const { effectiveFleetId } = useFleet();
 
   const refreshDrivers = useCallback(async () => {
-    if (!activeFleetId) {
+    if (!effectiveFleetId) {
       toast.error('No fleet selected/available');
       return;
     }
     setLoading(true);
     try {
-      const data = await getDriversByFleet(activeFleetId);
+      const data = await getDriversByFleet(effectiveFleetId);
       setDrivers(data);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to load drivers'));
     } finally {
       setLoading(false);
     }
-  }, [activeFleetId]);
+  }, [effectiveFleetId]);
 
   useEffect(() => {
     void refreshDrivers();

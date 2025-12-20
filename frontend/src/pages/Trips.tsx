@@ -21,7 +21,7 @@ function getErrorMessage(err: unknown, fallback: string): string {
 }
 
 export default function Trips() {
-  const { activeFleetId } = useFleet();
+  const { effectiveFleetId } = useFleet();
   const [loading, setLoading] = useState(false);
   const [trips, setTrips] = useState<TripEntity[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -29,20 +29,20 @@ export default function Trips() {
   const [searchStatus, setSearchStatus] = useState('');
 
   const refreshTrips = useCallback(async () => {
-    if (!activeFleetId) {
+    if (!effectiveFleetId) {
       toast.error('No fleet selected/available');
       return;
     }
     setLoading(true);
     try {
-      const data = await getTripsByFleet(activeFleetId);
+      const data = await getTripsByFleet(effectiveFleetId);
       setTrips(data || []);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to load trips'));
     } finally {
       setLoading(false);
     }
-  }, [activeFleetId]);
+  }, [effectiveFleetId]);
 
   useEffect(() => {
     void refreshTrips();

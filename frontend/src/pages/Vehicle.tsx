@@ -38,23 +38,23 @@ export default function VehicleManagement() {
   const [showFilters, setShowFilters] = useState(false);
   const [searchVehicleNo, setSearchVehicleNo] = useState("");
   const [searchBrand, setSearchBrand] = useState("");
-  const { activeFleetId } = useFleet();
+  const { effectiveFleetId } = useFleet();
 
   const refreshVehicles = useCallback(async () => {
-    if (!activeFleetId) {
+    if (!effectiveFleetId) {
       toast.error('No fleet selected/available');
       return;
     }
     setLoading(true);
     try {
-      const data = await getVehiclesByFleet(activeFleetId);
+      const data = await getVehiclesByFleet(effectiveFleetId);
       setVehicles(data);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to load vehicles'));
     } finally {
       setLoading(false);
     }
-  }, [activeFleetId]);
+  }, [effectiveFleetId]);
 
   useEffect(() => {
     void refreshVehicles();
