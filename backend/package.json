@@ -22,10 +22,11 @@
     "url": "https://bitbucket.org/respare/driversklub-backend/issues"
   },
   "homepage": "https://bitbucket.org/respare/driversklub-backend#readme",
-  "dependencies": {
+    "dependencies": {
     "@prisma/adapter-pg": "^7.1.0",
     "@prisma/client": "^7.1.0",
     "axios": "^1.13.2",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
@@ -35,6 +36,7 @@
     "winston": "^3.19.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",

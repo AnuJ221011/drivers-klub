@@ -19,7 +19,23 @@ export const sendOtp = async (req: Request, res: Response) => {
 };
 
 export const verifyOtp = async (req: Request, res: Response) => {
-    const { phone, otp, verifiedKey } = req.body;
+    console.log("Verifying OTP with request body:", req.body);
+    const body = req.body;
+    if (!body || typeof body !== "object") {
+        console.warn("Invalid request body for verify-otp", body);
+        return res.status(400).json({ message: "Invalid request body" });
+    }
+
+    const { phone, otp, verifiedKey } = body as {
+        phone?: string;
+        otp?: string;
+        verifiedKey?: string;
+    };
+
+    if (!phone || !otp) {
+        console.warn("Missing phone or otp in verify-otp request", { phone, otp });
+        return res.status(400).json({ message: "phone and otp are required" });
+    }
 
     await otpService.verifyOtp(phone, otp, verifiedKey);
 

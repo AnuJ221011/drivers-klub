@@ -10,6 +10,7 @@ import fleetManagerRoutes from "./modules/fleetManager/fleetManager.routes.js";
 import vehicleRoutes from "./modules/vehicles/vehicle.routes.js";
 import assignmentRoutes from "./modules/assignments/assignment.routes.js";
 import tripRoutes from "./modules/trips/trip.routes.js";
+import cors from "cors";
 
 
 
@@ -17,7 +18,34 @@ import tripRoutes from "./modules/trips/trip.routes.js";
 
 const app: Application = express();
 
+// CORS (allow frontend dev server)
+const allowedOrigins = new Set<string>([
+    "http://localhost:5173"
+]);
+
+const corsOptions: cors.CorsOptions = {
+    origin: (origin, callback) => {
+        // allow non-browser clients (Postman/curl) with no Origin header
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.has(origin)) return callback(null, true);
+        return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+};
+
+app.use(
+    cors(corsOptions)
+);
+
+// Preflight
+// NOTE: Express/router in some versions doesn't accept "*" as a path.
+app.options(/.*/, cors(corsOptions));
+
 app.use(express.json());
+// also accept urlencoded form data (useful for Postman x-www-form-urlencoded or HTML forms)
+app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
 // for health checks of the service

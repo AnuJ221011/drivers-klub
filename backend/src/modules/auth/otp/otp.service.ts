@@ -68,6 +68,7 @@ export class OtpService {
             process.env.NODE_ENV !== "production" &&
             verifiedKey === process.env.OTP_BYPASS_KEY
         ) {
+            console.log(`[DEV] OTP Bypass for ${phone} with key ${verifiedKey}`)
             return true;
         }
 
