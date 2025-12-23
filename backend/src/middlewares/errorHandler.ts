@@ -3,7 +3,7 @@ import { ApiError } from "../utils/apiError.js";
 
 export const errorHandler = (
     err: Error,
-    req: Request,
+    _req: Request,
     res: Response,
     _next: NextFunction
 ) => {

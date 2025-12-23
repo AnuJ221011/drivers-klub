@@ -1,0 +1,8 @@
+export enum AssignmentStatus {
+  ASSIGNED = "ASSIGNED",
+  UNASSIGNED = "UNASSIGNED",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
+  ACTIVE = "ACTIVE",
+  ENDED = "ENDED",
+}

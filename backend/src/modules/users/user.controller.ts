@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { UserService } from "./user.service.js";
+import { ApiResponse } from "../../utils/apiResponse.js";
 import { ApiError } from "../../utils/apiError.js";
 
 const userService = new UserService();
@@ -12,23 +13,23 @@ export const createUser = async (req: Request, res: Response) => {
     }
 
     const user = await userService.createUser({ name, phone, role });
-    res.status(201).json(user);
+    ApiResponse.send(res, 201, user, "User created successfully");
 };
 
 
 export const getAllUsers = async (_req: Request, res: Response) => {
     const users = await userService["userRepo"].findAll();
-    res.json(users);
+    ApiResponse.send(res, 200, users, "Users retrieved successfully");
 };
 
 export const getUserById = async (req: Request, res: Response) => {
     const user = await userService.getUserById(req.params.id);
-    res.json(user);
+    ApiResponse.send(res, 200, user, "User retrieved successfully");
 };
 
 export const deactivateUser = async (req: Request, res: Response) => {
     const user = await userService.deactivateUser(req.params.id);
-    res.json(user);
+    ApiResponse.send(res, 200, user, "User deactivated successfully");
 };
 
 

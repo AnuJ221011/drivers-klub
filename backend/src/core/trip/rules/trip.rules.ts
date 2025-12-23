@@ -1,0 +1,10 @@
+export const TripRules = {
+  ALLOWED_TRIP_TYPES: ["AIRPORT"],
+
+  ALLOWED_ORIGIN_CITIES: ["DELHI", "NOIDA", "GURGAON", "FARIDABAD", "GHAZIABAD"],
+
+  PREBOOK_MIN_HOUR: 4, // 4 AM
+  PREBOOK_DAY_OFFSET: 1, // next calendar day only
+
+  ALLOWED_VEHICLE_SKU: ["TATA_TIGOR_EV"],
+};

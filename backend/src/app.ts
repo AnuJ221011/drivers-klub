@@ -10,7 +10,10 @@ import fleetManagerRoutes from "./modules/fleetManager/fleetManager.routes.js";
 import vehicleRoutes from "./modules/vehicles/vehicle.routes.js";
 import assignmentRoutes from "./modules/assignments/assignment.routes.js";
 import tripRoutes from "./modules/trips/trip.routes.js";
+import pricingRoutes from "./modules/pricing/pricing.routes.js";
+import adminTripRoutes from "./modules/trips/admin-trip.routes.js";
 import cors from "cors";
+
 
 
 
@@ -73,6 +76,10 @@ app.use("/vehicles", vehicleRoutes);
 app.use("/assignments", assignmentRoutes);
 // for trips
 app.use("/trips", tripRoutes);
+// for pricing
+app.use("/pricing", pricingRoutes);
+// for admin trips
+app.use("/admin/trips", adminTripRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

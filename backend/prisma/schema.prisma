@@ -7,7 +7,7 @@ datasource db {
   provider = "postgresql"
 }
 
-// User Model
+// User Model for application users
 enum UserRole {
   SUPER_ADMIN
   OPERATIONS
@@ -45,7 +45,7 @@ model RefreshToken {
   @@index([userId])
 }
 
-// Otp Model
+// Otp Model for phone verification
 model Otp {
   id          String   @id @default(uuid())
   phone       String
@@ -60,7 +60,7 @@ model Otp {
 }
 
 
-// Fleet Model
+// Fleet Model for fleet operators
 enum FleetType {
   INDIVIDUAL
   COMPANY
@@ -113,7 +113,7 @@ model Fleet {
   @@index([city])
 }
 
-
+// FleetManager Model for fleet managers
 model FleetManager {
   id             String             @id @default(uuid())
 
@@ -135,7 +135,7 @@ model FleetManager {
   @@index([mobile])
 }
 
-// Vehicle Model
+// Vehicle Model for fleet vehicles
 enum VehicleOwnership {
   OWNED
   LEASED
@@ -195,7 +195,7 @@ model Vehicle {
   @@index([fleetId])
 }
 
-// Driver Model
+// Driver Model for fleet drivers
 enum DriverStatus {
   ACTIVE
   INACTIVE
@@ -221,6 +221,9 @@ model Driver {
   assignments          Assignment[]
   // Trips relation
   trips                Trip[]
+  // Trip assignments relation
+  tripAssignments      TripAssignment[]
+  isAvailable Boolean  @default(true)
 
 
 
@@ -253,10 +256,14 @@ model Driver {
   @@index([mobile])
 }
 
-// Assignment Model for Driver-Vehicle assignment
+// Assignment Model for Driver-Vehicle assignment to Fleet
 enum AssignmentStatus {
   ACTIVE
   ENDED
+  ASSIGNED
+  UNASSIGNED
+  COMPLETED
+  CANCELLED
 }
 
 model Assignment {
@@ -290,7 +297,7 @@ model Assignment {
   @@index([vehicleId])
 }
 
-// Trip Model
+// Trip Model for tracking trips
 enum TripStatus {
   CREATED
   STARTED
@@ -323,4 +330,113 @@ model Trip {
   completedAt DateTime?
 
   createdAt   DateTime   @default(now())
+}
+
+// RideProviderMapping Model for external ride providers
+enum ProviderType {
+  INTERNAL
+  MOJOBOXX
+  MMT
+}
+
+enum Provider {
+  MOJOBOXX
+  MMT
+}
+
+enum ProviderBookingStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
+}
+
+enum ProviderRideStatus {
+  BOOKED
+  DRIVER_ASSIGNED
+  STARTED
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+model RideProviderMapping {
+  id                String       @id @default(uuid())
+  rideId            String       @unique
+  providerType      ProviderType
+  externalBookingId String
+  providerStatus    String
+  rawPayload        Json
+
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Ride Model for external ride details
+// Trip Types
+enum TripType {
+  AIRPORT
+  RENTAL
+  INTER_CITY
+}
+
+// Ride Model for external ride details (The "Trip" concept for Intelligence)
+model Ride {
+  id              String   @id @default(uuid())
+  tripType        TripType
+  originCity      String
+  destinationCity String   @default("Unknown")
+  pickupTime      DateTime @map("tripDate")
+  
+  
+  distanceKm      Float
+  billableKm      Int
+  ratePerKm       Int
+  price           Float    @map("totalFare") 
+  
+
+  vehicleSku      String
+
+  status          String   @default("CREATED")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt @default(now())
+  
+  // Provider Fulfillment Fields
+  provider             Provider? 
+  providerBookingId    String?
+  providerStatus       ProviderBookingStatus?
+  providerMeta         Json?
+  
+  // New: Provider Ride Status for Sync
+  providerRideStatus   ProviderRideStatus?
+
+  tripAssignments  TripAssignment[]
+
+  providerMapping RideProviderMapping?
+}
+
+
+// TripAssignment Model for assigning trips to drivers
+model TripAssignment {
+  id          String   @id @default(uuid())
+
+  tripId      String
+  driverId    String
+
+  status      AssignmentStatus @default(ASSIGNED)
+  
+  // Provider Attempt Tracking
+  bookingAttempted     Boolean  @default(false)
+  bookingFailedReason  String?
+
+  assignedAt  DateTime @default(now())
+  unassignedAt DateTime?
+
+  trip        Ride     @relation(fields: [tripId], references: [id])
+  driver      Driver   @relation(fields: [driverId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

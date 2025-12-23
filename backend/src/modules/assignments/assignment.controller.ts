@@ -1,18 +1,19 @@
 import { AssignmentService } from "./assignment.service.js";
+import { ApiResponse } from "../../utils/apiResponse.js";
 
 const service = new AssignmentService();
 
 export const createAssignment = async (req: any, res: any) => {
   const assignment = await service.createAssignment(req.body);
-  res.status(201).json(assignment);
+  ApiResponse.send(res, 201, assignment, "Assignment created successfully");
 };
 
 export const getAssignmentsByFleet = async (req: any, res: any) => {
   const list = await service.getAssignmentsByFleet(req.params.fleetId);
-  res.json(list);
+  ApiResponse.send(res, 200, list, "Assignments retrieved successfully");
 };
 
 export const endAssignment = async (req: any, res: any) => {
   const assignment = await service.endAssignment(req.params.id);
-  res.json(assignment);
+  ApiResponse.send(res, 200, assignment, "Assignment ended successfully");
 };

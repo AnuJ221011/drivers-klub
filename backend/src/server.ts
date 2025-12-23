@@ -3,6 +3,7 @@ import app from "./app.js";
 import { logger } from "./utils/logger.js";
 import http from "http";
 import { connectDB } from "./utils/prisma.js";
+import { startStatusSyncWorker } from "./worker.js";
 
 const PORT = process.env.PORT || 4000;
 
@@ -10,6 +11,7 @@ const server = http.createServer(app);
 
 const startServer = async () => {
     await connectDB();
+    startStatusSyncWorker();
 
     server.listen(PORT, () => {
         logger.info(`🚀 Driver’s Klub backend running on port ${PORT}`);

@@ -10,7 +10,7 @@ export const issueTokens = async (userId: string) => {
 
     const tokens = generateTokens({
         sub: user.id,
-        role: user.role,
+        role: user.role,    
         phone: user.phone
     });
 
@@ -54,4 +54,18 @@ export const refresh = async (refreshTokenInput: string) => {
     });
 
     return tokens;
+};
+
+export const revokeRefreshToken = async (refreshToken: string) => {
+    if (!refreshToken) return;
+    await prisma.refreshToken.deleteMany({
+        where: { token: refreshToken }
+    });
+};
+
+export const revokeAllUserTokens = async (userId: string) => {
+    if (!userId) return;
+    await prisma.refreshToken.deleteMany({
+        where: { userId }
+    });
 };
