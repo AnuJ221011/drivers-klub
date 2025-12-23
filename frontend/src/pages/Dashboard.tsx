@@ -9,6 +9,8 @@ export default function Dashboard() {
   const [isMobile, setIsMobile] = useState(false);
 
   const { user, role, userId } = useAuth();
+  console.log("useAuth returned - userId:", userId, "role:", role, "user:", user);
+  console.log("User name:", user?.name);
   const adminName = user?.name || userId || "Admin";
   const adminRole = role || "SUPER_ADMIN";
 
@@ -26,6 +28,9 @@ export default function Dashboard() {
     return () =>
       mediaQuery.removeEventListener("change", handleResize);
   }, []);
+
+  console.log("Dashboard Rendered - Name:", adminName, "Role:", adminRole);
+  console.log("user:", user);
 
   return (
     <div className="flex h-screen bg-gray-50">

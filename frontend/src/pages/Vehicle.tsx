@@ -49,6 +49,7 @@ export default function VehicleManagement() {
     try {
       const data = await getVehiclesByFleet(effectiveFleetId);
       setVehicles(data);
+      console.log("Fetched Vehicles data:", data);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to load vehicles'));
     } finally {
@@ -108,6 +109,8 @@ export default function VehicleManagement() {
       ),
     },
   ];
+
+  console.log("Filtered Vehicles:", filteredVehicles);
 
   return (
     <div className="space-y-6">
