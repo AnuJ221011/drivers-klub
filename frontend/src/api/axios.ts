@@ -5,6 +5,18 @@ import axios, {
 } from 'axios';
 import { clearAuthToken, getAuthToken, getRefreshToken, setAuthToken, setRefreshToken } from '../utils/auth';
 
+type ApiEnvelope<T> = {
+  success: boolean;
+  statusCode?: number;
+  message?: string;
+  data: T;
+};
+
+function isApiEnvelope<T = unknown>(value: unknown): value is ApiEnvelope<T> {
+  if (!value || typeof value !== 'object') return false;
+  return 'success' in value && 'data' in value;
+}
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000',
   headers: {
@@ -28,14 +40,15 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refreshToken) return null;
 
   try {
-    const res = await axios.post<{ accessToken: string; refreshToken: string }>(
+    const res = await axios.post<{ accessToken: string; refreshToken: string } | ApiEnvelope<{ accessToken: string; refreshToken: string }>>(
       `${api.defaults.baseURL}/auth/refresh`,
       { refreshToken },
       { headers: { 'Content-Type': 'application/json' } },
     );
 
-    const nextAccess = res.data?.accessToken;
-    const nextRefresh = res.data?.refreshToken;
+    const payload = isApiEnvelope(res.data) ? res.data.data : res.data;
+    const nextAccess = payload?.accessToken;
+    const nextRefresh = payload?.refreshToken;
     if (nextAccess) setAuthToken(nextAccess);
     if (nextRefresh) setRefreshToken(nextRefresh);
 
@@ -45,7 +58,17 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
-api.interceptors.response.use((res) => res, async (err: AxiosError) => {
+api.interceptors.response.use(
+  (res) => {
+    // Support both response shapes:
+    // 1) raw payload (old backend)
+    // 2) envelope { success, statusCode, message, data } (new backend)
+    if (isApiEnvelope(res.data)) {
+      res.data = res.data.data;
+    }
+    return res;
+  },
+  async (err: AxiosError) => {
   const status = err?.response?.status;
   const originalConfig = err.config as RetryableRequestConfig | undefined;
 
@@ -61,6 +84,9 @@ api.interceptors.response.use((res) => res, async (err: AxiosError) => {
     }
 
     clearAuthToken();
+    // Ensure the app doesn't keep rendering protected pages without a session.
+    // (PrivateRoute will also enforce this, but redirecting here makes the failure immediate.)
+    if (window.location.pathname !== '/login') window.location.href = '/login';
   }
 
   return Promise.reject(err);
