@@ -29,35 +29,44 @@ export default function App() {
         <Route
           path="/admin"
           element={
-            // <PrivateRoute>
+            <PrivateRoute>
               <Dashboard />
-            // </PrivateRoute>
+            </PrivateRoute>
           }
         >
           <Route index element={<div>Welcome to admin</div>} />
           <Route
             path="trips"
             element={
-              // <PrivateRoute>
+              <PrivateRoute>
                 <Trips />
-              // </PrivateRoute>
+              </PrivateRoute>
             }
           />
-          <Route path="vehicles" element={
-            // <PrivateRoute>
-              <Vehicle />
-            // </PrivateRoute>
-          } /> 
-          <Route path="drivers" element={
-            // <PrivateRoute>
-              <Driver />
-            // </PrivateRoute>
-          } />
-          <Route path="team-management" element={
-            // <PrivateRoute>
-              <TeamManagement />
-            // </PrivateRoute>
-          } />
+          <Route
+            path="vehicles"
+            element={
+              <PrivateRoute>
+                <Vehicle />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="drivers"
+            element={
+              <PrivateRoute>
+                <Driver />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="team-management"
+            element={
+              <PrivateRoute>
+                <TeamManagement />
+              </PrivateRoute>
+            }
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />

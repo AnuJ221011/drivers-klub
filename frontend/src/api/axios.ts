@@ -61,6 +61,9 @@ api.interceptors.response.use((res) => res, async (err: AxiosError) => {
     }
 
     clearAuthToken();
+    // Ensure the app doesn't keep rendering protected pages without a session.
+    // (PrivateRoute will also enforce this, but redirecting here makes the failure immediate.)
+    if (window.location.pathname !== '/login') window.location.href = '/login';
   }
 
   return Promise.reject(err);
