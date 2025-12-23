@@ -34,13 +34,11 @@ export default function DriverManagement() {
   const [searchPhone, setSearchPhone] = useState('');
   const [searchName, setSearchName] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const { effectiveFleetId } = useFleet();
+  const { effectiveFleetId, fleetsLoading } = useFleet();
 
   const refreshDrivers = useCallback(async () => {
-    if (!effectiveFleetId) {
-      toast.error('No fleet selected/available');
-      return;
-    }
+    // Avoid firing requests with an invalid/unknown fleetId (e.g. during initial load).
+    if (fleetsLoading || !effectiveFleetId) return;
     setLoading(true);
     try {
       const data = await getDriversByFleet(effectiveFleetId);
@@ -50,7 +48,7 @@ export default function DriverManagement() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveFleetId]);
+  }, [effectiveFleetId, fleetsLoading]);
 
   useEffect(() => {
     void refreshDrivers();

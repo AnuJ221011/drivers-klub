@@ -8,6 +8,18 @@ import { getDefaultFleetId } from '../config/defaults';
 
 const ACTIVE_FLEET_KEY = 'dk_active_fleet_id';
 
+function isUuid(v: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+}
+
+function normalizeFleetId(v: string | null | undefined): string | null {
+  const trimmed = (v || '').trim();
+  if (!trimmed) return null;
+  // Backend uses UUID ids for fleets; avoid making API calls with placeholder values like "f1".
+  if (!isUuid(trimmed)) return null;
+  return trimmed;
+}
+
 type FleetContextValue = {
   fleets: Fleet[];
   fleetsLoading: boolean;
@@ -25,7 +37,11 @@ export function FleetProvider({ children }: { children: ReactNode }) {
   const [fleets, setFleets] = useState<Fleet[]>([]);
   const [fleetsLoading, setFleetsLoading] = useState(false);
   const [activeFleetId, setActiveFleetIdState] = useState<string | null>(() => {
-    return localStorage.getItem(ACTIVE_FLEET_KEY) || getDefaultFleetId();
+    return (
+      normalizeFleetId(localStorage.getItem(ACTIVE_FLEET_KEY)) ||
+      normalizeFleetId(getDefaultFleetId()) ||
+      null
+    );
   });
 
   const setActiveFleetId = useCallback((fleetId: string) => {
@@ -45,19 +61,19 @@ export function FleetProvider({ children }: { children: ReactNode }) {
       setFleets(data || []);
 
       // Keep a stable active fleet without introducing UI changes
-      const stored = localStorage.getItem(ACTIVE_FLEET_KEY);
+      const stored = normalizeFleetId(localStorage.getItem(ACTIVE_FLEET_KEY));
       const validStored = stored && data?.some((f) => f.id === stored);
       if (validStored) {
         setActiveFleetIdState(stored);
       } else if (data?.[0]?.id) {
         setActiveFleetId(data[0].id);
       } else {
-        setActiveFleetIdState(getDefaultFleetId());
+        setActiveFleetIdState(normalizeFleetId(getDefaultFleetId()));
       }
     } catch (err: unknown) {
       // If current role can't access /fleets, avoid breaking the app:
       // fall back to configured default fleetId.
-      setActiveFleetIdState((prev) => prev || getDefaultFleetId());
+      setActiveFleetIdState((prev) => prev || normalizeFleetId(getDefaultFleetId()));
 
       const maybeAny = err as { response?: { data?: unknown } };
       const data = maybeAny.response?.data;
@@ -81,7 +97,7 @@ export function FleetProvider({ children }: { children: ReactNode }) {
       fleets,
       fleetsLoading,
       activeFleetId,
-      effectiveFleetId: activeFleetId || getDefaultFleetId(),
+      effectiveFleetId: activeFleetId || normalizeFleetId(getDefaultFleetId()),
       setActiveFleetId,
       refreshFleets,
     }),

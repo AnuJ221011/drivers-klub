@@ -38,13 +38,11 @@ export default function VehicleManagement() {
   const [showFilters, setShowFilters] = useState(false);
   const [searchVehicleNo, setSearchVehicleNo] = useState("");
   const [searchBrand, setSearchBrand] = useState("");
-  const { effectiveFleetId } = useFleet();
+  const { effectiveFleetId, fleetsLoading } = useFleet();
 
   const refreshVehicles = useCallback(async () => {
-    if (!effectiveFleetId) {
-      toast.error('No fleet selected/available');
-      return;
-    }
+    // Avoid firing requests with an invalid/unknown fleetId (e.g. during initial load).
+    if (fleetsLoading || !effectiveFleetId) return;
     setLoading(true);
     try {
       const data = await getVehiclesByFleet(effectiveFleetId);
@@ -54,7 +52,7 @@ export default function VehicleManagement() {
     } finally {
       setLoading(false);
     }
-  }, [effectiveFleetId]);
+  }, [effectiveFleetId, fleetsLoading]);
 
   useEffect(() => {
     void refreshVehicles();
