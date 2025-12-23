@@ -141,6 +141,39 @@ Use these exact string values in API requests and expect them in responses.
   }
   ```
 
+### 🔹 Logout
+- **Endpoint**: `POST /auth/logout`
+- **Purpose**: Revoke refresh token(s) so the user session cannot be refreshed anymore.
+- **Auth**:
+  - **Recommended**: Send `Authorization: Bearer <ACCESS_TOKEN>` (helps revoke all sessions for the user)
+  - **Optional**: Provide `refreshToken` in body (helps revoke current session even if access token is expired)
+- **Body** *(optional)*:
+  ```json
+  {
+    "refreshToken": "<refresh-token>"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "message": "Logged out"
+  }
+  ```
+- **Notes / Behavior**:
+  - This endpoint is **idempotent**: calling it multiple times is safe.
+  - If `refreshToken` is provided, backend deletes it from DB (best-effort).
+  - If backend can identify the user (via access token or a valid refresh JWT), it revokes **all** refresh tokens for that user (logs out from all devices/sessions).
+  - Client should **always clear local tokens** and redirect to `/login` even if this API fails (network down).
+
+**cURL example**:
+
+```bash
+curl -X POST "http://localhost:4000/auth/logout" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -d '{"refreshToken":"<REFRESH_TOKEN>"}'
+```
+
 ---
 
 ## 👥 2️⃣ USER MANAGEMENT (RBAC CORE)
@@ -451,7 +484,7 @@ if (jsonData.accessToken) {
 
 ### 4. Folder Structure
 Organize requests to match the module structure:
-- 📂 **01 Auth** (Send OTP, Verify OTP, Refresh)
+- 📂 **01 Auth** (Send OTP, Verify OTP, Refresh, Logout)
 - 📂 **02 Users**
 - 📂 **03 Fleets**
 - 📂 **04 Fleet Managers**
@@ -459,4 +492,23 @@ Organize requests to match the module structure:
 - 📂 **06 Drivers**
 - 📂 **07 Assignments**
 - 📂 **08 Trips**
+
+---
+
+## 🚪 Logout Flow (End-to-End)
+
+### Backend (Session Revocation)
+1. Client calls `POST /auth/logout` with:
+   - `Authorization: Bearer <ACCESS_TOKEN>` (recommended)
+   - body `{ "refreshToken": "<REFRESH_TOKEN>" }` (recommended)
+2. Backend deletes refresh token(s) from `RefreshToken` table.
+3. Any future attempt to refresh using a revoked token returns `401 Invalid refresh token`.
+
+### Frontend (UI + Local Session)
+1. User clicks initials in header → dropdown opens → clicks **Logout**.
+2. UI shows a confirmation prompt: **"Are you sure you want to logout?"**
+3. On confirm:
+   - call `POST /auth/logout`
+   - clear tokens from localStorage
+   - redirect to `/login`
 
