@@ -1,9 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { clearAuthToken, getAuthToken, isAuthenticated, setAuthToken, setRefreshToken } from '../utils/auth';
+import { clearAuthToken, getAuthToken, getRefreshToken, isAuthenticated, setAuthToken, setRefreshToken } from '../utils/auth';
 import type { User, UserRole } from '../models/user/user';
 import { getUserById } from '../api/user.api';
 import type { TokenPair } from '../models/auth/tokens';
+import { logout as logoutApi } from '../api/auth.api';
 
 type AuthContextValue = {
   isAuthenticated: boolean;
@@ -87,10 +88,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [accessToken, userId, role]);
 
   const logout = useCallback(() => {
-    clearAuthToken();
-    setUser(null);
-    setAccessTokenState(null);
-    window.location.href = '/login';
+    void (async () => {
+      try {
+        await logoutApi(getRefreshToken());
+      } catch {
+        // ignore logout failures; we'll clear local session anyway
+      } finally {
+        clearAuthToken();
+        setUser(null);
+        setAccessTokenState(null);
+        window.location.href = '/login';
+      }
+    })();
   }, []);
 
   const value = useMemo<AuthContextValue>(

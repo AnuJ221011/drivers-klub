@@ -1,4 +1,6 @@
-﻿import { Menu } from "lucide-react";
+import { Menu } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useAuth } from "../../context/AuthContext";
 
 type HeaderProps = {
   onToggleSidebar: () => void;
@@ -16,6 +18,30 @@ const getInitials = (name: string) => {
 
 const Header = ({ onToggleSidebar, adminName, role }: HeaderProps) => { 
   const initials = getInitials(adminName);
+  const { logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const onDocMouseDown = (e: MouseEvent) => {
+      const el = menuRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) setMenuOpen(false);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
 
   return (
     <header className="h-16 bg-white border-b border-black/10 flex items-center px-4">
@@ -48,8 +74,36 @@ const Header = ({ onToggleSidebar, adminName, role }: HeaderProps) => {
           </div>
         </div>
 
-        <div className="h-9 w-9 rounded-full bg-yellow-400 text-black flex items-center justify-center font-bold">
-          {initials}
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            className="h-9 w-9 rounded-full bg-yellow-400 text-black flex items-center justify-center font-bold hover:bg-yellow-500 transition"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            {initials}
+          </button>
+
+          {menuOpen ? (
+            <div
+              className="absolute right-0 mt-2 w-40 rounded-md border border-black/10 bg-white shadow-lg overflow-hidden z-50"
+              role="menu"
+            >
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2 text-sm hover:bg-yellow-100"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  const ok = window.confirm("Are you sure you want to logout?");
+                  if (ok) logout();
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </header>
