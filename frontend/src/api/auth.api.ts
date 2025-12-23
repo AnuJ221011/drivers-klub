@@ -1,5 +1,6 @@
 import api from './axios';
 import type { TokenPair } from '../models/auth/tokens';
+import { getRefreshToken } from '../utils/auth';
 
 export type SendOtpResponse = {
   message: string;
@@ -17,5 +18,13 @@ export async function verifyOtp(phone: string, otp: string): Promise<TokenPair> 
 
 export async function refresh(refreshToken: string): Promise<TokenPair> {
   const res = await api.post<TokenPair>('/auth/refresh', { refreshToken });
+  return res.data;
+}
+
+export type LogoutResponse = { message: string };
+
+export async function logout(refreshToken?: string | null): Promise<LogoutResponse> {
+  const token = refreshToken ?? getRefreshToken();
+  const res = await api.post<LogoutResponse>('/auth/logout', token ? { refreshToken: token } : {});
   return res.data;
 }

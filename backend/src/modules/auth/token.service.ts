@@ -55,3 +55,18 @@ export const refresh = async (refreshTokenInput: string) => {
 
     return tokens;
 };
+
+export const revokeRefreshToken = async (refreshToken: string) => {
+    if (!refreshToken) return;
+    // Best-effort: if token doesn't exist, do nothing.
+    await prisma.refreshToken.deleteMany({
+        where: { token: refreshToken }
+    });
+};
+
+export const revokeAllUserTokens = async (userId: string) => {
+    if (!userId) return;
+    await prisma.refreshToken.deleteMany({
+        where: { userId }
+    });
+};
