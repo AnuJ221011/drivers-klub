@@ -5,7 +5,7 @@ import { Filter } from 'lucide-react';
 import Table, { type Column } from '../components/ui/Table';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import { getTrips } from '../api/trip.api';
+import { getAdminTrips } from '../api/trip.api';
 import type { TripEntity } from '../models/trip/trip';
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -29,8 +29,8 @@ export default function Trips() {
   const refreshTrips = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getTrips();
-      setTrips(data || []);
+      const data = await getAdminTrips({ page: 1, limit: 50 });
+      setTrips(data?.trips || []);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to load trips'));
     } finally {
@@ -47,7 +47,8 @@ export default function Trips() {
     const statusNeedle = (searchStatus || '').trim().toUpperCase();
 
     return trips.filter((t) => {
-      const pickupOk = !pickupNeedle || (t.pickup || '').toLowerCase().includes(pickupNeedle);
+      const pickupText = (t.pickupLocation || t.originCity || '').toLowerCase();
+      const pickupOk = !pickupNeedle || pickupText.includes(pickupNeedle);
       const statusOk = !statusNeedle || (t.status || '').toUpperCase().includes(statusNeedle);
       return pickupOk && statusOk;
     });
@@ -59,17 +60,21 @@ export default function Trips() {
       label: 'S.No',
       render: (_, i) => i + 1,
     },
-    { key: 'pickup', label: 'Pickup' },
     {
-      key: 'drop',
+      key: 'pickupLocation',
+      label: 'Pickup',
+      render: (t) => t.pickupLocation || t.originCity || '-',
+    },
+    {
+      key: 'dropLocation',
       label: 'Drop',
-      render: (t) => t.drop || '-',
+      render: (t) => t.dropLocation || t.destinationCity || '-',
     },
     { key: 'status', label: 'Status' },
     {
-      key: 'fare',
+      key: 'price',
       label: 'Fare',
-      render: (t) => (t.fare == null ? '-' : String(t.fare)),
+      render: (t) => (t.price == null ? '-' : String(t.price)),
     },
   ];
 

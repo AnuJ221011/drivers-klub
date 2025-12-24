@@ -1,13 +1,19 @@
 import api from './axios';
 import type { TripEntity } from '../models/trip/trip';
 
-export async function getTrips(): Promise<TripEntity[]> {
-  const res = await api.get<TripEntity[]>('/trips');
-  return res.data;
-}
+export type AdminTripsResponse = {
+  trips: TripEntity[];
+  total: number;
+  page: number;
+  limit: number;
+};
 
-export async function getTripsByFleet(fleetId: string): Promise<TripEntity[]> {
-  const res = await api.get<TripEntity[]>(`/trips/${fleetId}`);
+export async function getAdminTrips(params?: {
+  page?: number;
+  limit?: number;
+  status?: string;
+}): Promise<AdminTripsResponse> {
+  const res = await api.get<AdminTripsResponse>('/admin/trips', { params });
   return res.data;
 }
 
