@@ -43,8 +43,10 @@ export class TripCreateService {
     // 3️ Persist trip (Ride)
     return prisma.ride.create({
       data: {
+        fleetId: input.fleetId,
         tripType: input.tripType as TripType,
         originCity: input.originCity,
+        destinationCity: input.destinationCity ?? "Unknown",
         pickupTime: new Date(input.tripDate), // Renamed from tripDate
         distanceKm: input.distanceKm,
         billableKm,

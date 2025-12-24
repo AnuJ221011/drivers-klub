@@ -3,6 +3,7 @@ import { TripOrchestrator } from "../../core/trip/orchestrator/trip.orchestrator
 import { RideProviderMappingRepository } from "../../core/trip/repositories/ride-provider-mapping.repo.js";
 import { prisma } from "../../utils/prisma.js";
 import { ApiResponse } from "../../utils/apiResponse.js";
+import { RideStatus } from "../../shared/enums/ride-status.enum.js";
 
 
 export class TripController {
@@ -14,6 +15,17 @@ export class TripController {
   async createTrip(req: Request, res: Response) {
     const trip = await this.orchestrator.createTrip(req.body);
     return ApiResponse.send(res, 201, trip, "Trip created successfully");
+  }
+
+  async getTripsByFleet(req: Request, res: Response) {
+    const { fleetId } = req.params;
+
+    const trips = await prisma.ride.findMany({
+      where: { fleetId },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return ApiResponse.send(res, 200, trips, "Trips retrieved successfully");
   }
 
   async getTrip(req: Request, res: Response) {
@@ -42,6 +54,22 @@ export class TripController {
 
     const ride = await prisma.ride.findUnique({ where: { id } });
     if (!ride) return res.status(404).json({ message: "Trip not found" });
+
+    const driver = await prisma.driver.findUnique({ where: { id: driverId } });
+    if (!driver) return res.status(404).json({ message: "Driver not found" });
+
+    // If ride is fleet-scoped, enforce same-fleet assignment
+    if (ride.fleetId && driver.fleetId !== ride.fleetId) {
+      return res.status(400).json({ message: "Driver must belong to the same fleet as this trip" });
+    }
+
+    // Optional safety: only allow ACTIVE + available drivers
+    if (driver.status !== "ACTIVE") {
+      return res.status(400).json({ message: "Driver is not ACTIVE" });
+    }
+    if (!driver.isAvailable) {
+      return res.status(400).json({ message: "Driver is not available" });
+    }
 
     await prisma.tripAssignment.create({
       data: {
@@ -98,5 +126,31 @@ export class TripController {
       destination: tracking.data.destination,
       live: tracking.data.live,
     }, "Tracking data retrieved successfully");
+  }
+
+  async updateTripStatus(req: Request, res: Response) {
+    const { id } = req.params;
+    const { status } = (req.body ?? {}) as { status?: RideStatus | string };
+
+    if (!status || typeof status !== "string") {
+      return res.status(400).json({ message: "status is required" });
+    }
+
+    const allowed = Object.values(RideStatus);
+    if (!allowed.includes(status as RideStatus)) {
+      return res.status(400).json({
+        message: `Invalid status. Allowed: ${allowed.join(", ")}`
+      });
+    }
+
+    const ride = await prisma.ride.findUnique({ where: { id } });
+    if (!ride) return res.status(404).json({ message: "Trip not found" });
+
+    const updated = await prisma.ride.update({
+      where: { id },
+      data: { status: status as RideStatus }
+    });
+
+    return ApiResponse.send(res, 200, updated, "Trip status updated successfully");
   }
 }

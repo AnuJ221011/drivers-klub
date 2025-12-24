@@ -9,6 +9,7 @@ export type Driver = {
   name: string;
   phone: string;
   isActive: boolean;
+  isAvailable: boolean;
   createdAt: string;
 };
 
@@ -26,6 +27,7 @@ export type DriverEntity = {
   profilePic: string | null;
   kycStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
   status: DriverStatus;
+  isAvailable: boolean;
   createdAt: string;
   updatedAt: string;
 };

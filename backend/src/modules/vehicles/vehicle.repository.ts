@@ -3,6 +3,7 @@ import type {
   CreateVehicleInput,
   UpdateVehicleDocsInput,
   UpdateVehicleStatusInput,
+  UpdateVehicleInput,
   VehicleEntity
 } from "./vehicle.types.js";
 
@@ -49,6 +50,13 @@ export class VehicleRepository {
   async updateStatus(
     id: string,
     data: UpdateVehicleStatusInput
+  ): Promise<VehicleEntity> {
+    return prisma.vehicle.update({ where: { id }, data });
+  }
+
+  async updateDetails(
+    id: string,
+    data: UpdateVehicleInput
   ): Promise<VehicleEntity> {
     return prisma.vehicle.update({ where: { id }, data });
   }

@@ -174,7 +174,11 @@ export default function DriverManagement() {
         onClose={() => setSelectedDriver(null)}
         title="Edit Driver"
       >
-        <DriverDrawer driver={selectedDriver} />
+        <DriverDrawer
+          driver={selectedDriver}
+          onClose={() => setSelectedDriver(null)}
+          onUpdated={() => void refreshDrivers()}
+        />
       </Drawer>
     </div>
   );

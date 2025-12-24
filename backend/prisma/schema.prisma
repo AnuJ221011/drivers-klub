@@ -104,6 +104,7 @@ model Fleet {
   assignments   Assignment[]
   // trips relation
   trips         Trip[]
+  rides         Ride[]
 
 
   createdAt    DateTime    @default(now())
@@ -385,6 +386,8 @@ enum TripType {
 // Ride Model for external ride details (The "Trip" concept for Intelligence)
 model Ride {
   id              String   @id @default(uuid())
+  fleetId         String?
+  fleet           Fleet?   @relation(fields: [fleetId], references: [id], onDelete: SetNull)
   tripType        TripType
   originCity      String
   destinationCity String   @default("Unknown")
@@ -415,6 +418,8 @@ model Ride {
   tripAssignments  TripAssignment[]
 
   providerMapping RideProviderMapping?
+
+  @@index([fleetId])
 }
 
 

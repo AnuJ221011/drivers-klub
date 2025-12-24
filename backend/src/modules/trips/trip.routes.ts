@@ -28,10 +28,13 @@ const orchestrator = new TripOrchestrator(
 const tripController = new TripController(orchestrator, mappingRepo);
 
 router.post("/", (req, res) => tripController.createTrip(req, res));
+// Fleet scoped listing (must be above "/:id" route to avoid conflict)
+router.get("/fleet/:fleetId", (req, res) => tripController.getTripsByFleet(req, res));
 router.get("/:id", (req, res) => tripController.getTrip(req, res));
 router.post("/:id/assign", (req, res) => tripController.assignDriver(req, res));
 router.post("/:id/start", (req, res) => tripController.startTrip(req, res));
 router.post("/:id/complete", (req, res) => tripController.completeTrip(req, res));
 router.get("/:id/tracking", (req, res) => tripController.getTracking(req, res));
+router.patch("/:id/status", (req, res) => tripController.updateTripStatus(req, res));
 
 export default router;
