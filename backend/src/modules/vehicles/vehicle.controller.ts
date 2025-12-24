@@ -28,3 +28,13 @@ export const deactivateVehicle = async (req: Request, res: Response) => {
   const vehicle = await service.deactivateVehicle(req.params.id);
   ApiResponse.send(res, 200, vehicle, "Vehicle deactivated successfully");
 };
+
+export const updateVehicle = async (req: Request, res: Response) => {
+  const vehicle = await service.updateVehicle(req.params.id, req.body);
+  ApiResponse.send(res, 200, vehicle, "Vehicle updated successfully");
+};
+
+export const updateVehicleStatus = async (req: Request, res: Response) => {
+  const vehicle = await service.updateVehicleStatus(req.params.id, req.body);
+  ApiResponse.send(res, 200, vehicle, "Vehicle status updated successfully");
+};

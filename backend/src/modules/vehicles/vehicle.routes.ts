@@ -4,7 +4,9 @@ import {
   getVehiclesByFleet,
   getVehicleById,
   updateVehicleDocs,
-  deactivateVehicle
+  deactivateVehicle,
+  updateVehicle,
+  updateVehicleStatus
 } from "./vehicle.controller.js";
 import { authenticate } from "../../middlewares/authenticate.js";
 import { authorizeRoles } from "../../middlewares/authorize.js";
@@ -35,6 +37,18 @@ router.patch(
   "/:id/docs",
   authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
   updateVehicleDocs
+);
+
+router.patch(
+  "/:id",
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  updateVehicle
+);
+
+router.patch(
+  "/:id/status",
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  updateVehicleStatus
 );
 
 router.patch(

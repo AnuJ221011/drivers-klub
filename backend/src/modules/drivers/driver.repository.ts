@@ -1,8 +1,10 @@
 import { prisma } from "../../utils/prisma.js";
 import type {
   CreateDriverInput,
+  UpdateDriverInput,
   UpdateDriverKycInput,
   UpdateDriverStatusInput,
+  UpdateDriverAvailabilityInput,
   DriverEntity
 } from "./driver.types.js";
 
@@ -30,9 +32,23 @@ export class DriverRepository {
     return prisma.driver.update({ where: { id }, data });
   }
 
+  async updateDetails(
+    id: string,
+    data: UpdateDriverInput
+  ): Promise<DriverEntity> {
+    return prisma.driver.update({ where: { id }, data });
+  }
+
   async updateStatus(
     id: string,
     data: UpdateDriverStatusInput
+  ): Promise<DriverEntity> {
+    return prisma.driver.update({ where: { id }, data });
+  }
+
+  async updateAvailability(
+    id: string,
+    data: UpdateDriverAvailabilityInput
   ): Promise<DriverEntity> {
     return prisma.driver.update({ where: { id }, data });
   }
