@@ -11,6 +11,7 @@ import Modal from "../components/layout/Modal";
 
 import VehicleDrawer from "../components/Vehicle/VehicleDrawer";
 import AddVehicle from "../components/Vehicle/AddVehicle";
+import FleetSelectBar from '../components/fleet/FleetSelectBar';
 
 import type { Column } from "../components/ui/Table";
 import { getVehiclesByFleet } from '../api/vehicle.api';
@@ -42,7 +43,7 @@ export default function VehicleManagement() {
 
   const refreshVehicles = useCallback(async () => {
     if (!effectiveFleetId) {
-      toast.error('No fleet selected/available');
+      setVehicles([]);
       return;
     }
     setLoading(true);
@@ -116,9 +117,10 @@ export default function VehicleManagement() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-semibold">
-          Vehicles
-        </h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-semibold">Vehicles</h1>
+          <FleetSelectBar className="w-72" />
+        </div>
 
         <div className="flex items-center gap-2">
           {/* Mobile filter toggle */}
@@ -130,7 +132,7 @@ export default function VehicleManagement() {
                 <Filter size={16} />
           </Button>
 
-          <Button onClick={() => setOpen(true)}>
+          <Button onClick={() => setOpen(true)} disabled={!effectiveFleetId}>
             + Vehicle
           </Button>
         </div>
@@ -170,7 +172,9 @@ export default function VehicleManagement() {
       </Modal>
 
       {/* Table */}
-      {loading ? (
+      {!effectiveFleetId ? (
+        <div className="text-sm text-black/60">Select a fleet to view vehicles.</div>
+      ) : loading ? (
         <div className="text-sm text-black/60">Loading vehicles…</div>
       ) : (
         <Table columns={columns} data={filteredVehicles} />

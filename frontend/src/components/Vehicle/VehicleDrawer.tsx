@@ -12,34 +12,40 @@ type Props = {
   onUpdated?: () => void;
 };
 
+type BodyType = 'SEDAN' | 'SUV' | 'HATCHBACK';
+type FuelType = 'PETROL' | 'DIESEL' | 'CNG' | 'EV';
+
+function coerceBodyType(value: unknown): BodyType {
+  return value === 'SEDAN' || value === 'SUV' || value === 'HATCHBACK' ? value : 'SEDAN';
+}
+
+function coerceFuelType(value: unknown): FuelType {
+  return value === 'PETROL' || value === 'DIESEL' || value === 'CNG' || value === 'EV' ? value : 'PETROL';
+}
+
 export default function VehicleDrawer({ vehicle, onClose, onUpdated }: Props) {
-  if (!vehicle) return null;
-
-  // capture non-null id to avoid nullability issues in closures
-  const vehicleId = vehicle.id;
-
-  const [number, setNumber] = useState(vehicle.number);
-  const [brand, setBrand] = useState(vehicle.brand);
-  const [model, setModel] = useState(vehicle.model);
-  const [bodyType, setBodyType] = useState<'SEDAN' | 'SUV' | 'HATCHBACK'>(
-    (vehicle.bodyType as 'SEDAN' | 'SUV' | 'HATCHBACK') || 'SEDAN',
-  );
-  const [fuelType, setFuelType] = useState<'PETROL' | 'DIESEL' | 'CNG' | 'EV'>(
-    (vehicle.fuelType as 'PETROL' | 'DIESEL' | 'CNG' | 'EV') || 'PETROL',
-  );
-  const [status, setStatus] = useState<'Active' | 'Inactive'>(vehicle.isActive ? 'Active' : 'Inactive');
+  const [number, setNumber] = useState('');
+  const [brand, setBrand] = useState('');
+  const [model, setModel] = useState('');
+  const [bodyType, setBodyType] = useState<BodyType>('SEDAN');
+  const [fuelType, setFuelType] = useState<FuelType>('PETROL');
+  const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!vehicle) return;
     setNumber(vehicle.number);
     setBrand(vehicle.brand);
     setModel(vehicle.model);
-    setBodyType((vehicle.bodyType as any) || 'SEDAN');
-    setFuelType((vehicle.fuelType as any) || 'PETROL');
+    setBodyType(coerceBodyType(vehicle.bodyType));
+    setFuelType(coerceFuelType(vehicle.fuelType));
     setStatus(vehicle.isActive ? 'Active' : 'Inactive');
   }, [vehicle]);
 
   async function onSave() {
+    if (!vehicle) return;
+    // capture non-null id to avoid nullability issues in closures
+    const vehicleId = vehicle.id;
     setSaving(true);
     try {
       await updateVehicleDetails(vehicleId, {
@@ -65,6 +71,8 @@ export default function VehicleDrawer({ vehicle, onClose, onUpdated }: Props) {
       setSaving(false);
     }
   }
+
+  if (!vehicle) return null;
 
   return (
     <div className="space-y-4">

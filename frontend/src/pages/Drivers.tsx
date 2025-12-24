@@ -14,6 +14,7 @@ import type { Column } from '../components/ui/Table';
 import { getDriversByFleet } from '../api/driver.api';
 import type { Driver } from '../models/driver/driver';
 import { useFleet } from '../context/FleetContext';
+import FleetSelectBar from '../components/fleet/FleetSelectBar';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -38,7 +39,7 @@ export default function DriverManagement() {
 
   const refreshDrivers = useCallback(async () => {
     if (!effectiveFleetId) {
-      toast.error('No fleet selected/available');
+      setDrivers([]);
       return;
     }
     setLoading(true);
@@ -117,7 +118,10 @@ export default function DriverManagement() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Drivers</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-semibold">Drivers</h1>
+          <FleetSelectBar className="w-72" />
+        </div>
 
         <div className="flex items-center gap-2">
           {/* Mobile filter toggle */}
@@ -129,7 +133,7 @@ export default function DriverManagement() {
             <Filter size={16} />
           </Button>
 
-          <Button onClick={() => setOpen(true)}>
+          <Button onClick={() => setOpen(true)} disabled={!effectiveFleetId}>
             +Driver
           </Button>
         </div>
@@ -162,7 +166,9 @@ export default function DriverManagement() {
       </div>
 
       {/* Table */}
-      {loading ? (
+      {!effectiveFleetId ? (
+        <div className="text-sm text-black/60">Select a fleet to view drivers.</div>
+      ) : loading ? (
         <div className="text-sm text-black/60">Loading drivers…</div>
       ) : (
         <Table data={filteredDrivers} columns={columns} />
