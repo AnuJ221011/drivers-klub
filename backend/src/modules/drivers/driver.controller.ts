@@ -18,3 +18,18 @@ export const getDriverById = async (req: Request, res: Response) => {
   const driver = await driverService.getDriverById(req.params.id);
   ApiResponse.send(res, 200, driver, "Driver retrieved successfully");
 };
+
+export const updateDriver = async (req: Request, res: Response) => {
+  const driver = await driverService.updateDriver(req.params.id, req.body);
+  ApiResponse.send(res, 200, driver, "Driver updated successfully");
+};
+
+export const updateDriverStatus = async (req: Request, res: Response) => {
+  const driver = await driverService.updateDriverStatus(req.params.id, req.body);
+  ApiResponse.send(res, 200, driver, "Driver status updated successfully");
+};
+
+export const updateDriverAvailability = async (req: Request, res: Response) => {
+  const driver = await driverService.updateDriverAvailability(req.params.id, req.body);
+  ApiResponse.send(res, 200, driver, "Driver availability updated successfully");
+};

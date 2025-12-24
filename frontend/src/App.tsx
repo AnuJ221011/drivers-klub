@@ -9,6 +9,7 @@ import Vehicle from './pages/Vehicle';
 import Driver from './pages/Drivers';
 import TeamManagement from './pages/Team';
 import Trips from './pages/Trips';
+import FleetsPage from './pages/Fleets';
 
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -35,6 +36,14 @@ export default function App() {
           }
         >
           <Route index element={<div>Welcome to admin</div>} />
+          <Route
+            path="fleets"
+            element={
+              <PrivateRoute>
+                <FleetsPage />
+              </PrivateRoute>
+            }
+          />
           <Route
             path="trips"
             element={

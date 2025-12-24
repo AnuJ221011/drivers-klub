@@ -20,8 +20,19 @@ export type UpdateDriverKycInput = {
   kycStatus?: KycStatus;
 };
 
+export type UpdateDriverInput = {
+  firstName?: string;
+  lastName?: string;
+  mobile?: string;
+  profilePic?: string;
+};
+
 export type UpdateDriverStatusInput = {
   status: DriverStatus;
+};
+
+export type UpdateDriverAvailabilityInput = {
+  isAvailable: boolean;
 };
 
 export type DriverEntity = Driver;

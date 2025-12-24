@@ -182,7 +182,11 @@ export default function VehicleManagement() {
         onClose={() => setSelectedVehicle(null)}
         title="Edit Vehicle"
       >
-        <VehicleDrawer vehicle={selectedVehicle} />
+        <VehicleDrawer
+          vehicle={selectedVehicle}
+          onClose={() => setSelectedVehicle(null)}
+          onUpdated={() => void refreshVehicles()}
+        />
       </Drawer>
     </div>
   );

@@ -8,6 +8,7 @@ function toUiDriver(entity: DriverEntity): Driver {
     name: `${entity.firstName} ${entity.lastName}`.trim(),
     phone: entity.mobile,
     isActive: entity.status === 'ACTIVE',
+    isAvailable: Boolean(entity.isAvailable),
     createdAt: entity.createdAt,
   };
 }
@@ -60,5 +61,46 @@ export async function createDriver(
     status: input.isActive ? 'ACTIVE' : 'INACTIVE',
   });
 
+  return toUiDriver(res.data);
+}
+
+export type UpdateDriverInput = {
+  name?: string;
+  phone?: string;
+};
+
+export async function updateDriverDetails(
+  driverId: string,
+  input: UpdateDriverInput,
+): Promise<Driver> {
+  const patch: Record<string, unknown> = {};
+  if (typeof input.name === 'string') {
+    const { firstName, lastName } = splitName(input.name);
+    patch.firstName = firstName;
+    patch.lastName = lastName;
+  }
+  if (typeof input.phone === 'string') patch.mobile = input.phone;
+
+  const res = await api.patch<DriverEntity>(`/drivers/${driverId}`, patch);
+  return toUiDriver(res.data);
+}
+
+export async function updateDriverStatus(
+  driverId: string,
+  isActive: boolean,
+): Promise<Driver> {
+  const res = await api.patch<DriverEntity>(`/drivers/${driverId}/status`, {
+    status: isActive ? 'ACTIVE' : 'INACTIVE',
+  });
+  return toUiDriver(res.data);
+}
+
+export async function updateDriverAvailability(
+  driverId: string,
+  isAvailable: boolean,
+): Promise<Driver> {
+  const res = await api.patch<DriverEntity>(`/drivers/${driverId}/availability`, {
+    isAvailable,
+  });
   return toUiDriver(res.data);
 }
