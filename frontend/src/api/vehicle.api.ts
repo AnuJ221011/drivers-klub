@@ -55,3 +55,36 @@ export async function createVehicle(
 
   return toUiVehicle(res.data);
 }
+
+export type UpdateVehicleInput = {
+  number?: string;
+  brand?: string;
+  model?: string;
+  bodyType?: 'SEDAN' | 'SUV' | 'HATCHBACK';
+  fuelType?: 'PETROL' | 'DIESEL' | 'CNG' | 'EV';
+};
+
+export async function updateVehicleDetails(
+  vehicleId: string,
+  input: UpdateVehicleInput,
+): Promise<Vehicle> {
+  const patch: Record<string, unknown> = {};
+  if (typeof input.number === 'string') patch.vehicleNumber = input.number;
+  if (typeof input.brand === 'string') patch.vehicleName = input.brand;
+  if (typeof input.model === 'string') patch.vehicleModel = input.model;
+  if (typeof input.bodyType === 'string') patch.vehicleColor = input.bodyType;
+  if (typeof input.fuelType === 'string') patch.fuelType = fromUiFuelType(input.fuelType);
+
+  const res = await api.patch<VehicleEntity>(`/vehicles/${vehicleId}`, patch);
+  return toUiVehicle(res.data);
+}
+
+export async function updateVehicleStatus(
+  vehicleId: string,
+  isActive: boolean,
+): Promise<Vehicle> {
+  const res = await api.patch<VehicleEntity>(`/vehicles/${vehicleId}/status`, {
+    status: isActive ? 'ACTIVE' : 'INACTIVE',
+  });
+  return toUiVehicle(res.data);
+}

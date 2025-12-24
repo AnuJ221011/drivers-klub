@@ -1,21 +1,15 @@
 export type DriverStatus = 'ACTIVE' | 'INACTIVE';
 
-/**
- * UI-friendly driver model used by pages/components.
- * `isActive` is non-nullable as requested.
- */
 export type Driver = {
   id: string;
   name: string;
   phone: string;
   isActive: boolean;
+  isAvailable: boolean;
   createdAt: string;
 };
 
-/**
- * Backend driver entity (Prisma Driver).
- * Keep this internal to API adapters.
- */
+
 export type DriverEntity = {
   id: string;
   userId: string;
@@ -26,6 +20,7 @@ export type DriverEntity = {
   profilePic: string | null;
   kycStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
   status: DriverStatus;
+  isAvailable: boolean;
   createdAt: string;
   updatedAt: string;
 };
