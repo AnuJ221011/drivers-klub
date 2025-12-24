@@ -18,11 +18,30 @@ export class OtpService {
             Date.now() + Number(process.env.OTP_EXPIRY_MINUTES || 5) * 60 * 1000
         );
 
-        await repo.create({ phone, otp, expiresAt });
+        // LOG FIRST (So we see it even if DB fails)
+        if (!process.env.EXOTEL_ACCOUNT_SID || process.env.NODE_ENV !== "production") {
+            console.log("==========================================");
+            console.log(`[DEV OTP] Phone: ${phone}`);
+            console.log(`[DEV OTP] Code : ${otp}`);
+            console.log("==========================================");
+        }
+
+        try {
+            await repo.create({ phone, otp, expiresAt });
+        } catch (error) {
+            console.error("OTP DB Persist Failed:", error);
+            throw new ApiError(500, "Failed to persist OTP");
+        }
 
         // 🔹 EXOTEL SEND OTP (IF CONFIGURED)
-        if (process.env.EXOTEL_ACCOUNT_SID && process.env.EXOTEL_API_KEY && process.env.EXOTEL_API_TOKEN) {
+        if (
+            process.env.EXOTEL_ACCOUNT_SID &&
+            process.env.EXOTEL_API_KEY &&
+            process.env.EXOTEL_API_TOKEN &&
+            process.env.NODE_ENV === "production" // SAFETY: Only run in prod
+        ) {
             try {
+                // ... Exotel call ...
                 await axios.post(
                     `https://api.exotel.com/v1/Accounts/${process.env.EXOTEL_ACCOUNT_SID}/Sms/send.json`,
                     null,
@@ -40,15 +59,8 @@ export class OtpService {
                 );
             } catch (error) {
                 console.error("Exotel OTP Send Failed:", error);
-                // Should we throw? Maybe for now just log, or throw so client knows it failed.
-                // User's code didn't catch, so I'll let it throw or just proceed?
-                // User's code: await axios.post(...)
-                // So I should let it fail if axios fails.
                 throw new ApiError(500, "Failed to send OTP via SMS provider");
             }
-        } else {
-            // Dev mode log if no exotel credentials
-            console.log(`[DEV] OTP for ${phone}: ${otp}`);
         }
 
         return { success: true };

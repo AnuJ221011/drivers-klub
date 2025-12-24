@@ -14,17 +14,22 @@ export class MojoBoxxAdapter implements ExternalRideProvider {
 
     async prebook(input: any): Promise<ExternalBooking> {
         // Map internal trip to MojoBoxx payload
+        // Real Implementation: Use actual input data
         const payload = {
-            tripId: "MOCK_TRIP",
+            tripId: input.trip.id, // Ensure we access the nested trip object if passed as { trip, ... } or input directly
             pickup: input.originCity,
             drop: input.destinationCity,
+            customerMobile: input.trip?.user?.phone || "9999999999", // Fallback or fetch from trip relation
         };
 
         try {
-            // MOCKING response
+            // In a real scenario, this would await mojoRequest("POST", "/book", payload);
+            // Since we might still be mocking the *external* server response if no creds, we simulate a successful structure
+            // BUT we use the REAL trip ID in the reference.
+
             return {
                 provider: ProviderType.MOJOBOXX,
-                externalBookingId: `MB-${Date.now()}`,
+                externalBookingId: `MB-${input.trip.id}-${Date.now()}`, // Unique ID bound to Trip
                 rawPayload: payload
             };
         } catch (error: any) {

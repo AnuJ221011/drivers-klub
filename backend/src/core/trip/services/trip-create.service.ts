@@ -8,9 +8,11 @@ import { TripType } from "@prisma/client";
 
 export class TripCreateService {
   static async create(input: CreateTripRequest) {
+    console.log("TripCreateService: Validating input...");
     // 1️ Validate constraints
     TripValidator.validateCity(input.originCity);
     TripValidator.validateVehicle(input.vehicleSku);
+    console.log("TripCreateService: Basic validators passed.");
 
     // Use new ConstraintEngine
     const constraintResult = ConstraintEngine.validate({
@@ -23,8 +25,10 @@ export class TripCreateService {
     });
 
     if (!constraintResult.allowed) {
+      console.error("TripCreateService: Constraint blocked:", constraintResult.reason);
       throw new Error(constraintResult.reason);
     }
+    console.log("TripCreateService: Constraints passed.");
 
     // 2 Pricing
     const pricing = PricingEngine.calculateFare({
@@ -34,6 +38,7 @@ export class TripCreateService {
       bookingTime: new Date(input.bookingDate),
       vehicleType: "EV",
     });
+    console.log("TripCreateService: Pricing calculated:", pricing);
 
     const billableKm = Math.max(
       Math.ceil(input.distanceKm),
@@ -45,6 +50,9 @@ export class TripCreateService {
       data: {
         tripType: input.tripType as TripType,
         originCity: input.originCity,
+        destinationCity: input.destinationCity || "Unknown",
+        pickupLocation: input.pickupLocation,
+        dropLocation: input.dropLocation,
         pickupTime: new Date(input.tripDate), // Renamed from tripDate
         distanceKm: input.distanceKm,
         billableKm,

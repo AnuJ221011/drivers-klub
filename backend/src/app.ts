@@ -13,6 +13,10 @@ import tripRoutes from "./modules/trips/trip.routes.js";
 import pricingRoutes from "./modules/pricing/pricing.routes.js";
 import adminTripRoutes from "./modules/trips/admin-trip.routes.js";
 import cors from "cors";
+import mmtRoutes from "./modules/partner/mmt/mmt.routes.js";
+import attendanceRoutes from "./modules/attendance/attendance.routes.js";
+
+
 
 
 
@@ -60,6 +64,15 @@ app.get("/health", (_req, res) => {
     });
 });
 
+app.get("/", (_req, res) => {
+    res.status(200).json({
+        message: "Welcome to Driver's Klub API 🚖",
+        status: "active",
+        documentation: "/api-docs (Coming Soon)",
+        health_check: "/health"
+    });
+});
+
 // for authentication
 app.use("/auth", authRoutes);
 // for users
@@ -80,6 +93,12 @@ app.use("/trips", tripRoutes);
 app.use("/pricing", pricingRoutes);
 // for admin trips
 app.use("/admin/trips", adminTripRoutes);
+// for attendance
+app.use("/attendance", attendanceRoutes);
+
+
+// for partners (MMT)
+app.use("/partner/mmt", mmtRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

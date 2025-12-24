@@ -3,10 +3,15 @@ import { RideStatus } from "../../shared/enums/ride-status.enum.js";
 export interface TripResponseDto {
     id: string;
     status: RideStatus;
-    provider: string;
-    pickup: string;
-    destination: string;
-    fare?: number;
+    provider?: string;
+    tripType: string;
+    originCity: string;
+    destinationCity: string;
+    pickupLocation?: string;
+    dropLocation?: string;
+    price?: number;
+    startedAt?: Date;
+    completedAt?: Date;
     createdAt: Date;
 }
 

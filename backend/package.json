@@ -4,11 +4,13 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "dev": "npx prisma generate && tsx watch src/server.ts",
+    "build": "npx prisma generate && tsc",
     "start": "node dist/server.js",
     "lint": "eslint . --ext .ts",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:api": "tsx scripts/test-api-flow.ts",
+    "test:full": "tsx scripts/test-full-flow.ts"
   },
   "repository": {
     "type": "git",

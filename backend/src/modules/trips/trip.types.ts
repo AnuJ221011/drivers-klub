@@ -1,4 +1,4 @@
-import type { Trip} from "@prisma/client";
+import type { Ride } from "@prisma/client";
 
 export type CreateTripInput = {
   assignmentId: string;
@@ -6,4 +6,4 @@ export type CreateTripInput = {
   drop?: string;
 };
 
-export type TripEntity = Trip;
+export type TripEntity = Ride;

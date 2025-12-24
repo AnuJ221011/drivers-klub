@@ -21,7 +21,16 @@ export class ProviderBookingService {
         if (!assignment) throw new Error("Assignment not found");
 
         // Decide provider (hardcoded or rule-based for now)
-        const provider: Provider = Provider.MOJOBOXX;
+        // Decide provider:
+        // 1. Check if Trip already has a preferred provider
+        // 2. Or check Allocation logic
+        // 3. Default to MMT if ambiguous
+        let provider: Provider = trip.provider || Provider.MMT;
+
+        // If the Orchestrator set a provider type in Mapping (even if deferred), we should respect it
+        const mapping = await prisma.rideProviderMapping.findUnique({ where: { rideId: tripId } });
+        if (mapping && mapping.providerType === "MOJOBOXX") provider = Provider.MOJOBOXX;
+        if (mapping && mapping.providerType === "MMT") provider = Provider.MMT;
 
         await prisma.tripAssignment.update({
             where: { id: assignmentId },
@@ -38,10 +47,29 @@ export class ProviderBookingService {
                 destinationCity: trip.destinationCity || "Unknown"
             });
 
+            // 4. Persist Mapping (Upsert in case it exists)
+            await prisma.rideProviderMapping.upsert({
+                where: { rideId: tripId },
+                update: {
+                    providerType: provider,
+                    externalBookingId: result.externalBookingId,
+                    providerStatus: "CONFIRMED",
+                    rawPayload: result.rawPayload as any,
+                },
+                create: {
+                    rideId: tripId,
+                    providerType: provider,
+                    externalBookingId: result.externalBookingId,
+                    providerStatus: "CONFIRMED",
+                    rawPayload: result.rawPayload as any,
+                }
+            });
+
+            // Legacy Sync
             await prisma.ride.update({
                 where: { id: tripId },
                 data: {
-                    provider,
+                    provider: provider,
                     providerBookingId: result.externalBookingId,
                     providerStatus: ProviderBookingStatus.CONFIRMED,
                     providerMeta: result.rawPayload || {},

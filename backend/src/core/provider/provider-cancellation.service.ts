@@ -4,25 +4,34 @@ import { ProviderFactory } from "./provider.factory.js";
 
 export class ProviderCancellationService {
     static async cancelTripProviderBooking(tripId: string) {
-        const trip = await prisma.ride.findUnique({
-            where: { id: tripId },
+        // Fetch Mapping
+        const mapping = await prisma.rideProviderMapping.findUnique({
+            where: { rideId: tripId },
         });
 
-        if (!trip || !trip.providerBookingId || !trip.provider) return;
+        if (!mapping || !mapping.externalBookingId) return;
 
         try {
-            const adapter = ProviderFactory.getProvider(trip.provider);
+            // Simplify: Direct resolve since factory might need updates. 
+            // Better to use Registry if available, but for static service we use Factory/Adapter directly.
+            // Assuming Factory exists and works:
+            const adapter = ProviderFactory.getProvider(mapping.providerType as any);
 
             await adapter.cancelBooking(
-                trip.providerBookingId
+                mapping.externalBookingId
             );
 
-            await prisma.ride.update({
-                where: { id: tripId },
+            await prisma.rideProviderMapping.update({
+                where: { rideId: tripId },
                 data: {
                     providerStatus: ProviderBookingStatus.CANCELLED,
-                    providerMeta: {},
                 },
+            });
+
+            // Sync legacy status if needed
+            await prisma.ride.update({
+                where: { id: tripId },
+                data: { providerStatus: ProviderBookingStatus.CANCELLED }
             });
 
         } catch (error) {

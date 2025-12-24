@@ -3,6 +3,9 @@ export interface CreateTripRequest {
   bookingDate: string;
   tripDate: string;
   originCity: string;
-  tripType: "AIRPORT";
-  vehicleSku: "TATA_TIGOR_EV";
+  destinationCity?: string;
+  pickupLocation?: string;
+  dropLocation?: string;
+  tripType: "AIRPORT" | "INTER_CITY" | "RENTAL";
+  vehicleSku: string;
 }

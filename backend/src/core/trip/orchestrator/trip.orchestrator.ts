@@ -22,6 +22,19 @@ export class TripOrchestrator {
     const ride = await TripCreateService.create(input);
 
     // 3. Delegate to provider
+    // Defer both MMT and MojoBoxx for manual assignment flow (Safety First)
+    if (providerType === "MMT" || providerType === "MOJOBOXX") {
+      // Persist the intent so Assignment Service knows which provider to trigger
+      await this.rideProviderMappingRepo.create({
+        rideId: ride.id,
+        providerType,
+        externalBookingId: "", // Not yet booked
+        providerStatus: "PENDING", // Deferred status
+        rawPayload: {},
+      });
+      return ride;
+    }
+
     const provider = this.registry.get(providerType);
 
     if (!provider) throw new Error(`Provider not found for type: ${providerType}`);

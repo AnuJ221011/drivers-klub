@@ -5,6 +5,8 @@ import { logger } from "./logger.js";
 
 const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
+    max: 10, // Explicitly limit pool size
+    idleTimeoutMillis: 30000
 });
 
 const adapter = new PrismaPg(pool);

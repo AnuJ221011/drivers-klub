@@ -73,4 +73,4 @@ export class VehicleService {
     if (!data?.status) throw new ApiError(400, "status is required");
     return this.repo.updateStatus(id, data);
   }
-}
+} 

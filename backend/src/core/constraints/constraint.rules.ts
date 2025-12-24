@@ -15,6 +15,21 @@ function validateOrigin(origin: string): ConstraintResult {
     return { allowed: true };
 }
 
+function validatePrebookWindow(pickupTime: Date): ConstraintResult {
+    const now = new Date();
+    const tomorrow4AM = new Date(now);
+    tomorrow4AM.setDate(now.getDate() + 1);
+    tomorrow4AM.setHours(4, 0, 0, 0);
+
+    if (pickupTime < tomorrow4AM) {
+        return {
+            allowed: false,
+            reason: `Pre-booked trips must be scheduled for the next calendar day from 4:00 AM onwards (After ${tomorrow4AM.toLocaleString()})`
+        };
+    }
+    return { allowed: true };
+}
+
 export const constraintRules = {
     [TripType.AIRPORT]: (input: ConstraintInput): ConstraintResult => {
         const originCheck = validateOrigin(input.originCity);
@@ -24,7 +39,7 @@ export const constraintRules = {
             return { allowed: false, reason: "Airport trips must be pre-booked" };
         }
 
-        return { allowed: true };
+        return validatePrebookWindow(input.pickupTime);
     },
 
     [TripType.RENTAL]: (input: ConstraintInput): ConstraintResult => {
@@ -35,7 +50,7 @@ export const constraintRules = {
             return { allowed: false, reason: "Rental trips must be pre-booked" };
         }
 
-        return { allowed: true };
+        return validatePrebookWindow(input.pickupTime);
     },
 
     [TripType.INTER_CITY]: (input: ConstraintInput): ConstraintResult => {

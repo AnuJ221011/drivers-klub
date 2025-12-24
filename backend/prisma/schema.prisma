@@ -103,7 +103,7 @@ model Fleet {
   // assignments relation
   assignments   Assignment[]
   // trips relation
-  trips         Trip[]
+  // trips relation removed
 
 
   createdAt    DateTime    @default(now())
@@ -162,7 +162,7 @@ model Vehicle {
   // Assignments relation
   assignments       Assignment[]
   // Trips relation
-  trips             Trip[]
+  // trips relation removed
 
 
 
@@ -220,17 +220,21 @@ model Driver {
   // Assignments realtion
   assignments          Assignment[]
   // Trips relation
-  trips                Trip[]
+  // trips relation removed
   // Trip assignments relation
   tripAssignments      TripAssignment[]
+  // Attendance relation
+  attendance           Attendance[]
   isAvailable Boolean  @default(true)
 
 
 
   // Basic info
+  // Basic info
   firstName            String
   lastName             String
   mobile               String
+  licenseNumber        String?
   profilePic           String?
 
   // KYC documents
@@ -281,7 +285,7 @@ model Assignment {
   vehicle     Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   
   // Trips relation
-  trips       Trip[]
+  // trips relation removed
 
 
   status      AssignmentStatus  @default(ACTIVE)
@@ -297,39 +301,16 @@ model Assignment {
   @@index([vehicleId])
 }
 
-// Trip Model for tracking trips
+// Legacy Trip Model Removed (Consolidated into Ride)
 enum TripStatus {
   CREATED
+  BLOCKED // For MMT/Partner holds
   STARTED
   COMPLETED
   CANCELLED
-}
-
-model Trip {
-  id          String     @id @default(uuid())
-
-  fleetId     String
-  fleet       Fleet      @relation(fields: [fleetId], references: [id])
-
-  driverId    String
-  driver      Driver     @relation(fields: [driverId], references: [id])
-
-  vehicleId   String
-  vehicle     Vehicle    @relation(fields: [vehicleId], references: [id])
-
-  assignmentId String
-  assignment   Assignment @relation(fields: [assignmentId], references: [id])
-
-  pickup      String
-  drop        String?
-
-  fare        Float?
-  status      TripStatus @default(CREATED)
-
-  startedAt   DateTime?
-  completedAt DateTime?
-
-  createdAt   DateTime   @default(now())
+  NO_SHOW
+  DRIVER_ASSIGNED // Added for Ride compatibility
+  CANCELLED_BY_PARTNER
 }
 
 // RideProviderMapping Model for external ride providers
@@ -382,24 +363,36 @@ enum TripType {
   INTER_CITY
 }
 
-// Ride Model for external ride details (The "Trip" concept for Intelligence)
+// Ride Model (The "True Trip")
 model Ride {
   id              String   @id @default(uuid())
   tripType        TripType
+  
+  // Location Details
   originCity      String
   destinationCity String   @default("Unknown")
-  pickupTime      DateTime @map("tripDate")
+  pickupLocation  String?  // Exact address
+  pickupLat       Float?
+  pickupLng       Float?
   
+  dropLocation    String?  // Exact address
+  dropLat         Float?
+  dropLng         Float?
+  
+  pickupTime      DateTime @map("tripDate") // Keeping map for legacy compat if needed
   
   distanceKm      Float
-  billableKm      Int
-  ratePerKm       Int
-  price           Float    @map("totalFare") 
+  billableKm      Int?
+  ratePerKm       Int?
+  price           Float?    @map("totalFare") 
   
+  vehicleSku      String?
 
-  vehicleSku      String
+  status          TripStatus @default(CREATED) // Standardizing Enum
+  
+  startedAt       DateTime?
+  completedAt     DateTime?
 
-  status          String   @default("CREATED")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt @default(now())
   
@@ -440,3 +433,41 @@ model TripAssignment {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// Attendance Model for Driver Daily Check-in
+enum AttendanceStatus {
+  PENDING   // Driver checked in, waiting for approval
+  APPROVED  // Admin approved, ready for trips
+  REJECTED  // Admin rejected (e.g. invalid uniform)
+  CHECKED_OUT
+}
+
+model Attendance {
+  id           String           @id @default(uuid())
+  
+  driverId     String
+  driver       Driver           @relation(fields: [driverId], references: [id])
+  
+  checkInTime  DateTime         @default(now())
+  checkOutTime DateTime?
+  
+  status       AttendanceStatus @default(PENDING)
+  
+  approvedBy   String?          // Admin User ID
+  adminRemarks String?
+  
+  checkInLat   Float?
+  checkInLng   Float?
+  
+  selfieUrl    String?
+  odometerStart Int?
+  odometerEnd   Int?
+
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([driverId])
+  @@index([status])
+  @@index([createdAt])
+}
+
