@@ -4,6 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
+    "postinstall": "node -e \"require('dotenv').config(); if(!process.env.DATABASE_URL){console.warn('Skipping prisma generate (DATABASE_URL not set)'); process.exit(0)}\" && prisma generate",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",

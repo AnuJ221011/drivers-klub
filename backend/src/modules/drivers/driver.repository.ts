@@ -3,7 +3,8 @@ import type {
   CreateDriverInput,
   UpdateDriverKycInput,
   UpdateDriverStatusInput,
-  DriverEntity
+  DriverEntity,
+  DriverListItem
 } from "./driver.types.js";
 
 export class DriverRepository {
@@ -19,8 +20,24 @@ export class DriverRepository {
     return prisma.driver.findUnique({ where: { id } });
   }
 
-  async findAllByFleet(fleetId: string): Promise<DriverEntity[]> {
-    return prisma.driver.findMany({ where: { fleetId } });
+  async findAllByFleet(fleetId: string): Promise<DriverListItem[]> {
+    // Select only the fields needed for list views.
+    // This reduces payload size and avoids runtime failures if the DB schema
+    // is behind the Prisma schema (missing KYC/doc columns).
+    return prisma.driver.findMany({
+      where: { fleetId },
+      select: {
+        id: true,
+        userId: true,
+        fleetId: true,
+        firstName: true,
+        lastName: true,
+        mobile: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
   }
 
   async updateKyc(
