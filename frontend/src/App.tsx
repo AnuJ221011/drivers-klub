@@ -9,7 +9,7 @@ import Vehicle from './pages/Vehicle';
 import Driver from './pages/Drivers';
 import TeamManagement from './pages/Team';
 import Trips from './pages/Trips';
-import FleetsPage from './pages/Fleets';
+import FleetsPage from './pages/Fleet';
 
 
 function PrivateRoute({ children }: { children: ReactNode }) {

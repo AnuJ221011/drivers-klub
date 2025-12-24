@@ -100,7 +100,6 @@ export default function Team() {
     },
     { key: "name", label: "Name" },
     { key: "phone", label: "Phone" },
-    { key: "email", label: "Email" },
     { key: "role", label: "Role" },
     {
       key: "status",

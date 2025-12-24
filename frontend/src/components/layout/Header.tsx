@@ -1,4 +1,4 @@
-﻿import { Menu } from "lucide-react";
+﻿import { LogOut, Menu } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -89,12 +89,12 @@ const Header = ({ onToggleSidebar, adminName, role }: HeaderProps) => {
 
           {menuOpen ? (
             <div
-              className="absolute right-0 mt-2 w-24 rounded-md border border-black/10 bg-red-400 shadow-lg overflow-hidden z-50"
+              className="absolute right-0 mt-2 w-24 rounded-md border border-black/10 bg-red-500 shadow-lg overflow-hidden z-50"
               role="menu"
             >
               <button
                 type="button"
-                className="w-full text-white text-left px-4 py-1.5 text-sm hover:bg-red-500"
+                className="w-full flex items-center gap-1 text-white text-left px-4 py-1.5 text-sm hover:bg-red-500"
                 role="menuitem"
                 onClick={() => {
                   setMenuOpen(false);
@@ -102,7 +102,8 @@ const Header = ({ onToggleSidebar, adminName, role }: HeaderProps) => {
                   if (ok) logout();
                 }}
               >
-                Logout
+                <LogOut size={18} />
+                <span>Logout</span>
               </button>
             </div>
           ) : null}

@@ -1,9 +1,6 @@
 import { Home, Car, Users, UserCircle, ArrowRightCircle, X, LogOut, Building2 } from "lucide-react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { useFleet } from "../../context/FleetContext";
-import FleetSelectModal from "../fleet/FleetSelectModal";
 
 type SidebarProps = {
   isOpen: boolean;
@@ -27,18 +24,7 @@ export default function Sidebar({
   onClose,
 }: SidebarProps) {
   const { logout } = useAuth();
-  const { setActiveFleetId } = useFleet();
-  const [fleetModalOpen, setFleetModalOpen] = useState(false);
-  const [pendingPath, setPendingPath] = useState<string | null>(null);
-  const navigate = useNavigate();
   const location = useLocation();
-
-  const fleetScopedPaths = new Set<string>(["/admin/trips", "/admin/vehicles", "/admin/drivers"]);
-
-  function openFleetPicker(nextPath: string) {
-    setPendingPath(nextPath);
-    setFleetModalOpen(true);
-  }
 
   function isPathActive(path: string) {
     // keep nav highlight stable when using buttons for fleet-scoped pages
@@ -70,20 +56,6 @@ export default function Sidebar({
             : "w-16"}
         `}
       >
-        <FleetSelectModal
-          open={fleetModalOpen}
-          onClose={() => setFleetModalOpen(false)}
-          onSelected={(fleetId) => {
-            setActiveFleetId(fleetId);
-            setFleetModalOpen(false);
-            const next = pendingPath || "/admin";
-            setPendingPath(null);
-            navigate(next);
-            if (isMobile) onClose();
-          }}
-          title="Select Fleet"
-        />
-
         {/* Wrapper */}
         <div className="flex h-full flex-col">
           {/* Header */}
@@ -102,39 +74,22 @@ export default function Sidebar({
           {/* Nav */}
           <nav className="p-2 space-y-1">
             {navItems.map((item) => (
-              fleetScopedPaths.has(item.path) ? (
-                <button
-                  key={item.name}
-                  type="button"
-                  onClick={() => openFleetPicker(item.path)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium ${
+              <NavLink
+                key={item.name}
+                to={item.path}
+                end={item.path === "/admin"}
+                className={() =>
+                  `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium ${
                     isPathActive(item.path)
                       ? "bg-yellow-400 text-black"
                       : "text-black hover:bg-yellow-200"
-                  }`}
-                >
-                  <item.icon size={18} />
-                  {isOpen && <span>{item.name}</span>}
-                </button>
-              ) : (
-                <NavLink
-                  key={item.name}
-                  to={item.path}
-                  end={item.path === "/admin"}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium
-                   ${
-                     isActive
-                       ? "bg-yellow-400 text-black"
-                       : "text-black hover:bg-yellow-200"
-                   }`
-                  }
-                  onClick={isMobile ? onClose : undefined}
-                >
-                  <item.icon size={18} />
-                  {isOpen && <span>{item.name}</span>}
-                </NavLink>
-              )
+                  }`
+                }
+                onClick={isMobile ? onClose : undefined}
+              >
+                <item.icon size={18} />
+                {isOpen && <span>{item.name}</span>}
+              </NavLink>
             ))}
           </nav>
 
@@ -143,7 +98,7 @@ export default function Sidebar({
             <button
               className="w-full flex items-center gap-3 px-3 py-2
                          rounded-md text-sm font-medium
-                         text-red-500 hover:bg-red-600"
+                         text-red-500 hover:bg-red-600 hover:text-white"
               onClick={() => {
                 logout();
               }}
