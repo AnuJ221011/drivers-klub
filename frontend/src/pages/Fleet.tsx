@@ -14,38 +14,8 @@ import CreateNewFleet from "../components/fleet/CreateNewFleet";
 import FleetDrawer from "../components/fleet/FleetDrawer";
 
 import type { Column } from "../components/ui/Table";
-
-/* ---------- Local Fleet Type ---------- */
-type Fleet = {
-  id: string;
-  name: string;
-  mobile: string;
-  email?: string;
-  city: string;
-  fleetType: "INDIVIDUAL" | "COMPANY" | "PARTNERSHIP";
-  gstNumber?: string;
-  panNumber: string;
-  modeId: string;
-  isActive: boolean;
-  createdAt: string;
-};
-
-/* ---------- Mock Data (replace with API later) ---------- */
-const mockFleets: Fleet[] = [
-  {
-    id: "1",
-    name: "Rohit Sharma",
-    mobile: "9876543210",
-    email: "rohit@gmail.com",
-    city: "Delhi",
-    fleetType: "INDIVIDUAL",
-    gstNumber: "",
-    panNumber: "ABCDE1234F",
-    modeId: "MODE123",
-    isActive: true,
-    createdAt: "2024-12-10",
-  },
-];
+import { useFleet } from "../context/FleetContext";
+import type { Fleet, FleetType } from "../models/fleet/fleet";
 
 export default function FleetManagement() {
   const [openAdd, setOpenAdd] = useState(false);
@@ -54,10 +24,16 @@ export default function FleetManagement() {
   const [showFilters, setShowFilters] = useState(false);
   const [searchName, setSearchName] = useState("");
   const [searchMobile, setSearchMobile] = useState("");
-  const [fleetTypeFilter, setFleetTypeFilter] = useState("");
+  const [fleetTypeFilter, setFleetTypeFilter] = useState<FleetType | "">("");
+
+  const { fleets, fleetsLoading, refreshFleets } = useFleet();
+
+  useEffect(() => {
+    void refreshFleets();
+  }, [refreshFleets]);
 
   const filteredFleets = useMemo(() => {
-    return mockFleets.filter((f) => {
+    return (fleets || []).filter((f) => {
       const nameOk =
         !searchName ||
         f.name.toLowerCase().includes(searchName.toLowerCase());
@@ -68,7 +44,7 @@ export default function FleetManagement() {
 
       return nameOk && mobileOk && typeOk;
     });
-  }, [searchName, searchMobile, fleetTypeFilter]);
+  }, [fleets, searchName, searchMobile, fleetTypeFilter]);
 
   const columns: Column<Fleet>[] = [
     {
@@ -89,12 +65,12 @@ export default function FleetManagement() {
       render: (f) => (
         <span
           className={`px-2 py-1 rounded-full text-xs ${
-            f.isActive
+            f.status === "ACTIVE"
               ? "bg-green-100 text-green-700"
               : "bg-red-100 text-red-700"
           }`}
         >
-          {f.isActive ? "Active" : "Inactive"}
+          {f.status === "ACTIVE" ? "Active" : "Inactive"}
         </span>
       ),
     },
@@ -153,18 +129,21 @@ export default function FleetManagement() {
         />
         <Select
           value={fleetTypeFilter}
-          onChange={(e) => setFleetTypeFilter(e.target.value)}
+          onChange={(e) => setFleetTypeFilter(e.target.value as FleetType | "")}
           options={[
             { label: "All Fleet Types", value: "" },
             { label: "Individual", value: "INDIVIDUAL" },
             { label: "Company", value: "COMPANY" },
-            { label: "Partnership", value: "PARTNERSHIP" },
           ]}
         />
       </div>
 
       {/* Table */}
-      <Table columns={columns} data={filteredFleets} />
+      {fleetsLoading ? (
+        <div className="text-sm text-black/60">Loading fleets…</div>
+      ) : (
+        <Table columns={columns} data={filteredFleets} />
+      )}
 
       {/* Add Fleet Modal */}
       <Modal
@@ -176,6 +155,7 @@ export default function FleetManagement() {
           onClose={() => setOpenAdd(false)}
           onCreated={() => {
             toast.success("Fleet created");
+            void refreshFleets();
             setOpenAdd(false);
           }}
         />
@@ -187,7 +167,12 @@ export default function FleetManagement() {
         onClose={() => setSelectedFleet(null)}
         title="Fleet Details"
       >
-        <FleetDrawer fleet={selectedFleet} />
+        <FleetDrawer
+          fleet={selectedFleet}
+          onDeactivated={() => {
+            void refreshFleets();
+          }}
+        />
       </Drawer>
     </div>
   );
