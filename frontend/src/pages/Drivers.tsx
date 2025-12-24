@@ -101,6 +101,19 @@ export default function DriverManagement() {
       ),
     },
     {
+      key: "availability",
+      label: "Availability",
+      render: (d) => (
+        <span
+          className={`px-2 py-1 rounded-full text-xs ${
+            d.isAvailable ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+          }`}
+        >
+          {d.isAvailable ? 'Available' : 'Unavailable'}
+        </span>
+      ),
+    },
+    {
       key: "actions",
       label: "Actions",
       render: (d) => (
