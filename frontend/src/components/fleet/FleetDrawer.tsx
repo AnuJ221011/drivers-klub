@@ -1,32 +1,29 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import Input from "../ui/Input";
-import Select from "../ui/Select";
 import Button from "../ui/Button";
-
-/**
- * Local Fleet type (kept inside file as you prefer)
- */
-export type Fleet = {
-  id: string;
-  name: string;
-  mobile: string;
-  email?: string;
-  city: string;
-  dob?: string;
-  fleetType: "INDIVIDUAL" | "COMPANY" | "PARTNERSHIP";
-  gstNumber?: string;
-  panNumber: string;
-  modeId: string;
-  status?: "Active" | "Inactive";
-};
+import { deactivateFleet } from "../../api/fleet.api";
+import type { Fleet } from "../../models/fleet/fleet";
 
 type Props = {
   fleet: Fleet | null;
-  onSave?: (updated: Fleet) => void;
+  onDeactivated?: () => void;
 };
 
-export default function FleetDrawer({ fleet, onSave }: Props) {
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === "object") {
+    const maybeAny = err as { response?: { data?: unknown } };
+    const data = maybeAny.response?.data;
+    if (data && typeof data === "object" && "message" in data) {
+      return String((data as Record<string, unknown>).message);
+    }
+  }
+  return fallback;
+}
+
+export default function FleetDrawer({ fleet, onDeactivated }: Props) {
   const [form, setForm] = useState<Fleet | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setForm(fleet);
@@ -34,117 +31,91 @@ export default function FleetDrawer({ fleet, onSave }: Props) {
 
   if (!form) return null;
 
-  const handleChange = <K extends keyof Fleet>(
-    key: K,
-    value: Fleet[K]
-  ) => {
-    setForm((prev) =>
-      prev ? { ...prev, [key]: value } : prev
-    );
-  };
+  const isInactive = form.status === "INACTIVE";
+  const statusLabel = isInactive ? "Inactive" : "Active";
 
-  const handleSave = () => {
-    onSave?.(form);
-  };
+  async function onDeactivate() {
+    if (!form) return;
+    if (isInactive) return;
+    const ok = window.confirm("Deactivate this fleet? This action cannot be undone.");
+    if (!ok) return;
+
+    setSaving(true);
+    try {
+      const updated = await deactivateFleet(form.id);
+      setForm(updated);
+      toast.success("Fleet deactivated");
+      onDeactivated?.();
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Failed to deactivate fleet"));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
-      {/* Fleet Owner */}
       <Input
         label="Fleet Owner Name"
         value={form.name}
-        onChange={(e) =>
-          handleChange("name", e.target.value)
-        }
+        disabled
       />
 
       <Input
         label="Mobile Number"
         value={form.mobile}
-        onChange={(e) =>
-          handleChange("mobile", e.target.value)
-        }
+        disabled
       />
 
       <Input
         label="Email"
         value={form.email || ""}
-        onChange={(e) =>
-          handleChange("email", e.target.value)
-        }
+        disabled
       />
 
       <Input
         label="City"
         value={form.city}
-        onChange={(e) =>
-          handleChange("city", e.target.value)
-        }
+        disabled
       />
 
       <Input
         label="Date of Birth"
         type="date"
-        value={form.dob || ""}
-        onChange={(e) =>
-          handleChange("dob", e.target.value)
-        }
+        value={(form.dob || "").slice(0, 10)}
+        disabled
       />
 
-      <Select
-        label="Fleet Type"
-        value={form.fleetType}
-        onChange={(e) =>
-          handleChange("fleetType", e.target.value as Fleet["fleetType"])
-        }
-        options={[
-          { label: "Individual", value: "INDIVIDUAL" },
-          { label: "Company", value: "COMPANY" },
-          { label: "Partnership", value: "PARTNERSHIP" },
-        ]}
-      />
+      <Input label="Fleet Type" value={form.fleetType} disabled />
 
       <Input
         label="GST Number"
         value={form.gstNumber || ""}
-        onChange={(e) =>
-          handleChange("gstNumber", e.target.value)
-        }
+        disabled
       />
 
       <Input
         label="PAN Number"
         value={form.panNumber}
-        onChange={(e) =>
-          handleChange("panNumber", e.target.value)
-        }
+        disabled
       />
 
       <Input
         label="Mode ID"
         value={form.modeId}
-        onChange={(e) =>
-          handleChange("modeId", e.target.value)
-        }
+        disabled
       />
 
-      {/* Optional status (if backend supports later) */}
-      {form.status && (
-        <Select
-          label="Status"
-          value={form.status}
-          onChange={(e) =>
-            handleChange("status", e.target.value as Fleet["status"])
-          }
-          options={[
-            { label: "Active", value: "Active" },
-            { label: "Inactive", value: "Inactive" },
-          ]}
-        />
-      )}
+      <Input label="Status" value={statusLabel} disabled />
 
-      <Button className="w-full mt-2" onClick={handleSave}>
-        Save Changes
+      <Button
+        className="w-full mt-2"
+        variant="secondary"
+        onClick={onDeactivate}
+        loading={saving}
+        disabled={saving || isInactive}
+      >
+        {isInactive ? "Fleet is inactive" : "Deactivate Fleet"}
       </Button>
     </div>
   );

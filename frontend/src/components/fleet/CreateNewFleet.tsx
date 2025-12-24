@@ -4,6 +4,8 @@ import toast from "react-hot-toast";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
+import { createFleet } from "../../api/fleet.api";
+import type { FleetType } from "../../models/fleet/fleet";
 
 type Props = {
   onClose: () => void;
@@ -16,7 +18,7 @@ type FleetForm = {
   email: string;
   city: string;
   dob: string;
-  fleetType: string;
+  fleetType: FleetType | "";
   gstNumber: string;
   panNumber: string;
   modeId: string;
@@ -37,6 +39,17 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
     modeId: "",
   });
 
+  function getErrorMessage(err: unknown, fallback: string): string {
+    if (err && typeof err === "object") {
+      const maybeAny = err as { response?: { data?: unknown } };
+      const data = maybeAny.response?.data;
+      if (data && typeof data === "object" && "message" in data) {
+        return String((data as Record<string, unknown>).message);
+      }
+    }
+    return fallback;
+  }
+
   const handleChange = <K extends keyof FleetForm>(
     key: K,
     value: FleetForm[K]
@@ -53,14 +66,23 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
     try {
       setLoading(true);
 
-      // 🔹 Replace with real API later
-      await new Promise((r) => setTimeout(r, 800));
+      await createFleet({
+        name: form.name.trim(),
+        mobile: form.mobile.trim(),
+        city: form.city.trim(),
+        fleetType: form.fleetType,
+        panNumber: form.panNumber.trim(),
+        modeId: form.modeId.trim(),
+        email: form.email.trim() ? form.email.trim() : undefined,
+        gstNumber: form.gstNumber.trim() ? form.gstNumber.trim() : undefined,
+        dob: form.dob ? form.dob : undefined,
+      });
 
       toast.success("Fleet onboarded successfully");
       onCreated?.();
       onClose();
     } catch (err) {
-      toast.error("Failed to onboard fleet");
+      toast.error(getErrorMessage(err, "Failed to onboard fleet"));
     } finally {
       setLoading(false);
     }
@@ -104,12 +126,11 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
       <Select
         label="Fleet Type *"
         value={form.fleetType}
-        onChange={(e) => handleChange("fleetType", e.target.value)}
+        onChange={(e) => handleChange("fleetType", e.target.value as FleetType | "")}
         options={[
           { label: "Select Type", value: "" },
           { label: "Individual", value: "INDIVIDUAL" },
           { label: "Company", value: "COMPANY" },
-          { label: "Partnership", value: "PARTNERSHIP" },
         ]}
       />
 

@@ -45,6 +45,7 @@ export default function DriverManagement() {
     setLoading(true);
     try {
       const data = await getDriversByFleet(effectiveFleetId);
+      console.log('Fetched drivers:', data);
       setDrivers(data);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to load drivers'));
