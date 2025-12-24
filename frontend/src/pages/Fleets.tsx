@@ -1,11 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Table, { type Column } from '../components/ui/Table';
 import Button from '../components/ui/Button';
 import { useFleet } from '../context/FleetContext';
 import type { Fleet } from '../models/fleet/fleet';
+import Modal from '../components/layout/Modal';
+import AddFleet from '../components/fleet/AddFleet';
 
 export default function FleetsPage() {
-  const { fleets, fleetsLoading, activeFleetId, setActiveFleetId } = useFleet();
+  const [open, setOpen] = useState(false);
+  const { fleets, fleetsLoading, activeFleetId, setActiveFleetId, refreshFleets } = useFleet();
 
   const columns: Column<Fleet>[] = useMemo(
     () => [
@@ -47,7 +50,18 @@ export default function FleetsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Fleets</h1>
+        <Button onClick={() => setOpen(true)}>+ Fleet</Button>
       </div>
+
+      <Modal open={open} onClose={() => setOpen(false)} title="Add Fleet">
+        <AddFleet
+          onClose={() => setOpen(false)}
+          onCreated={(fleetId) => {
+            setActiveFleetId(fleetId);
+            void refreshFleets();
+          }}
+        />
+      </Modal>
 
       {fleetsLoading ? (
         <div className="text-sm text-black/60">Loading fleets…</div>
