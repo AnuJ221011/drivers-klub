@@ -13,20 +13,14 @@ type Props = {
 };
 
 export default function DriverDrawer({ driver, onClose, onUpdated }: Props) {
-  if (!driver) return null;
-
-  // capture the non-null id to avoid nullability issues in closures
-  const driverId = driver.id;
-
-  const [name, setName] = useState(driver.name);
-  const [phone, setPhone] = useState(driver.phone);
-  const [status, setStatus] = useState<'Active' | 'Inactive'>(driver.isActive ? 'Active' : 'Inactive');
-  const [availability, setAvailability] = useState<'Available' | 'Unavailable'>(
-    driver.isAvailable ? 'Available' : 'Unavailable',
-  );
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
+  const [availability, setAvailability] = useState<'Available' | 'Unavailable'>('Unavailable');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!driver) return;
     setName(driver.name);
     setPhone(driver.phone);
     setStatus(driver.isActive ? 'Active' : 'Inactive');
@@ -34,6 +28,9 @@ export default function DriverDrawer({ driver, onClose, onUpdated }: Props) {
   }, [driver]);
 
   async function onSave() {
+    if (!driver) return;
+    // capture the non-null id to avoid nullability issues in closures
+    const driverId = driver.id;
     setSaving(true);
     try {
       await updateDriverDetails(driverId, { name: name.trim(), phone: phone.trim() });
@@ -54,6 +51,8 @@ export default function DriverDrawer({ driver, onClose, onUpdated }: Props) {
       setSaving(false);
     }
   }
+
+  if (!driver) return null;
 
   return (
     <div className="space-y-4">
