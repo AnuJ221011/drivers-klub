@@ -123,21 +123,25 @@ export default function TripDetails() {
     void refreshMeta();
   }, [tripId, resolvedFleetId, refreshMeta]);
 
-  const activeTripAssignment = useMemo(() => {
+  const assignedTripAssignment = useMemo(() => {
+    // We only consider an assignment "current" if it is still ASSIGNED.
+    // Do NOT fall back to historical UNASSIGNED records.
     const list = tripAssignments || [];
-    const active = list.find((a) => (a.status || '').toUpperCase() === 'ACTIVE' && !a.endTime);
-    return active || list[list.length - 1] || null;
+    return (
+      list.find((a) => (a.status || '').toUpperCase() === 'ASSIGNED' && !a.endTime) ||
+      null
+    );
   }, [tripAssignments]);
 
   const assignedDriver = useMemo(() => {
-    if (!activeTripAssignment?.driverId) return null;
-    return drivers.find((d) => d.id === activeTripAssignment.driverId) || null;
-  }, [activeTripAssignment?.driverId, drivers]);
+    if (!assignedTripAssignment?.driverId) return null;
+    return drivers.find((d) => d.id === assignedTripAssignment.driverId) || null;
+  }, [assignedTripAssignment?.driverId, drivers]);
 
   const assignedVehicle = useMemo(() => {
-    if (!activeTripAssignment?.vehicleId) return null;
-    return vehicles.find((v) => v.id === activeTripAssignment.vehicleId) || null;
-  }, [activeTripAssignment?.vehicleId, vehicles]);
+    if (!assignedTripAssignment?.vehicleId) return null;
+    return vehicles.find((v) => v.id === assignedTripAssignment.vehicleId) || null;
+  }, [assignedTripAssignment?.vehicleId, vehicles]);
 
   const displayPickup = trip?.pickupLocation || trip?.pickup || trip?.originCity || '-';
   const displayDrop = trip?.dropLocation || trip?.drop || trip?.destinationCity || '-';
@@ -166,7 +170,7 @@ export default function TripDetails() {
     ];
   }, [drivers, fleetAssignments, vehicles]);
 
-  const hasAssignedDriver = Boolean(activeTripAssignment?.driverId);
+  const hasAssignedDriver = Boolean(assignedTripAssignment?.driverId);
 
   const onOpenAssign = useCallback(() => {
     setSelectedDriverId('');
@@ -302,24 +306,24 @@ export default function TripDetails() {
 
           <div className="rounded-lg border border-black/10 bg-white p-4 space-y-2 md:col-span-2">
             <div className="text-sm font-semibold">Driver & Vehicle</div>
-            {!activeTripAssignment ? (
+            {!assignedTripAssignment ? (
               <div className="text-sm text-black/60">No driver assigned yet.</div>
             ) : (
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="text-sm">
                   <div className="text-black/60">Assignment Status</div>
-                  <div>{activeTripAssignment.status || '-'}</div>
+                  <div>{assignedTripAssignment.status || '-'}</div>
                 </div>
                 <div className="text-sm">
                   <div className="text-black/60">Driver</div>
-                  <div>{assignedDriver ? `${assignedDriver.name} (${assignedDriver.phone})` : activeTripAssignment.driverId}</div>
+                  <div>{assignedDriver ? `${assignedDriver.name} (${assignedDriver.phone})` : assignedTripAssignment.driverId}</div>
                 </div>
                 <div className="text-sm">
                   <div className="text-black/60">Vehicle</div>
                   <div>
                     {assignedVehicle
                       ? `${assignedVehicle.number} (${assignedVehicle.brand} ${assignedVehicle.model})`
-                      : activeTripAssignment.vehicleId}
+                      : assignedTripAssignment.vehicleId || '-'}
                   </div>
                 </div>
               </div>
