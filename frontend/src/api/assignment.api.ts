@@ -13,7 +13,7 @@ export async function getAssignmentsByFleet(fleetId: string): Promise<Assignment
 export type TripAssignmentEntity = {
   id: string;
   driverId: string;
-  vehicleId: string;
+  vehicleId: string | null;
   status?: string;
   startTime?: string;
   endTime?: string | null;
@@ -22,7 +22,7 @@ export type TripAssignmentEntity = {
 };
 
 export async function getAssignmentsByTrip(tripId: string): Promise<TripAssignmentEntity[]> {
-  const res = await api.get<TripAssignmentEntity[]>(`/trips/${tripId}/assignments`);
+  const res = await api.get<TripAssignmentEntity[]>(`/assignments/trip/${tripId}`);
   return res.data;
 }
 

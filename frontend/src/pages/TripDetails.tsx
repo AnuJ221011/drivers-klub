@@ -54,7 +54,7 @@ export default function TripDetails() {
     [],
   );
   const [tripAssignments, setTripAssignments] = useState<
-    { id: string; driverId: string; vehicleId: string; status?: string; startTime?: string; endTime?: string | null }[]
+    { id: string; driverId: string; vehicleId: string | null; status?: string; startTime?: string; endTime?: string | null }[]
   >([]);
 
   const [assignOpen, setAssignOpen] = useState(false);
