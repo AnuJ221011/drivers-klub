@@ -50,6 +50,7 @@ export type TripEntity = {
   fleetId?: string | null;
 
   // Route & timing
+  tripDate?: string | null;
   pickupTime?: string | null;
   pickupLocation?: string | null;
   dropLocation?: string | null;

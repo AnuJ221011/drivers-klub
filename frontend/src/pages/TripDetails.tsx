@@ -9,8 +9,8 @@ import Select from '../components/ui/Select';
 import { useFleet } from '../context/FleetContext';
 import { getDriversByFleet } from '../api/driver.api';
 import { getVehiclesByFleet } from '../api/vehicle.api';
-import { getAssignmentsByFleet } from '../api/assignment.api';
-import { assignTripDriver, getTripAssignments, getTripById, reassignTripDriver } from '../api/trip.api';
+import { getAssignmentsByFleet, getAssignmentsByTrip } from '../api/assignment.api';
+import { assignTripDriver, getTripById, reassignTripDriver, unassignTripDriver } from '../api/trip.api';
 
 import type { Driver } from '../models/driver/driver';
 import type { Vehicle } from '../models/vehicle/vehicle';
@@ -87,7 +87,7 @@ export default function TripDetails() {
       setVehicles([]);
       setFleetAssignments([]);
       try {
-        const ta = await getTripAssignments(tripId);
+        const ta = await getAssignmentsByTrip(tripId);
         setTripAssignments(ta || []);
       } catch {
         setTripAssignments([]);
@@ -101,7 +101,7 @@ export default function TripDetails() {
         getDriversByFleet(resolvedFleetId),
         getVehiclesByFleet(resolvedFleetId),
         getAssignmentsByFleet(resolvedFleetId),
-        getTripAssignments(tripId),
+        getAssignmentsByTrip(tripId),
       ]);
       setDrivers(d || []);
       setVehicles(v || []);
@@ -199,6 +199,21 @@ export default function TripDetails() {
     }
   }, [tripId, selectedDriverId, hasAssignedDriver, refreshTrip, refreshMeta]);
 
+  const onUnassign = useCallback(async () => {
+    if (!tripId) return;
+    setAssignLoading(true);
+    try {
+      await unassignTripDriver(tripId);
+      toast.success('Driver unassigned');
+      await refreshTrip();
+      await refreshMeta();
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to unassign driver'));
+    } finally {
+      setAssignLoading(false);
+    }
+  }, [tripId, refreshTrip, refreshMeta]);
+
   if (!tripId) {
     return <div className="text-sm text-black/60">Invalid trip id.</div>;
   }
@@ -215,6 +230,11 @@ export default function TripDetails() {
           <Button variant="secondary" onClick={() => nav('/admin/trips')}>
             Back
           </Button>
+          {hasAssignedDriver ? (
+            <Button variant="secondary" onClick={() => void onUnassign()} disabled={assignLoading}>
+              Unassign
+            </Button>
+          ) : null}
           <Button onClick={onOpenAssign} disabled={metaLoading || !resolvedFleetId} title={!resolvedFleetId ? 'Fleet not resolved for this trip' : ''}>
             {hasAssignedDriver ? 'Reassign Driver' : 'Assign Driver'}
           </Button>

@@ -6,6 +6,26 @@ export async function getAssignmentsByFleet(fleetId: string): Promise<Assignment
   return res.data;
 }
 
+/**
+ * Trip-wise assignments (who is assigned to this trip right now).
+ * Backend: GET /trips/:id/assignments
+ */
+export type TripAssignmentEntity = {
+  id: string;
+  driverId: string;
+  vehicleId: string;
+  status?: string;
+  startTime?: string;
+  endTime?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export async function getAssignmentsByTrip(tripId: string): Promise<TripAssignmentEntity[]> {
+  const res = await api.get<TripAssignmentEntity[]>(`/trips/${tripId}/assignments`);
+  return res.data;
+}
+
 export async function createAssignment(input: {
   fleetId: string;
   driverId: string;
