@@ -7,6 +7,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { getTrips } from '../api/trip.api';
 import type { TripEntity } from '../models/trip/trip';
+import { useNavigate } from 'react-router-dom';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -20,6 +21,7 @@ function getErrorMessage(err: unknown, fallback: string): string {
 }
 
 export default function Trips() {
+  const nav = useNavigate();
   const [loading, setLoading] = useState(false);
   const [trips, setTrips] = useState<TripEntity[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -47,7 +49,8 @@ export default function Trips() {
     const statusNeedle = (searchStatus || '').trim().toUpperCase();
 
     return trips.filter((t) => {
-      const pickupOk = !pickupNeedle || (t.pickup || '').toLowerCase().includes(pickupNeedle);
+      const pickupValue = (t.pickupLocation || t.pickup || t.originCity || '').toString().toLowerCase();
+      const pickupOk = !pickupNeedle || pickupValue.includes(pickupNeedle);
       const statusOk = !statusNeedle || (t.status || '').toUpperCase().includes(statusNeedle);
       return pickupOk && statusOk;
     });
@@ -59,17 +62,62 @@ export default function Trips() {
       label: 'S.No',
       render: (_, i) => i + 1,
     },
-    { key: 'pickup', label: 'Pickup' },
+    {
+      key: 'pickup',
+      label: 'Pickup',
+      render: (t) => t.pickupLocation || t.pickup || t.originCity || '-',
+    },
     {
       key: 'drop',
       label: 'Drop',
-      render: (t) => t.drop || '-',
+      render: (t) => t.dropLocation || t.drop || t.destinationCity || '-',
+    },
+    {
+      key: 'originCity',
+      label: 'Origin City',
+      render: (t) => t.originCity || '-',
+    },
+    {
+      key: 'destinationCity',
+      label: 'Destination City',
+      render: (t) => t.destinationCity || '-',
+    },
+    {
+      key: 'distanceKm',
+      label: 'Distance (km)',
+      render: (t) => (t.distanceKm == null ? '-' : String(t.distanceKm)),
+    },
+    {
+      key: 'provider',
+      label: 'Provider',
+      render: (t) => t.providerMapping?.providerType || t.provider || '-',
     },
     { key: 'status', label: 'Status' },
     {
       key: 'fare',
       label: 'Fare',
-      render: (t) => (t.fare == null ? '-' : String(t.fare)),
+      render: (t) => {
+        const fare = t.price ?? t.fare;
+        return fare == null ? '-' : String(fare);
+      },
+    },
+    {
+      key: 'tripType',
+      label: 'Trip Type',
+      render: (t) => t.tripType || '-',
+    },
+    {
+      key: 'actions',
+      label: 'Action',
+      render: (t) => (
+        <Button
+          variant="secondary"
+          className="px-3 py-1"
+          onClick={() => nav(`/admin/trips/${t.id}`)}
+        >
+          Details
+        </Button>
+      ),
     },
   ];
 

@@ -12,25 +12,25 @@ router.use(authenticate);
 router.get(
   "/",
   authorizeRoles(UserRole.SUPER_ADMIN),
-  controller.getAllTrips
+  (req, res) => controller.getAllTrips(req, res)
 );
 
 router.post(
   "/assign",
   authorizeRoles(UserRole.SUPER_ADMIN),
-  controller.assignDriver
+  (req, res) => controller.assignDriver(req, res)
 );
 
 router.post(
   "/unassign",
   authorizeRoles(UserRole.SUPER_ADMIN),
-  controller.unassignDriver
+  (req, res) => controller.unassignDriver(req, res)
 );
 
 router.post(
   "/reassign",
   authorizeRoles(UserRole.SUPER_ADMIN),
-  controller.reassignDriver
+  (req, res) => controller.reassignDriver(req, res)
 );
 
 export default router;

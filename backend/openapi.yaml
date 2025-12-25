@@ -1241,6 +1241,55 @@ paths:
                 $ref: '#/components/schemas/Assignment'
 
   /assignments/{id}/history:
+  /assignments/trip/{tripId}:
+    get:
+      summary: Get Trip Assignments (Driver + Vehicle)
+      tags: [Assignments]
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    tripId:
+                      type: string
+                      format: uuid
+                    driverId:
+                      type: string
+                      format: uuid
+                    vehicleId:
+                      type: string
+                      format: uuid
+                      nullable: true
+                    status:
+                      type: string
+                    startTime:
+                      type: string
+                      format: date-time
+                    endTime:
+                      type: string
+                      format: date-time
+                      nullable: true
+                    createdAt:
+                      type: string
+                      format: date-time
+                    updatedAt:
+                      type: string
+                      format: date-time
     get:
       summary: Assignment Change Logs
       tags: [Dispatch]
