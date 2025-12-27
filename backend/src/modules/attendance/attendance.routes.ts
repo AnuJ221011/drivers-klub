@@ -10,6 +10,13 @@ const controller = new AttendanceController();
 
 router.use(authenticate);
 
+// Admin list (pending approvals etc.)
+router.get(
+    "/",
+    authorizeRoles(UserRole.SUPER_ADMIN, UserRole.MANAGER, UserRole.OPERATIONS),
+    controller.list
+);
+
 // Driver Actions
 router.post("/check-in", controller.checkIn);
 router.post("/check-out", controller.checkOut);
@@ -18,13 +25,13 @@ router.get("/history", controller.getHistory); // Driver can see own history? Cu
 // Admin Actions
 router.post(
     "/:id/approve",
-    authorizeRoles(UserRole.SUPER_ADMIN, UserRole.MANAGER), // Assuming Fleet Manager can also approve
+    authorizeRoles(UserRole.SUPER_ADMIN, UserRole.MANAGER, UserRole.OPERATIONS),
     controller.approve
 );
 
 router.post(
     "/:id/reject",
-    authorizeRoles(UserRole.SUPER_ADMIN, UserRole.MANAGER),
+    authorizeRoles(UserRole.SUPER_ADMIN, UserRole.MANAGER, UserRole.OPERATIONS),
     controller.reject
 );
 

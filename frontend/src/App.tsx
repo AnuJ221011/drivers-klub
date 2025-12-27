@@ -10,6 +10,8 @@ import Driver from './pages/Drivers';
 import TeamManagement from './pages/Team';
 import Trips from './pages/Trips';
 import FleetsPage from './pages/Fleet';
+import HubPage from './pages/Hub';
+import CheckinsPage from './pages/Checkins';
 
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -73,6 +75,22 @@ export default function App() {
             element={
               <PrivateRoute>
                 <TeamManagement />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="hub"
+            element={
+              <PrivateRoute>
+                <HubPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="checkins"
+            element={
+              <PrivateRoute>
+                <CheckinsPage />
               </PrivateRoute>
             }
           />
