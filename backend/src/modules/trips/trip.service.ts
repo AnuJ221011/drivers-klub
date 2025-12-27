@@ -59,6 +59,14 @@ export class TripService {
     if (!trip) throw new ApiError(404, "Trip not found");
     if (trip.status !== "STARTED") throw new ApiError(400, "Trip must be in STARTED state to mark Arrived");
 
+    const driver = await prisma.driver.findUnique({
+      where: { userId: driverUserId }
+    });
+    const isAssigned = trip.tripAssignments.some((ta: any) => ta.driverId === driver?.id);
+    if (!driver || !isAssigned) {
+      throw new ApiError(403, "Not authorized to update this trip");
+    }
+
     // Geofence Check (500m)
     // Only check if coordinates exist in DB
     if (trip.pickupLat && trip.pickupLng) {
@@ -95,6 +103,14 @@ export class TripService {
     // Or if driver is ASSIGNED and waited? Usually Driver must arrive to claim No Show.
     // Let's assume Status must be STARTED (which includes Arrived in our DB model)
     if (trip.status !== "STARTED") throw new ApiError(400, "Trip must be in STARTED state to mark No Show");
+
+    const driver = await prisma.driver.findUnique({
+      where: { userId: driverUserId }
+    });
+    const isAssigned = trip.tripAssignments.some((ta: any) => ta.driverId === driver?.id);
+    if (!driver || !isAssigned) {
+      throw new ApiError(403, "Not authorized to update this trip");
+    }
 
     // Time Check (30 mins after pickup)
     const now = new Date();

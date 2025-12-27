@@ -1,4 +1,4 @@
-import { Home, Car, Users, UserCircle, ArrowRightCircle, X, LogOut, Building2 } from "lucide-react";
+import { Home, Car, Users, UserCircle, ArrowRightCircle, X, LogOut, Building2, MapPin, ClipboardCheck } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
@@ -11,6 +11,8 @@ type SidebarProps = {
 const navItems = [
   { name: "Dashboard", icon: Home, path: "/admin" },
   { name: "Fleets", icon: Building2, path: "/admin/fleets" },
+  { name: "Hub", icon: MapPin, path: "/admin/hub" },
+  { name: "Check-ins", icon: ClipboardCheck, path: "/admin/checkins" },
   { name: "Trips", icon: ArrowRightCircle, path: "/admin/trips" },
   { name: "Vehicles", icon: Car, path: "/admin/vehicles" },
   { name: "Drivers", icon: UserCircle, path: "/admin/drivers" },
