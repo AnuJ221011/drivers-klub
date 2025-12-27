@@ -11,6 +11,8 @@ import {
 import Input from "../../../ui/Input";
 import Select from "../../../ui/Select";
 import Button from "../../../ui/Button";
+import toast from "react-hot-toast";
+import { createFleetHub } from "../../../../api/fleetHub.api";
 
 /* ---------------- Geofence Circle ---------------- */
 function GeofenceCircle({
@@ -51,7 +53,7 @@ function GeofenceCircle({
 
 /* ---------------- Main Component ---------------- */
 export default function FleetCreateHub() {
-  const { fleetId } = useParams();
+  const { id: fleetId } = useParams();
   const navigate = useNavigate();
 
   const [hubName, setHubName] = useState("");
@@ -85,21 +87,32 @@ export default function FleetCreateHub() {
   };
 
   /* ---------- Save Hub ---------- */
-  const handleSave = () => {
-    const payload = {
-      fleetId,
-      name: hubName,
-      type: hubType,
-      location,
-      address,
-      radius,
-    };
+  const handleSave = async () => {
+    if (!fleetId) return;
+    try {
+      // Backend FleetHub schema: { location, address, hubType }
+      // There is no separate "name" field, so we preserve the UI label by prefixing address.
+      const addressToSave = hubName
+        ? (address ? `${hubName} — ${address}` : hubName)
+        : address;
 
-    console.log("HUB PAYLOAD:", payload);
+      await createFleetHub(fleetId, {
+        location,
+        address: addressToSave || address || "—",
+        hubType,
+      });
 
-    // TODO: API call later
-
-    navigate(`/admin/fleets/${fleetId}?tab=HUBS`);
+      toast.success("Hub created");
+      navigate(`/admin/fleets/${fleetId}?tab=HUBS`);
+    } catch (err: unknown) {
+      const maybeAny = err as { response?: { data?: unknown } };
+      const data = maybeAny.response?.data;
+      const msg =
+        data && typeof data === "object" && "message" in data
+          ? String((data as Record<string, unknown>).message)
+          : "Failed to create hub";
+      toast.error(msg);
+    }
   };
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -186,7 +199,7 @@ export default function FleetCreateHub() {
 
           <Button
             className="w-full"
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={!hubName || !hubType}
           >
             Save Hub

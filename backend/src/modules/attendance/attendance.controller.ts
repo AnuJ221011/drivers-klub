@@ -6,6 +6,36 @@ import { AttendanceStatus } from "@prisma/client";
 
 export class AttendanceController {
 
+    async getById(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+
+            const attendance = await prisma.attendance.findUnique({
+                where: { id },
+                include: {
+                    driver: {
+                        include: {
+                            fleet: true,
+                            assignments: {
+                                where: { status: "ACTIVE" },
+                                include: { vehicle: true },
+                                orderBy: { createdAt: "desc" }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (!attendance) {
+                return res.status(404).json({ message: "Attendance not found" });
+            }
+
+            return ApiResponse.send(res, 200, attendance, "Attendance retrieved");
+        } catch (error: any) {
+            return res.status(500).json({ message: "Internal Server Error", error: error.message });
+        }
+    }
+
     async checkIn(req: Request, res: Response) {
         try {
             const { driverId, lat, lng, odometer, selfieUrl } = req.body;
@@ -139,7 +169,18 @@ export class AttendanceController {
                     skip,
                     take: limit,
                     orderBy: { createdAt: "desc" },
-                    include: { driver: true }
+                    include: {
+                        driver: {
+                            include: {
+                                fleet: true,
+                                assignments: {
+                                    where: { status: "ACTIVE" },
+                                    include: { vehicle: true },
+                                    orderBy: { createdAt: "desc" }
+                                }
+                            }
+                        }
+                    }
                 }),
                 prisma.attendance.count({ where })
             ]);

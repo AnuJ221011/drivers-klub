@@ -68,7 +68,7 @@ export class FleetHubService {
     return this.fleetHubRepo.findAll(id);
   }
 
-  async getFleetById(id: string) {
+  async getFleetHubById(id: string) {
     const fleetHub = await this.fleetHubRepo.findById(id);
     if (!fleetHub) {
       throw new ApiError(404, "Fleet Hub not found");
