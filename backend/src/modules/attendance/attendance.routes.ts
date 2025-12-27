@@ -13,6 +13,11 @@ router.use(authenticate);
 router.post("/check-in", controller.checkIn);
 router.post("/check-out", controller.checkOut);
 router.get("/history", controller.getHistory);
+router.get(
+    "/:id",
+    authorizeRoles(UserRole.SUPER_ADMIN, UserRole.OPERATIONS, UserRole.MANAGER),
+    controller.getById
+);
 
 router.post(
     "/:id/approve",

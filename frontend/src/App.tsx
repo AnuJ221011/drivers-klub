@@ -116,11 +116,6 @@ export default function App() {
             <FleetCreateHub  />
           </PrivateRoute>
         } />
-        <Route path="fleets/:id/hubs/create" element={
-          <PrivateRoute>
-            <FleetCreateHub  />
-          </PrivateRoute>
-        } />
         <Route path="fleets/:id/hubs/:hubId" element={
           <PrivateRoute>
             <FleetHubDetails />

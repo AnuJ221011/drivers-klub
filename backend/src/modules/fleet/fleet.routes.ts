@@ -6,6 +6,7 @@ import {
   deactivateFleet,
   createFleetHub,
   getAllFleetHubs,
+  getFleetHubById,
   createHubManager,
   getAllHubManagers,
   assignHubManager,
@@ -74,7 +75,13 @@ router.get(
   "/hub-manager/:id",
   authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
   getHubManagerById
-)
+);
+
+router.get(
+  "/hubs/:id",
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  getFleetHubById
+);
 
 router.post(
   "/hubs/:hubId/assign-manager",

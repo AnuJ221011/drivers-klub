@@ -43,6 +43,11 @@ export const getAllFleetHubs = async (req: Request, res: Response) => {
   ApiResponse.send(res, 200, fleetHubs, "Fleet hubs retrieved successfully");
 };
 
+export const getFleetHubById = async (req: Request, res: Response) => {
+  const hub = await fleetHubService.getFleetHubById(req.params.id);
+  ApiResponse.send(res, 200, hub, "Fleet hub retrieved successfully");
+};
+
 export const assignHubManager = async (req: Request, res: Response) => {
   const assignedHubManager = await fleetHubService.assignManager(
     req.params.hubId,

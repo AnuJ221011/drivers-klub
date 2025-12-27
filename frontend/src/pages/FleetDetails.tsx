@@ -1,5 +1,6 @@
-import { useParams } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
+import toast from "react-hot-toast";
 
 import FleetHeader from "../components/fleet/Details/FleetHeader";
 import FleetSummary from "../components/fleet/Details/FleetSummary";
@@ -9,30 +10,67 @@ import FleetHubs from "../components/fleet/Details/Hubs/FleetHubs";
 import FleetDrivers from "../components/fleet/Details/Drivers/FleetDrivers";
 import FleetVehicles from "../components/fleet/Details/Vehicles/FleetVehicles";
 import FleetManagers from "../components/fleet/Details/Managers/FleetManagers";
+import { getFleetById } from "../api/fleet.api";
+import type { Fleet } from "../models/fleet/fleet";
 
 type Tab = "HUBS" | "DRIVERS" | "VEHICLES" | "MANAGERS";
 
 export default function FleetDetails() {
   const { id } = useParams(); // fleetId from route
-  const [tab, setTab] = useState<Tab>("HUBS");
+  const [searchParams] = useSearchParams();
+  const initialTab = (searchParams.get("tab") as Tab | null) || "HUBS";
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const [fleet, setFleet] = useState<Fleet | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // dummy backend data
-  const fleet = {
-    id: id || "1",
-    name: "Rohit Sharma",
-    mobile: "9876543210",
-    email: "rohit@gmail.com",
-    city: "Delhi",
-    fleetType: "INDIVIDUAL",
-    panNumber: "ABCDE1234F",
-    modeId: "MODE123",
-    createdAt: "2024-12-10",
-  };
+  useEffect(() => {
+    if (!id) return;
+    let mounted = true;
+    void (async () => {
+      setLoading(true);
+      try {
+        const data = await getFleetById(id);
+        if (!mounted) return;
+        setFleet(data);
+      } catch (err: unknown) {
+        const maybeAny = err as { response?: { data?: unknown } };
+        const data = maybeAny.response?.data;
+        const msg =
+          data && typeof data === "object" && "message" in data
+            ? String((data as Record<string, unknown>).message)
+            : "Failed to load fleet";
+        toast.error(msg);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  const effectiveFleet = useMemo(() => {
+    if (fleet) return fleet;
+    // fallback to keep header components stable while loading
+    return {
+      id: id || "",
+      name: "-",
+      mobile: "-",
+      email: "",
+      city: "-",
+      fleetType: "INDIVIDUAL",
+      panNumber: "-",
+      modeId: "-",
+      createdAt: "",
+      status: "ACTIVE",
+    } as Fleet;
+  }, [fleet, id]);
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <FleetHeader fleet={fleet} />
-      <FleetSummary fleet={fleet} />
+      {loading && <div className="text-sm text-black/60">Loading fleet…</div>}
+      <FleetHeader fleet={effectiveFleet} />
+      <FleetSummary fleet={effectiveFleet} />
       <FleetTabs value={tab} onChange={setTab} />
 
       {tab === "HUBS" && <FleetHubs />}

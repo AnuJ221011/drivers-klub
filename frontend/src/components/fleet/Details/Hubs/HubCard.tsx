@@ -10,6 +10,15 @@ type Props = {
 };
 
 export default function HubCard({ hub, onClick }: Props) {
+  const typeLabel =
+    hub.type === "AIRPORT"
+      ? "Airport Hub"
+      : hub.type === "OFFICE"
+        ? "Office Hub"
+        : hub.type === "YARD"
+          ? "Yard"
+          : hub.type;
+
   return (
     <div
       onClick={onClick}
@@ -20,7 +29,7 @@ export default function HubCard({ hub, onClick }: Props) {
     >
       <h3 className="font-semibold text-sm">{hub.name}</h3>
       <p className="text-xs text-black/60 mt-1">
-        {hub.type === "AIRPORT" ? "Airport Hub" : "Office Hub"}
+        {typeLabel}
       </p>
     </div>
   );
