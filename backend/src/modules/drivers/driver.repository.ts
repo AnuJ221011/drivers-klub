@@ -25,6 +25,10 @@ export class DriverRepository {
     return prisma.driver.findMany({ where: { fleetId } });
   }
 
+  async findAllByHub(hubId: string): Promise<DriverEntity[]> {
+    return prisma.driver.findMany({ where: { hubId } });
+  }
+
   async updateKyc(
     id: string,
     data: UpdateDriverKycInput

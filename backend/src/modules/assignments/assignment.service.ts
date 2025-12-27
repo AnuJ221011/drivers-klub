@@ -1,4 +1,4 @@
-import { AssignmentRepository } from "./assignment.repository.js";
+import { AssignmentRepository, type TripAssignmentRow } from "./assignment.repository.js";
 import { prisma } from "../../utils/prisma.js";
 import { ApiError } from "../../utils/apiError.js";
 
@@ -32,6 +32,39 @@ export class AssignmentService {
 
   getAssignmentsByFleet(fleetId: string) {
     return this.repo.findByFleet(fleetId);
+  }
+
+  /**
+   * Trip-wise assignment view (driver + vehicle for a trip).
+   * Data source:
+   * - tripAssignment (trip -> driver)
+   * - active fleet assignment (driver -> vehicle)
+   */
+  async getAssignmentsByTrip(tripId: string) {
+    // If trip doesn't exist, return empty list (keeps API simple for UI)
+    const trip = await prisma.ride.findUnique({ where: { id: tripId }, select: { id: true } });
+    if (!trip) return [];
+
+    const tripAssignments: TripAssignmentRow[] = await this.repo.findTripAssignments(tripId);
+    const driverIds: string[] = [...new Set(tripAssignments.map((a) => a.driverId))];
+    const fleetAssignments = await this.repo.findActiveFleetAssignmentsByDriverIds(driverIds);
+
+    const vehicleByDriverId = new Map<string, string>();
+    for (const fa of fleetAssignments) {
+      vehicleByDriverId.set(fa.driverId, fa.vehicleId);
+    }
+
+    return tripAssignments.map((ta) => ({
+      id: ta.id,
+      tripId: ta.tripId,
+      driverId: ta.driverId,
+      vehicleId: vehicleByDriverId.get(ta.driverId) ?? null,
+      status: ta.status,
+      startTime: ta.assignedAt,
+      endTime: ta.unassignedAt,
+      createdAt: ta.createdAt,
+      updatedAt: ta.updatedAt
+    }));
   }
 
   getAssignmentById(id: string) {

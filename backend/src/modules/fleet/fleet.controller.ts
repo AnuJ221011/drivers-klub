@@ -1,8 +1,14 @@
 import type { Request, Response } from "express";
-import { FleetService } from "./fleet.service.js";
+import {
+  FleetHubService,
+  FleetService,
+  HubManagerService,
+} from "./fleet.service.js";
 import { ApiResponse } from "../../utils/apiResponse.js";
 
 const fleetService = new FleetService();
+const fleetHubService = new FleetHubService();
+const hubManagerService = new HubManagerService();
 
 export const createFleet = async (req: Request, res: Response) => {
   const fleet = await fleetService.createFleet(req.body);
@@ -22,4 +28,78 @@ export const getFleetById = async (req: Request, res: Response) => {
 export const deactivateFleet = async (req: Request, res: Response) => {
   const fleet = await fleetService.deactivateFleet(req.params.id);
   ApiResponse.send(res, 200, fleet, "Fleet deactivated successfully");
+};
+
+export const createFleetHub = async (req: Request, res: Response) => {
+  const fleetHub = await fleetHubService.createFleetHub(
+    req.params.id,
+    req.body
+  );
+  ApiResponse.send(res, 201, fleetHub, "Fleet Hub created successfully");
+};
+
+export const getAllFleetHubs = async (req: Request, res: Response) => {
+  const fleetHubs = await fleetHubService.getAllFleetHubs(req.params.id);
+  ApiResponse.send(res, 200, fleetHubs, "Fleet hubs retrieved successfully");
+};
+
+export const assignHubManager = async (req: Request, res: Response) => {
+  const assignedHubManager = await fleetHubService.assignManager(
+    req.params.hubId,
+    req.body
+  );
+  ApiResponse.send(
+    res,
+    200,
+    assignedHubManager,
+    "Hub manager assigned to hub successfully"
+  );
+};
+
+export const createHubManager = async (req: Request, res: Response) => {
+  const hubManager = await hubManagerService.createHubManager(
+    req.params.id,
+    req.body
+  );
+  ApiResponse.send(res, 201, hubManager, "Hub Manager created successfully");
+};
+
+export const getAllHubManagers = async (req: Request, res: Response) => {
+  const hubManagers = await hubManagerService.getAllHubManagers(req.params.id);
+  ApiResponse.send(
+    res,
+    200,
+    hubManagers,
+    "Fleet hub managers retrieved successfully"
+  );
+};
+
+export const getHubManagerById = async (req: Request, res: Response) => {
+  const hubManager = await hubManagerService.getHubManagerById(req.params.id);
+  ApiResponse.send(
+    res,
+    200,
+    hubManager,
+    "Fleet Hub Manager retrieved successfully"
+  );
+};
+
+export const addVehicleToHub = async (req: Request, res: Response) => {
+  const vehicle = await fleetHubService.addVehicle(req.params.id, req.body);
+  ApiResponse.send(res, 200, vehicle, "Vehicle added to hub successfully");
+};
+
+export const addDriverToHub = async (req: Request, res: Response) => {
+  const driver = await fleetHubService.addDriver(req.params.id, req.body);
+  ApiResponse.send(res, 200, driver, "Driver added to hub successfully");
+};
+
+export const removeVehicleFromHub = async (req: Request, res: Response) => {
+  const vehicle = await fleetHubService.removeVehicle(req.params.id, req.body);
+  ApiResponse.send(res, 200, vehicle, "Vehicle removed from hub successfully");
+};
+
+export const removeDriverFromHub = async (req: Request, res: Response) => {
+  const driver = await fleetHubService.removeDriver(req.params.id, req.body);
+  ApiResponse.send(res, 200, driver, "Driver removed from hub successfully");
 };

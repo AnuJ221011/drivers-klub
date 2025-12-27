@@ -1,31 +1,26 @@
 import { prisma } from "@/utils/prisma.js";
 import { AssignmentStatus } from "@/shared/enums/assignment-status.enum.js";
 import { ProviderBookingService } from "@/core/provider/provider-booking.service.js";
+import { ApiError } from "@/utils/apiError.js";
 
 export class TripAssignmentService {
   static async assignDriver(tripId: string, driverId: string, tx: any = prisma) {
-    // 1️ Fetch trip
     const trip = await tx.ride.findUnique({ where: { id: tripId } });
-    if (!trip) throw new Error("Trip not found");
+    if (!trip) throw new ApiError(404, "Trip not found");
 
     if (trip.status === "CANCELLED" || trip.status === "COMPLETED") {
-      throw new Error("Cannot assign driver to closed trip");
+      throw new ApiError(400, "Cannot assign driver to closed trip");
     }
 
     if (trip.status !== "CREATED") {
-      // throw new Error("Only unstarted trips can be assigned");
-      // Allow re-assignment if checking status flow carefully, but generally CREATED is target.
-      // If we are reassigning, status might be DRIVER_ASSIGNED.
-      // But unassign reverts to CREATED. So this check is okay IF unassign works.
+      // Allow re-assignment if status is DRIVER_ASSIGNED
     }
 
-    // 2️ Fetch driver
     const driver = await tx.driver.findUnique({
       where: { id: driverId },
     });
-    if (!driver) throw new Error("Driver not found");
+    if (!driver) throw new ApiError(404, "Driver not found");
 
-    // 3️ Check existing assignment
     const existingAssignment = await tx.tripAssignment.findFirst({
       where: {
         tripId,
@@ -34,12 +29,11 @@ export class TripAssignmentService {
     });
 
     if (existingAssignment) {
-      throw new Error("Trip already assigned");
+      throw new ApiError(400, "Trip already assigned");
     }
 
     let assignmentId: string = "";
 
-    // 4️ Create assignment (transactional safety)
     const assignment = await tx.tripAssignment.create({
       data: {
         tripId,
@@ -54,20 +48,12 @@ export class TripAssignmentService {
       data: { isAvailable: false },
     });
 
-    // UPDATE RIDE STATUS
     await tx.ride.update({
       where: { id: tripId },
       data: { status: "DRIVER_ASSIGNED" }
     });
 
-    // 🔥 CRITICAL: provider booking AFTER transaction
-    // This cannot be inside the transaction easily if it's external, 
-    // but here we just queue it. If 'tx' is passed, we might want to defer this?
-    // For now, we keep it here but note it runs even if outer TX fails? 
-    // No, if outer TX fails, this code isn't reached if awaited?
-    // Actually if passed 'tx', we are inside a lock.
 
-    // We only run this hook if we are the top-level caller OR we accept side effects.
     // ProviderBookingService usually handles external API.
     // Let's keep it safe.
     try {
@@ -94,7 +80,7 @@ export class TripAssignmentService {
 
     // Allow removal if CREATED (maybe phantom assignment?) or DRIVER_ASSIGNED
     if (!trip || (trip.status !== "CREATED" && trip.status !== "DRIVER_ASSIGNED")) {
-      throw new Error("Trip is not eligible for unassignment");
+      throw new ApiError(400, "Trip is not eligible for unassignment");
     }
 
     const assignment = await tx.tripAssignment.findFirst({

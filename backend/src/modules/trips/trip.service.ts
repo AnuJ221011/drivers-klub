@@ -41,7 +41,11 @@ export class TripService {
       throw new ApiError(403, "Not authorized to start this trip");
     }
 
-    // Time Check: 2.5 hours window
+    /**
+     * STRICT CONSTRAINT: 2.5 Hour Start Window
+     * Driver can only start trip within 2.5 hours of pickup time.
+     * This prevents early starts and ensures operational compliance.
+     */
     const now = new Date();
     const pickupTime = new Date(trip.pickupTime);
     const msDiff = pickupTime.getTime() - now.getTime();
@@ -59,19 +63,34 @@ export class TripService {
     if (!trip) throw new ApiError(404, "Trip not found");
     if (trip.status !== "STARTED") throw new ApiError(400, "Trip must be in STARTED state to mark Arrived");
 
-    // Geofence Check (500m)
-    // Only check if coordinates exist in DB
+    // Authorization check: Verify driver is assigned to this trip
+    const driver = await prisma.driver.findUnique({
+      where: { userId: driverUserId }
+    });
+
+    const isAssigned = trip.tripAssignments.some((ta: any) => ta.driverId === driver?.id);
+    if (!driver || !isAssigned) {
+      throw new ApiError(403, "Not authorized to update this trip");
+    }
+
+    /**
+     * STRICT CONSTRAINT: 500m Geofence
+     * Driver must be within 500 meters of pickup location.
+     * Uses Haversine formula for accurate distance calculation.
+     */
     if (trip.pickupLat && trip.pickupLng) {
       const distance = GeoUtils.getDistanceInMeters(lat, lng, trip.pickupLat, trip.pickupLng);
       if (distance > 500) {
         throw new ApiError(400, `You are ${Math.round(distance)}m away from pickup. Please reach within 500m.`);
       }
     } else {
-      // Fallback or skip if legacy trip without coords
       console.warn(`Trip ${tripId} has no pickup coordinates. Skipping strict geofence.`);
     }
 
-    // Time Check (30 mins before pickup)
+    /**
+     * STRICT CONSTRAINT: 30 Minute Arrival Window
+     * Driver can only mark arrived within 30 minutes of pickup time.
+     */
     const now = new Date();
     const pickupTime = new Date(trip.pickupTime);
     const msDiff = pickupTime.getTime() - now.getTime();
@@ -79,24 +98,35 @@ export class TripService {
 
     if (minutesDiff > 30) {
       throw new ApiError(400, "Too early to mark Arrived. Please wait until 30 mins before pickup.");
+    } else if (minutesDiff < -30) {
+      throw new ApiError(400, "Pickup time has passed. Cannot mark arrived more than 30 mins after scheduled pickup.");
     }
 
-    // We don't have a status for ARRIVED in RideStatus enum usually, 
-    // but Controller sends 'ARRIVED_EVENT_SENT' dummy status. 
-    // Here we just return success or update a separate field if available.
-    // For now, we allow the controller to handle the webhook.
     return { success: true, message: "Geofence & Time validation passed" };
   }
 
   async noShowTrip(tripId: string, driverUserId: string) {
     const trip = await this.repo.findById(tripId);
     if (!trip) throw new ApiError(404, "Trip not found");
-    // Can only mark No Show if trip is STARTED (Driver arrived) but customer didn't board
-    // Or if driver is ASSIGNED and waited? Usually Driver must arrive to claim No Show.
-    // Let's assume Status must be STARTED (which includes Arrived in our DB model)
-    if (trip.status !== "STARTED") throw new ApiError(400, "Trip must be in STARTED state to mark No Show");
+    if (trip.status !== "STARTED") {
+      throw new ApiError(400, "Trip must be in STARTED state to mark No Show");
+    }
 
-    // Time Check (30 mins after pickup)
+    // Authorization check: Verify driver is assigned to this trip
+    const driver = await prisma.driver.findUnique({
+      where: { userId: driverUserId }
+    });
+
+    const isAssigned = trip.tripAssignments.some((ta: any) => ta.driverId === driver?.id);
+    if (!driver || !isAssigned) {
+      throw new ApiError(403, "Not authorized to update this trip");
+    }
+
+    /**
+     * STRICT CONSTRAINT: 30 Minute No-Show Window
+     * Driver can only mark no-show AFTER 30 minutes past pickup time.
+     * This ensures adequate waiting time for customer arrival.
+     */
     const now = new Date();
     const pickupTime = new Date(trip.pickupTime);
     const msDiff = now.getTime() - pickupTime.getTime();
@@ -106,10 +136,9 @@ export class TripService {
       throw new ApiError(400, `Cannot mark No Show yet. Wait until 30 mins after pickup time. (Current: ${Math.round(minutesDiff)} mins)`);
     }
 
-    // Update Status
     const updated = await prisma.ride.update({
       where: { id: tripId },
-      data: { status: "NO_SHOW", completedAt: new Date() } // Mark as done
+      data: { status: "NO_SHOW", completedAt: new Date() }
     });
 
     return updated;
@@ -118,9 +147,9 @@ export class TripService {
   async completeTrip(tripId: string, driverUserId: string, fare?: number) {
     const trip = await this.repo.findById(tripId);
     if (!trip) throw new ApiError(404, "Trip not found");
-    // Strict: Must be STARTED (or ARRIVED if we had that state)
-    // Allowing STARTED -> COMPLETED for now.
-    if (trip.status !== "STARTED") throw new ApiError(400, "Trip not completable");
+    if (trip.status !== "STARTED") {
+      throw new ApiError(400, "Trip not completable");
+    }
 
     const driver = await prisma.driver.findUnique({
       where: { userId: driverUserId }

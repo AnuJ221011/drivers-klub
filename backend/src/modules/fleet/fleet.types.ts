@@ -12,6 +12,14 @@ export type CreateFleetInput = {
   modeId: string;
 };
 
+export type VehicleInput = {
+  vehicleId: string;
+}
+
+export type DriverInput = {
+  driverId: string;
+}
+
 export type UpdateFleetStatusInput = {
   status: FleetStatus;
 };

@@ -1,4 +1,4 @@
-import { Home, Car, Users, UserCircle, ArrowRightCircle, X, LogOut, Building2 } from "lucide-react";
+import { Home, Car, Users, UserCircle, ArrowRightCircle, X, LogOut, Building2, ClipboardCheck } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
@@ -15,6 +15,7 @@ const navItems = [
   { name: "Vehicles", icon: Car, path: "/admin/vehicles" },
   { name: "Drivers", icon: UserCircle, path: "/admin/drivers" },
   { name: "Team Management", icon: Users, path: "/admin/team-management" },
+  { name: "Driver Check-ins", icon: ClipboardCheck,path: "/admin/driver-checkins",},
 
 ];
 

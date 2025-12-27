@@ -2,10 +2,12 @@ import { Router } from "express";
 import {
   createDriver,
   getDriversByFleet,
+  getMyProfile,
   getDriverById,
   updateDriver,
   updateDriverAvailability,
-  updateDriverStatus
+  updateDriverStatus,
+  getDriversByHub
 } from "./driver.controller.js";
 import { authenticate } from "../../middlewares/authenticate.js";
 import { authorizeRoles } from "../../middlewares/authorize.js";
@@ -24,6 +26,18 @@ router.get(
   "/fleet/:fleetId",
   authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER"),
   getDriversByFleet
+);
+
+router.get(
+  "/hub/:hubId",
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER"),
+  getDriversByHub
+);
+
+router.get(
+  "/me",
+  authorizeRoles("DRIVER"),
+  getMyProfile
 );
 
 router.get(

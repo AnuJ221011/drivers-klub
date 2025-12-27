@@ -98,7 +98,8 @@ export class OtpService {
             throw new ApiError(400, "Invalid OTP");
         }
 
-        await repo.markVerified(record.id);
+        // Delete OTP after successful verification to prevent reuse
+        await repo.deleteOtp(record.id);
         return true;
     }
 }

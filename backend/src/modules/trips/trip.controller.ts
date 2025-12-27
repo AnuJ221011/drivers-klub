@@ -8,8 +8,6 @@ import { TripService } from "./trip.service.js";
 
 export class TripController {
   private mmtWebhook = new MMTWebhook();
-
-  // Add TripService to properties
   private tripService = new TripService();
 
   constructor(

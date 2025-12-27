@@ -17,7 +17,6 @@ export class AdminTripController {
         driverId
       );
 
-      // MMT Hook
       await this.pushDriverDetails(tripId, driverId);
 
       return ApiResponse.send(res, 201, { assignment }, "Driver assigned successfully");
@@ -31,20 +30,13 @@ export class AdminTripController {
 
     await TripAssignmentService.unassignDriver(tripId);
 
-    // Context: "In case fleet admin can not find a driver, cancels the trip -> Detach Request (API) -> Mark booking as cancelled"
-    // So we should cancel the trip here if it was MMT? Or just generic cancel?
-    // Let's mark as CANCELLED to be safe per requirement.
-    await prisma.ride.update({
-      where: { id: tripId },
-      data: { status: "CANCELLED" }
-    });
+    // NOTE: TripAssignmentService already reverts ride status to CREATED.
+    // We should not cancel the trip here; unassign should keep it re-dispatchable.
 
-    // MMT Hook (Push Cancel)
+    // MMT Hook (Detach driver)
     await this.pushDetachDetails(tripId);
 
-    return ApiResponse.send(res, 200, null, "Driver unassigned and trip cancelled");
-
-    return ApiResponse.send(res, 200, null, "Driver unassigned and trip cancelled");
+    return ApiResponse.send(res, 200, null, "Driver unassigned successfully");
   }
 
   async reassignDriver(req: Request, res: Response) {
@@ -57,7 +49,6 @@ export class AdminTripController {
           driverId
         );
 
-      // MMT Hook
       await this.pushReassignDetails(tripId, driverId);
 
       return ApiResponse.send(res, 200, { assignment }, "Driver reassigned successfully");

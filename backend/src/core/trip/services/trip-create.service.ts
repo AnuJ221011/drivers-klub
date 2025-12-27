@@ -8,29 +8,25 @@ import { TripType } from "@prisma/client";
 
 export class TripCreateService {
   static async create(input: CreateTripRequest) {
-    console.log("TripCreateService: Validating input...");
-    // 1️ Validate constraints
+    // Validate city and vehicle constraints
     TripValidator.validateCity(input.originCity);
     TripValidator.validateVehicle(input.vehicleSku);
-    console.log("TripCreateService: Basic validators passed.");
 
-    // Use new ConstraintEngine
+    // Apply constraint engine rules (T-1 booking, distance limits, etc.)
     const constraintResult = ConstraintEngine.validate({
-      tripType: input.tripType as TripType, // Cast string to Enum
-      pickupTime: new Date(input.tripDate), // Mapping input to logic
+      tripType: input.tripType as TripType,
+      pickupTime: new Date(input.tripDate),
       distanceKm: input.distanceKm,
-      vehicleType: "EV", // current SKU logic
-      isPrebook: true, // Assuming all creates are prebooks for now or derived
+      vehicleType: "EV",
+      isPrebook: true,
       originCity: input.originCity
     });
 
     if (!constraintResult.allowed) {
-      console.error("TripCreateService: Constraint blocked:", constraintResult.reason);
       throw new Error(constraintResult.reason);
     }
-    console.log("TripCreateService: Constraints passed.");
 
-    // 2 Pricing
+    // Calculate pricing based on distance, trip type, and timing
     const pricing = PricingEngine.calculateFare({
       distanceKm: input.distanceKm,
       tripType: input.tripType as TripType,
@@ -38,14 +34,13 @@ export class TripCreateService {
       bookingTime: new Date(input.bookingDate),
       vehicleType: "EV",
     });
-    console.log("TripCreateService: Pricing calculated:", pricing);
 
     const billableKm = Math.max(
       Math.ceil(input.distanceKm),
       MIN_BILLABLE_KM
     );
 
-    // 3️ Persist trip (Ride)
+    // Persist trip to database
     return prisma.ride.create({
       data: {
         tripType: input.tripType as TripType,
@@ -53,13 +48,13 @@ export class TripCreateService {
         destinationCity: input.destinationCity || "Unknown",
         pickupLocation: input.pickupLocation,
         dropLocation: input.dropLocation,
-        pickupTime: new Date(input.tripDate), // Renamed from tripDate
+        pickupTime: new Date(input.tripDate),
         distanceKm: input.distanceKm,
         billableKm,
         ratePerKm: PRICE_PER_KM,
-        price: pricing.finalFare, // Renamed from totalFare, using pricing result
+        price: pricing.finalFare,
         vehicleSku: input.vehicleSku,
-        status: "CREATED", // Explicitly set default if needed
+        status: "CREATED",
       },
     });
   }

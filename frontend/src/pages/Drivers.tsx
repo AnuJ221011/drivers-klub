@@ -133,7 +133,10 @@ export default function DriverManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-semibold">Drivers</h1>
+          <h1 className="text-xl font-semibold">
+            Drivers
+          </h1>
+          
           <FleetSelectBar className="w-72" />
         </div>
 

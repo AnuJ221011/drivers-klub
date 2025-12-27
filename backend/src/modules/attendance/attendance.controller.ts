@@ -6,24 +6,11 @@ import { AttendanceStatus } from "@prisma/client";
 
 export class AttendanceController {
 
-    // Driver Check-In
     async checkIn(req: Request, res: Response) {
         try {
-            // Assuming authenticate middleware sets req.user.id
-            // but req.user.id is User ID, we need Driver ID.
-            // Assuming User links to Driver by phone or ID?
-            // Or if the logged in user IS the driver (UserRole.DRIVER).
-            // We need to find the Driver record associated with this User.
-            // Usually User.id -> Driver.userId (if link exists) OR Driver.id = User.id?
-            // Let's assume req.user.id corresponds to a Driver or we need to lookup.
-            // For now, let's assume req.body contains driverId for testing or try to infer.
-            // Ideally: const driver = await prisma.driver.findFirst({ where: { userId: req.user.id } });
-
             const { driverId, lat, lng, odometer, selfieUrl } = req.body;
 
-            // If we rely on middleware:
             // const userId = req.user?.id;
-            // For now, accept driverId in body to be safe, or validate usage.
 
             if (!driverId) {
                 return res.status(400).json({ message: "Driver ID is required" });

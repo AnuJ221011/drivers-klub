@@ -6,7 +6,8 @@ import {
   updateVehicleDocs,
   deactivateVehicle,
   updateVehicle,
-  updateVehicleStatus
+  updateVehicleStatus,
+  getVehiclesByHub
 } from "./vehicle.controller.js";
 import { authenticate } from "../../middlewares/authenticate.js";
 import { authorizeRoles } from "../../middlewares/authorize.js";
@@ -15,16 +16,18 @@ const router = Router();
 
 router.use(authenticate);
 
-router.post(
-  "/",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
-  createVehicle
-);
+router.post("/", authorizeRoles("SUPER_ADMIN", "OPERATIONS"), createVehicle);
 
 router.get(
   "/fleet/:fleetId",
   authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER"),
   getVehiclesByFleet
+);
+
+router.get(
+  "/hub/:hubId",
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER"),
+  getVehiclesByHub
 );
 
 router.get(

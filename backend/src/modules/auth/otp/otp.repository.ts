@@ -40,4 +40,10 @@ export class OtpRepository {
       data: { attempts: { increment: 1 } }
     });
   }
+
+  async deleteOtp(id: string) {
+    return prisma.otp.delete({
+      where: { id }
+    });
+  }
 }

@@ -9,8 +9,7 @@
     "start": "node dist/server.js",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
-    "test:api": "tsx scripts/test-api-flow.ts",
-    "test:full": "tsx scripts/test-full-flow.ts"
+    "test:api": "tsx scripts/test-api-flow.ts"
   },
   "repository": {
     "type": "git",
@@ -29,8 +28,11 @@
     "@prisma/client": "^7.1.0",
     "axios": "^1.13.2",
     "cors": "^2.8.5",
+    "date-fns": "^2.30.0",
+    "date-fns-tz": "^2.0.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
     "pg": "^8.16.3",
@@ -41,6 +43,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/express-rate-limit": "^5.1.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/node": "^25.0.2",

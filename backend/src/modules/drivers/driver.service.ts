@@ -13,7 +13,7 @@ export class DriverService {
 
   async createDriver(data: CreateDriverInput) {
     const user = await prisma.user.findUnique({
-      where: { id: data.userId }
+      where: { id: data.userId },
     });
 
     if (!user) {
@@ -30,7 +30,7 @@ export class DriverService {
     }
 
     const fleet = await prisma.fleet.findUnique({
-      where: { id: data.fleetId }
+      where: { id: data.fleetId },
     });
 
     if (!fleet) {
@@ -42,6 +42,10 @@ export class DriverService {
 
   async getDriversByFleet(fleetId: string) {
     return this.driverRepo.findAllByFleet(fleetId);
+  }
+
+  async getDriversByHub(hubId: string) {
+    return this.driverRepo.findAllByHub(hubId);
   }
 
   async getDriverById(id: string) {

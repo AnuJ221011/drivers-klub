@@ -1,243 +1,587 @@
-# 📱 Flutter Driver App - API Integration Handbook
+# 📱 Flutter Driver App - API Integration Guide (Production)
 
-## 1️⃣ Document Meta
-| Attribute | Details |
-| :--- | :--- |
-| **Document Title** | Driver App API Reference |
-| **Version** | 3.4.0 (Final) |
-| **Status** | **APPROVED / LIVE** |
-| **Audience** | Mobile Engineering Team (Flutter) |
-| **Base URL** | `https://driversklub-backend.onrender.com` |
+**Target Audience:** Mobile Engineering Team  
+**Base URL (Production):** `https://driversklub-backend.onrender.com`  
+**Base URL (Development):** `http://localhost:5000`  
+**Auth Header:** `Authorization: Bearer <ACCESS_TOKEN>`  
+**Version:** 3.1.0  
+**Last Updated:** December 26, 2025
 
 ---
 
-## 2️⃣ Authentication
+## 📑 Table of Contents
 
-### A. Send OTP
-*   **Endpoint**: `POST /auth/send-otp`
-*   **Auth**: Public
-*   **Request Body**:
-    ```json
-    {
-      "phone": "9876543210"
-    }
-    ```
-*   **Success Response (200)**:
-    ```json
-    {
-      "success": true,
-      "statusCode": 200,
-      "message": "OTP sent successfully",
-      "data": { "message": "OTP sent successfully" }
-    }
-    ```
-*   **Error (404)**: "User not registered" (Driver needs to contact Admin).
+1. [Authentication](#1-authentication)
+2. [Daily Attendance](#2-daily-attendance)
+3. [Trip Management](#3-trip-management)
+4. [Driver Profile](#4-driver-profile)
+5. [Error Handling](#5-error-handling)
+6. [Implementation Notes](#6-implementation-notes)
 
-### B. Verify OTP (Login)
-*   **Endpoint**: `POST /auth/verify-otp`
-*   **Auth**: Public
-*   **Request Body**:
-    ```json
-    {
+---
+
+## 1. Authentication
+
+### 1.1 Send OTP
+**Endpoint:** `POST /auth/send-otp`  
+**Auth Required:** No
+
+**Request Body:**
+```json
+{
+  "phone": "9876543210"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "OTP sent successfully"
+}
+```
+
+**Dev Mode:** When `NODE_ENV !== 'production'`, OTP is printed to server console:
+```
+==========================================
+[DEV OTP] Phone: +919876543210
+[DEV OTP] Code : 123456
+==========================================
+```
+
+---
+
+### 1.2 Verify OTP
+**Endpoint:** `POST /auth/verify-otp`  
+**Auth Required:** No
+
+**Request Body:**
+```json
+{
+  "phone": "9876543210",
+  "otp": "123456"
+}
+```
+
+**Dev Bypass (Development Only):**
+```json
+{
+  "phone": "9876543210",
+  "otp": "000000",
+  "verifiedKey": "pass"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+    "refreshToken": "8f8e23...",
+    "user": {
+      "id": "uuid-user-id",
       "phone": "9876543210",
-      "otp": "1234"
+      "role": "DRIVER"
     }
-    ```
-*   **Success Response (200)**:
-    ```json
-    {
-      "success": true,
-      "statusCode": 200,
-      "data": {
-        "accessToken": "eyJh...",
-        "refreshToken": "8f8e...",
-        "user": {
-          "id": "uuid-user",
-          "name": "Raj Kumar",
-          "role": "DRIVER",
-          "phone": "9876543210"
-        }
-      }
-    }
-    ```
-*   **Action**: Store Tokens in `FlutterSecureStorage`.
+  }
+}
+```
 
-### C. Refresh Token
-*   **Endpoint**: `POST /auth/refresh`
-*   **Auth**: Public
-*   **Request Body**: `{ "refreshToken": "..." }`
-*   **Success Response (200)**: `{ "accessToken": "...", "refreshToken": "..." }`
+**Token Expiry:**
+- **Access Token:** 15 minutes
+- **Refresh Token:** 7 days
+
+**Action:**
+1. Check if `user.role === 'DRIVER'`. If not, show "Unauthorized App" error.
+2. Store `accessToken` securely (Keychain/Keystore).
+3. Store `refreshToken` for silent token renewal.
 
 ---
 
-## 3️⃣ Driver Profile
+### 1.3 Refresh Token
+**Endpoint:** `POST /auth/refresh`  
+**Auth Required:** No
 
-### Get My Profile
-*   **Endpoint**: `GET /drivers/me`
-*   **Auth**: Bearer Token
-*   **Success Response (200)**:
-    ```json
-    {
-      "success": true,
-      "data": {
-        "id": "uuid-driver-id",
-        "userId": "uuid-user-id",
-        "firstName": "Raj",
-        "lastName": "Kumar",
-        "mobile": "9876543210",
-        "fleetId": "uuid-fleet",
-        "status": "ACTIVE",
-        "kycStatus": "APPROVED",
-        "isAvailable": true
-      }
-    }
-    ```
-*   **Action**: Cache `id` (Driver ID) locally. It is needed for Attendance calls.
+**Request Body:**
+```json
+{
+  "refreshToken": "8f8e23..."
+}
+```
 
----
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJ..."
+  }
+}
+```
 
-## 4️⃣ Attendance (Shift Management)
-
-### A. Check In (Start Day)
-*   **Endpoint**: `POST /attendance/check-in`
-*   **Request Body**:
-    ```json
-    {
-      "driverId": "uuid-driver-id", // From Profile
-      "lat": 28.4595,
-      "lng": 77.0266,
-      "odometer": 10500,
-      "selfieUrl": "https://s3.aws.com/..." // Upload Image first
-    }
-    ```
-*   **Success Response (201)**:
-    ```json
-    {
-      "success": true,
-      "data": {
-        "id": "uuid-attendance",
-        "status": "PENDING",
-        "checkInTime": "2025-12-24T06:00:00.000Z"
-      }
-    }
-    ```
-
-### B. Check Out (End Day)
-*   **Endpoint**: `POST /attendance/check-out`
-*   **Request Body**:
-    ```json
-    {
-      "driverId": "uuid-driver-id",
-      "odometer": 10650
-    }
-    ```
-*   **Success Response (200)**: `{ "status": "CHECKED_OUT" }`
-
-### C. Get History
-*   **Endpoint**: `GET /attendance`
-*   **Query**: `?driverId=uuid...&page=1&limit=20`
-*   **Success Response**: `{ "data": [...], "total": 50 }`
+**Implementation:** Call this automatically when you receive `401 Unauthorized` on any protected endpoint.
 
 ---
 
-## 5️⃣ Trip Management
+## 2. Daily Attendance
 
-### A. List My Trips
-*   **Endpoint**: `GET /trips`
-*   **Query Params**:
-    *   `status=DRIVER_ASSIGNED` (For "New/Active" Tab)
-    *   `status=COMPLETED` (For "History" Tab)
-*   **Success Response (200)**:
-    ```json
-    {
-      "success": true,
-      "data": [
-        {
-          "id": "uuid-trip",
-          "pickupLocation": "Terminal 3",
-          "dropLocation": "Cyber Hub",
-          "pickupTime": "2025-12-25T10:00:00.000Z",
-          "status": "DRIVER_ASSIGNED",
-          "vehicleSku": "EV_SEDAN",
-          "customerName": "John Doe",
-          "customerPhone": "9998887777"
-        }
-      ]
-    }
-    ```
+### 2.1 Check In (Start Shift)
+**Endpoint:** `POST /attendance/check-in`  
+**Auth Required:** Yes  
+**Role:** DRIVER
 
-### B. Trip Actions (State Machine)
+**Request Body:**
+```json
+{
+  "driverId": "uuid-driver-id-from-profile",
+  "lat": 28.4595,
+  "lng": 77.0266,
+  "odometer": 10500,
+  "selfieUrl": "https://s3.aws.com/bucket/selfie.jpg"
+}
+```
 
-#### 1. Start Trip (En-Route)
-*   **Endpoint**: `POST /trips/:id/start`
-*   **Body**: `{ "lat": 28.5, "lng": 77.1 }`
-*   **Success**: `{ "status": "STARTED", "startedAt": "..." }`
+**Important:** Upload selfie to S3/Cloudinary first, then send the URL.
 
-#### 2. Arrived (At Pickup)
-*   **Endpoint**: `POST /trips/:id/arrived`
-*   **Body**: `{ "lat": 28.5, "lng": 77.1 }`
-*   **Effect**: Sends SMS to customer.
-
-#### 3. Onboard (Start Ride)
-*   **Endpoint**: `POST /trips/:id/onboard`
-*   **Body**: `{ "otp": "1234" }` (Optional)
-*   **Effect**: Meter/Billing starts implicitly.
-
-#### 4. Complete (Drop)
-*   **Endpoint**: `POST /trips/:id/complete`
-*   **Body**:
-    ```json
-    {
-      "distance": 15.2, // KM
-      "fare": 500       // INR
-    }
-    ```
-*   **Success Response**:
-    ```json
-    {
-      "success": true,
-      "data": {
-        "status": "COMPLETED",
-        "price": 500,
-        "completedAt": "2025-12-25T11:30:00.000Z"
-      }
-### B. Trip Lifecycle State Machine (Strict Industrial Logic)
-
-The app must strictly enforce these time-based and location-based rules before calling APIs.
-
-| State | Action | API Endpoint | Validation / Logic |
-| :--- | :--- | :--- | :--- |
-| `DRIVER_ASSIGNED` | **"Start Trip"** | `POST /trips/:id/start` | • **Time Window**: Button enables **2.5 Hours** before `pickupTime`.<br>• **Notifications**: Sent 2h before, then every 30m.<br>• **Warning**: If not started by 1h before, Admin is alerted. |
-| `STARTED` | **"Arrived"** | `POST /trips/:id/arrived` | • **Geofence**: Must be within **500m** (Configurable) of Pickup.<br>• **Time**: Valid from **30 mins** before Pickup.<br>• **Effect**: Customer notified via MMT. |
-| `ARRIVED` | **"Start Ride"** | `POST /trips/:id/onboard` | • **Condition**: Customer is in car.<br>• **Wait Time**: If >20 mins past pickup, UI starts "Waiting Time" timer. |
-| `ARRIVED` | **"No Show"** | `POST /trips/:id/no-show` | • **Condition**: >30 mins past pickup AND Customer unreachable.<br>• **Status**: Sets trip to `NO_SHOW`. |
-| `ONBOARDED` | **"Complete"** | `POST /trips/:id/complete` | • **Payment**: Check if "Cash Collected" or "Prepaid".<br>• **Input**: Final Odometer / Distance. |
-
-### 5.1 ⏳ Waiting Time Logic
-*   **Trigger**: If Customer does not board within **20 Minutes** of `pickupTime`.
-*   **Action**: App should display "Waiting Time Started".
-*   ** Billing**: The extra time is added to the backend billing calculation at `Complete`.
-
-### 5.2 🚫 No-Show Logic
-*   **Trigger**: **30 Minutes** past `pickupTime`.
-*   **Action**: Enable "Mark No Show" button.
-*   **API**: `POST /trips/:id/no-show` (Status: `NO_SHOW`).
+**Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "status": "PENDING_APPROVAL",
+    "checkInTime": "2025-12-25T08:00:00Z"
+  }
+}
+```
 
 ---
 
-## 6️⃣ Error Handling
+### 2.2 Check Out (End Shift)
+**Endpoint:** `POST /attendance/check-out`  
+**Auth Required:** Yes  
+**Role:** DRIVER
 
-| HTTP Code | Error Message | Meaning | UI Action |
-| :--- | :--- | :--- | :--- |
-| `400` | `Driver already checked in` | Duplicate session | Resume existing session. |
-| `401` | `Unauthorized` | Token invalid | Refresh Token or Logout. |
-| `404` | `Trip not found` | Invalid ID | Refresh List. |
-| `422` | `Trip already started` | State Mismatch | Sync Status from Backend. |
+**Request Body:**
+```json
+{
+  "driverId": "uuid-driver-id",
+  "odometer": 10650
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Check-out successful",
+  "data": {
+    "checkOutTime": "2025-12-25T18:00:00Z",
+    "totalKm": 150
+  }
+}
+```
 
 ---
 
-## 7️⃣ Implementation Guidelines
+### 2.3 Get Attendance History
+**Endpoint:** `GET /attendance/history?driverId={uuid}`  
+**Auth Required:** Yes
 
-1.  **Polling**: Poll `GET /trips?status=DRIVER_ASSIGNED` every **30 Seconds** to check for new assignments.
-2.  **Location**: Always fetch current GPS coordinates before calling any `/trips/:id/*` endpoint.
-3.  **Selfie**: Use `image_picker` library -> Upload to AWS S3/Cloudinary -> Send URL to `/attendance/check-in`.
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "checkInTime": "2025-12-25T08:00:00Z",
+      "checkOutTime": "2025-12-25T18:00:00Z",
+      "status": "APPROVED",
+      "odometerStart": 10500,
+      "odometerEnd": 10650
+    }
+  ]
+}
+```
+
+---
+
+## 3. Trip Management
+
+### 3.1 Get My Assigned Trips
+**Endpoint:** `GET /trips?status=DRIVER_ASSIGNED`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid-trip-id",
+      "tripType": "AIRPORT",
+      "originCity": "Delhi",
+      "pickupLocation": "T3 Terminal, Gate 4",
+      "pickupLat": 28.5562,
+      "pickupLng": 77.1000,
+      "dropLocation": "Cyber Hub, Gurgaon",
+      "pickupTime": "2025-12-25T10:00:00Z",
+      "status": "DRIVER_ASSIGNED",
+      "price": 1200,
+      "distanceKm": 45
+    }
+  ]
+}
+```
+
+---
+
+### 3.2 Get Trip Details
+**Endpoint:** `GET /trips/:id`  
+**Auth Required:** Yes
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "tripType": "AIRPORT",
+    "pickupLocation": "T3 Terminal, Gate 4",
+    "pickupLat": 28.5562,
+    "pickupLng": 77.1000,
+    "dropLocation": "Cyber Hub",
+    "pickupTime": "2025-12-25T10:00:00Z",
+    "status": "DRIVER_ASSIGNED",
+    "price": 1200,
+    "customerPhone": "9999999999"
+  }
+}
+```
+
+---
+
+### 3.3 🚦 Trip Lifecycle State Machine
+
+Perform these actions **strictly in order**. Send GPS coordinates with every status change.
+
+---
+
+#### Step A: Start Trip (En-route to Pickup)
+**Endpoint:** `POST /trips/:id/start`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "lat": 28.5500,
+  "lng": 77.0900
+}
+```
+
+**⚠️ STRICT CONSTRAINT:**
+- Can ONLY start within **2.5 hours** of `pickupTime`
+- Error if too early: `400 "Cannot start trip more than 2.5 hours before pickup"`
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Trip started successfully"
+}
+```
+
+**Side Effects:**
+- Status: `DRIVER_ASSIGNED` → `STARTED`
+- MMT Webhook triggered (if MMT trip)
+
+---
+
+#### Step B: Arrived (At Pickup Location)
+**Endpoint:** `POST /trips/:id/arrived`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "lat": 28.5562,
+  "lng": 77.1000
+}
+```
+
+**⚠️ STRICT CONSTRAINTS:**
+1. **Geofence:** Must be within **500m** of `pickupLat`/`pickupLng`
+2. **Time:** Must be within **30 minutes** of `pickupTime`
+
+**Errors:**
+- `400 "Driver not within 500m geofence"` - Too far from pickup
+- `400 "Cannot arrive more than 30 minutes before pickup"` - Too early
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Arrival confirmed"
+}
+```
+
+**Side Effects:**
+- Status: `STARTED` → `ARRIVED`
+- SMS sent to customer: "Driver Arrived"
+
+---
+
+#### Step C: Passenger Onboard (Ride Begins)
+**Endpoint:** `POST /trips/:id/onboard`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "otp": "1234"
+}
+```
+
+**Note:** OTP field is optional. Backend validates if provided.
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Passenger onboarded"
+}
+```
+
+**Side Effects:**
+- Status: `ARRIVED` → `ONBOARD`
+
+---
+
+#### Step D: Complete (Dropoff)
+**Endpoint:** `POST /trips/:id/complete`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "distance": 45.5,
+  "fare": 1200
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Trip completed successfully"
+}
+```
+
+**Side Effects:**
+- Status: `ONBOARD` → `COMPLETED`
+- Driver becomes available for next assignment
+
+---
+
+#### Alternative: No Show
+**Endpoint:** `POST /trips/:id/noshow`  
+**Auth Required:** Yes
+
+**Request Body:**
+```json
+{
+  "reason": "Customer not reachable"
+}
+```
+
+**⚠️ STRICT CONSTRAINT:**
+- Can ONLY mark no-show **AFTER 30 minutes** past `pickupTime`
+- Error if too early: `400 "Cannot mark no-show before 30 minutes past pickup time"`
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Trip marked as no-show"
+}
+```
+
+**Side Effects:**
+- Status: → `NO_SHOW`
+
+---
+
+### 3.4 Get Live Tracking
+**Endpoint:** `GET /trips/:id/tracking`  
+**Auth Required:** Yes
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "currentLat": 28.5500,
+    "currentLng": 77.0900,
+    "lastUpdated": "2025-12-25T09:45:00Z"
+  }
+}
+```
+
+---
+
+## 4. Driver Profile
+
+### 4.1 Get My Profile
+**Endpoint:** `GET /drivers/me`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "firstName": "Raj",
+    "lastName": "Kumar",
+    "mobile": "9876543210",
+    "licenseNumber": "DL-12345-67890",
+    "kycStatus": "APPROVED",
+    "status": "ACTIVE",
+    "fleet": {
+      "id": "uuid",
+      "name": "Delhi Cabs Pvt Ltd"
+    }
+  }
+}
+```
+
+---
+
+## 5. Error Handling
+
+### 5.1 HTTP Status Codes
+
+| Code | Error | Meaning | Action |
+|------|-------|---------|--------|
+| `400` | `VALIDATION_ERROR` | Invalid request body | Check request format |
+| `400` | `TOO_EARLY_START` | Cannot start > 2.5h before pickup | Wait until allowed time |
+| `400` | `TOO_EARLY_ARRIVE` | Cannot arrive > 30min before pickup | Wait until allowed time |
+| `400` | `GEOFENCE_VIOLATION` | Not within 500m of pickup | Move closer to pickup location |
+| `400` | `TOO_EARLY_NOSHOW` | Cannot mark no-show < 30min after pickup | Wait until allowed time |
+| `401` | `UNAUTHORIZED` | Token Invalid/Expired | Call `/auth/refresh` or re-login |
+| `403` | `FORBIDDEN` | Insufficient permissions | Contact admin |
+| `404` | `NOT_FOUND` | Trip/Resource not found | Refresh trip list |
+| `422` | `UNPROCESSABLE_ENTITY` | Business logic violation | Check trip status |
+| `500` | `INTERNAL_SERVER_ERROR` | Backend crash | Retry after few seconds |
+
+### 5.2 Error Response Format
+
+```json
+{
+  "success": false,
+  "statusCode": 400,
+  "errorCode": "TOO_EARLY_START",
+  "message": "Cannot start trip more than 2.5 hours before pickup",
+  "timestamp": "2025-12-25T09:00:00Z"
+}
+```
+
+---
+
+## 6. Implementation Notes
+
+### 6.1 Background Location Tracking
+- The backend expects GPS coordinates during status changes
+- Implement background location service to track driver position
+- Send location updates during trip lifecycle transitions
+
+### 6.2 Offline Handling
+- The API requires online connectivity
+- Queue requests locally (SQLite) when offline
+- Sync when connection is restored
+- Show clear offline indicator to driver
+
+### 6.3 UI Feedback
+- Always show loading indicators during API calls
+- API latency can vary (200ms - 2s)
+- Implement retry logic for failed requests (max 3 retries)
+- Show clear error messages from API responses
+
+### 6.4 Token Management
+```dart
+// Pseudo-code for token refresh
+Future<void> refreshTokenIfNeeded() async {
+  if (isTokenExpired(accessToken)) {
+    final newToken = await api.refreshToken(refreshToken);
+    await secureStorage.write('accessToken', newToken);
+  }
+}
+
+// Intercept 401 responses
+if (response.statusCode == 401) {
+  await refreshTokenIfNeeded();
+  // Retry original request
+}
+```
+
+### 6.5 Geofencing Implementation
+```dart
+// Check if driver is within 500m of pickup
+double distance = Geolocator.distanceBetween(
+  driverLat, driverLng,
+  pickupLat, pickupLng
+);
+
+if (distance > 500) {
+  showError("You must be within 500m of pickup location");
+  return;
+}
+```
+
+### 6.6 Time Constraint Checks
+```dart
+// Check if within 2.5h window for start
+DateTime now = DateTime.now();
+DateTime pickupTime = DateTime.parse(trip.pickupTime);
+Duration diff = pickupTime.difference(now);
+
+if (diff.inHours > 2.5) {
+  showError("Cannot start trip more than 2.5 hours before pickup");
+  return;
+}
+```
+
+### 6.7 State Management
+- Use Provider/Riverpod/Bloc for state management
+- Cache trip list locally
+- Implement pull-to-refresh for trip list
+- Auto-refresh every 30 seconds when on trip list screen
+
+### 6.8 Push Notifications
+- Implement FCM for trip assignments
+- Handle notification when app is in background/killed
+- Deep link to specific trip when notification tapped
+
+---
+
+## 📝 Checklist for Production
+
+- [ ] Implement token refresh logic
+- [ ] Add offline queue mechanism
+- [ ] Implement background location tracking
+- [ ] Add geofencing validation before API calls
+- [ ] Add time constraint validation before API calls
+- [ ] Implement retry logic for failed requests
+- [ ] Add comprehensive error handling
+- [ ] Implement push notifications (FCM)
+- [ ] Add analytics/crash reporting (Firebase)
+- [ ] Test all edge cases (offline, poor network, etc.)
+
+---
+
+**End of Flutter Driver API Guide**

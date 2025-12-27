@@ -20,6 +20,10 @@ export class VehicleRepository {
     return prisma.vehicle.findMany({ where: { fleetId } });
   }
 
+  async findByHub(hubId: string): Promise<VehicleEntity[]> {
+    return prisma.vehicle.findMany({ where: { hubId } });
+  }
+
   async findByVehicleNumber(
     vehicleNumber: string
   ): Promise<VehicleEntity | null> {
@@ -42,8 +46,8 @@ export class VehicleRepository {
           : undefined,
         insuranceExpiry: data.insuranceExpiry
           ? new Date(data.insuranceExpiry)
-          : undefined
-      }
+          : undefined,
+      },
     });
   }
 

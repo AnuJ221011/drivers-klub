@@ -1,26 +1,36 @@
 import { prisma } from "../../../utils/prisma.js";
 import { PricingEngine } from "../../../core/pricing/pricing.engine.js";
 import { TripType } from "@prisma/client";
+import { ApiError } from "../../../utils/apiError.js";
 
 export class MMTService {
 
     // 1. SEARCH FARE
     async searchFare(input: any) {
-        // Input: { pickupCity, dropCity, pickupTime, tripType }
+        // Input validation
+        if (!input.pickupTime) {
+            throw new ApiError(400, "pickupTime is required");
+        }
+        if (!input.tripType) {
+            throw new ApiError(400, "tripType is required");
+        }
+
         const pickupTime = new Date(input.pickupTime);
+        if (isNaN(pickupTime.getTime())) {
+            throw new ApiError(400, "Invalid pickupTime format");
+        }
+
         const now = new Date();
 
-        // Rule 1: T+1 Only (24 hours advance notice roughly, or next calendar day)
-        // Strict interpretation: Must be >= 24h from now OR next calendar day. Using simple 24h for clear V1.
-        // User said: "accept rides 1 day and before".
+        // Rule 1: T+1 Only (24 hours advance notice)
         const hoursDiff = (pickupTime.getTime() - now.getTime()) / (1000 * 60 * 60);
         if (hoursDiff < 24) {
-            throw new Error("MMT V1 Restriction: Only rides > 24h in advance are accepted.");
+            throw new ApiError(400, "MMT V1 Restriction: Only rides > 24h in advance are accepted.");
         }
 
         // Rule 2: Airport Only (P1)
         if (input.tripType !== "AIRPORT") {
-            throw new Error("MMT V1 Restriction: Only AIRPORT trips are accepted.");
+            throw new ApiError(400, "MMT V1 Restriction: Only AIRPORT trips are accepted.");
         }
 
         const distanceKm = input.distanceKm || 40; // Fallback or strict requirement
@@ -49,13 +59,19 @@ export class MMTService {
 
     // 2. BLOCK RIDE
     async blockRide(input: any) {
-        // Input: { mmtRefId, skuId, ...details }
-        // Create Trip with BLOCKED status
+        // Input validation
+        if (!input.skuId) {
+            throw new ApiError(400, "skuId is required");
+        }
+        if (!input.mmtRefId) {
+            throw new ApiError(400, "mmtRefId is required");
+        }
+        if (!input.pickupTime) {
+            throw new ApiError(400, "pickupTime is required");
+        }
 
-        // Ensure SKU is valid
-        if (input.skuId !== "TATA_TIGOR_EV") throw new Error("Invalid SKU");
+        if (input.skuId !== "TATA_TIGOR_EV") throw new ApiError(400, "Invalid SKU");
 
-        // Create barebones trip
         const trip = await prisma.ride.create({
             data: {
                 tripType: TripType.AIRPORT,
@@ -86,14 +102,11 @@ export class MMTService {
         };
     }
 
-    // 3. PAID (CONFIRM)
     async confirmPaid(input: any) {
-        // Input: { bookingId, paymentDetails }
-
         const trip = await prisma.ride.findUnique({ where: { id: input.bookingId } });
-        if (!trip) throw new Error("Booking not found");
+        if (!trip) throw new ApiError(404, "Booking not found");
 
-        if (trip.status !== "BLOCKED") throw new Error("Booking is not in blocked state");
+        if (trip.status !== "BLOCKED") throw new ApiError(400, "Booking is not in blocked state");
 
         const updated = await prisma.ride.update({
             where: { id: input.bookingId },

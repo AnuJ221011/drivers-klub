@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pencil, Filter } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
 import toast from "react-hot-toast";
 
 import Table from "../components/ui/Table";
@@ -8,10 +10,10 @@ import Input from "../components/ui/Input";
 import Select from "../components/ui/Select";
 
 import Modal from "../components/layout/Modal";
-import Drawer from "../components/layout/Drawer";
+// import Drawer from "../components/layout/Drawer";
 
 import CreateNewFleet from "../components/fleet/CreateNewFleet";
-import FleetDrawer from "../components/fleet/FleetDrawer";
+// import FleetDrawer from "../components/fleet/FleetDrawer";
 
 import type { Column } from "../components/ui/Table";
 import { useFleet } from "../context/FleetContext";
@@ -27,6 +29,8 @@ export default function FleetManagement() {
   const [fleetTypeFilter, setFleetTypeFilter] = useState<FleetType | "">("");
 
   const { fleets, fleetsLoading, refreshFleets } = useFleet();
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     void refreshFleets();
@@ -79,7 +83,7 @@ export default function FleetManagement() {
       label: "Action",
       render: (f) => (
         <button
-          onClick={() => setSelectedFleet(f)}
+          onClick={() => navigate(`/admin/fleets/${f.id}`)}
           className="p-2 hover:bg-yellow-100 rounded"
         >
           <Pencil size={16} />
@@ -162,7 +166,7 @@ export default function FleetManagement() {
       </Modal>
 
       {/* Fleet Drawer */}
-      <Drawer
+      {/* <Drawer
         open={!!selectedFleet}
         onClose={() => setSelectedFleet(null)}
         title="Fleet Details"
@@ -173,7 +177,7 @@ export default function FleetManagement() {
             void refreshFleets();
           }}
         />
-      </Drawer>
+      </Drawer> */}
     </div>
   );
 }

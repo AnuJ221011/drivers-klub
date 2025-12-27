@@ -12,7 +12,7 @@ export class VehicleService {
 
   async createVehicle(data: CreateVehicleInput) {
     const fleet = await prisma.fleet.findUnique({
-      where: { id: data.fleetId }
+      where: { id: data.fleetId },
     });
 
     if (!fleet) {
@@ -29,6 +29,10 @@ export class VehicleService {
 
   async getVehiclesByFleet(fleetId: string) {
     return this.repo.findByFleet(fleetId);
+  }
+
+  async getVehiclesByHub(hubId: string) {
+    return this.repo.findByHub(hubId);
   }
 
   async getVehicleById(id: string) {

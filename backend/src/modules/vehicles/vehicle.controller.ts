@@ -14,6 +14,11 @@ export const getVehiclesByFleet = async (req: Request, res: Response) => {
   ApiResponse.send(res, 200, vehicles, "Vehicles retrieved successfully");
 };
 
+export const getVehiclesByHub = async (req: Request, res: Response) => {
+  const vehicles = await service.getVehiclesByHub(req.params.hubId);
+  ApiResponse.send(res, 200, vehicles, "Vehicles retrieved successfully");
+};
+
 export const getVehicleById = async (req: Request, res: Response) => {
   const vehicle = await service.getVehicleById(req.params.id);
   ApiResponse.send(res, 200, vehicle, "Vehicle retrieved successfully");

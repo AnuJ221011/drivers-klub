@@ -9,7 +9,13 @@ import Vehicle from './pages/Vehicle';
 import Driver from './pages/Drivers';
 import TeamManagement from './pages/Team';
 import Trips from './pages/Trips';
+import TripDetails from './pages/TripDetails';
 import FleetsPage from './pages/Fleet';
+import FleetDetails from './pages/FleetDetails';
+import FleetCreateHub from './components/fleet/Details/Hubs/FleetCreateHub';
+import FleetHubDetails from './components/fleet/Details/Hubs/FleetHubDetails';
+import DriverCheckins from './pages/DriverCheckins';
+import DriverCheckinDetail from './components/DriverCheckins/DriverCheckinDetail';
 
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -53,6 +59,14 @@ export default function App() {
             }
           />
           <Route
+            path="trips/:id"
+            element={
+              <PrivateRoute>
+                <TripDetails />
+              </PrivateRoute>
+            }
+          />
+          <Route
             path="vehicles"
             element={
               <PrivateRoute>
@@ -76,6 +90,43 @@ export default function App() {
               </PrivateRoute>
             }
           />
+          <Route 
+            path="driver-checkins"
+            element={
+              <PrivateRoute>
+                <DriverCheckins />
+              </PrivateRoute>
+            }
+          />
+          <Route 
+            path="driver-checkins/:id"
+            element={
+              <PrivateRoute>
+                <DriverCheckinDetail />
+              </PrivateRoute>
+            }
+          />
+          <Route path="fleets/:id" element={
+          <PrivateRoute>
+            <FleetDetails />
+          </PrivateRoute>
+        } />
+        <Route path="fleets/:id/hubs/create" element={
+          <PrivateRoute>
+            <FleetCreateHub  />
+          </PrivateRoute>
+        } />
+        <Route path="fleets/:id/hubs/create" element={
+          <PrivateRoute>
+            <FleetCreateHub  />
+          </PrivateRoute>
+        } />
+        <Route path="fleets/:id/hubs/:hubId" element={
+          <PrivateRoute>
+            <FleetHubDetails />
+          </PrivateRoute>
+          } 
+        />
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace />} />

@@ -10,15 +10,13 @@ const controller = new AttendanceController();
 
 router.use(authenticate);
 
-// Driver Actions
 router.post("/check-in", controller.checkIn);
 router.post("/check-out", controller.checkOut);
-router.get("/history", controller.getHistory); // Driver can see own history? Current implementation allows filtering by driverId.
+router.get("/history", controller.getHistory);
 
-// Admin Actions
 router.post(
     "/:id/approve",
-    authorizeRoles(UserRole.SUPER_ADMIN, UserRole.MANAGER), // Assuming Fleet Manager can also approve
+    authorizeRoles(UserRole.SUPER_ADMIN, UserRole.MANAGER),
     controller.approve
 );
 

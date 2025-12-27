@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { OtpService } from "./otp/otp.service.js";
+import { ApiResponse } from "../../utils/apiResponse.js";
 import {
     issueTokens,
     refresh as refreshTokenService,
@@ -21,7 +22,7 @@ export const sendOtp = async (req: Request, res: Response) => {
     }
 
     await otpService.sendOtp(phone);
-    res.json({ message: "OTP sent successfully" });
+    ApiResponse.send(res, 200, { message: "OTP sent successfully" }, "OTP sent successfully");
 };
 
 export const verifyOtp = async (req: Request, res: Response) => {
@@ -51,13 +52,13 @@ export const verifyOtp = async (req: Request, res: Response) => {
     }
 
     const tokens = await issueTokens(user.id);
-    res.json(tokens);
+    ApiResponse.send(res, 200, { ...tokens, user }, "OTP verified successfully");
 };
 
 export const refresh = async (req: Request, res: Response) => {
     const { refreshToken } = req.body;
     const tokens = await refreshTokenService(refreshToken);
-    res.json(tokens);
+    ApiResponse.send(res, 200, tokens, "Token refreshed successfully");
 };
 
 export const logout = async (req: Request, res: Response) => {
@@ -87,5 +88,5 @@ export const logout = async (req: Request, res: Response) => {
         }
     }
 
-    res.json({ message: "Logged out" });
+    ApiResponse.send(res, 200, null, "Logged out successfully");
 };

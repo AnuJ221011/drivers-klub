@@ -2,6 +2,10 @@ import { ConstraintInput, ConstraintResult } from "./constraint.types.js";
 import { TripType } from "@prisma/client";
 
 
+/**
+ * Supported cities for trip origin.
+ * Currently limited to Delhi NCR region for operational coverage.
+ */
 const NCR_CITIES = ["DELHI", "GURGAON", "NOIDA", "FARIDABAD", "GHAZIABAD"];
 
 function validateOrigin(origin: string): ConstraintResult {
