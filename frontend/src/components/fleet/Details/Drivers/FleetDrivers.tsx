@@ -1,17 +1,61 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import Button from "../../../ui/Button";
 import Table from "../../../ui/Table";
 import AddDriversModal from "./AddDriverModal";
-
-const mockDrivers = [
-  { id: "d1", name: "Rohit", phone: "9876543210" },
-  { id: "d2", name: "Amit", phone: "9123456789" },
-];
+import { getDriversByFleet } from "../../../../api/driver.api";
+import type { Driver } from "../../../../models/driver/driver";
+import { getAssignmentsByFleet } from "../../../../api/assignment.api";
+import { getVehiclesByFleet } from "../../../../api/vehicle.api";
 
 export default function FleetDrivers() {
-  const { id: fleetId } = useParams(); // future use
+  const { id: fleetId } = useParams();
   const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<Driver[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [assignedVehicleByDriverId, setAssignedVehicleByDriverId] = useState<Record<string, string>>({});
+
+  const refresh = useCallback(async () => {
+    if (!fleetId) return;
+    setLoading(true);
+    try {
+      const [drivers, assignments, vehicles] = await Promise.all([
+        getDriversByFleet(fleetId),
+        getAssignmentsByFleet(fleetId),
+        getVehiclesByFleet(fleetId),
+      ]);
+
+      setRows(drivers || []);
+
+      const vehicleLabelById = new Map<string, string>();
+      for (const v of vehicles || []) {
+        const label = v.model ? `${v.number} (${v.model})` : v.number;
+        vehicleLabelById.set(v.id, label);
+      }
+
+      const next: Record<string, string> = {};
+      for (const a of assignments || []) {
+        if (a.status !== "ACTIVE") continue;
+        next[a.driverId] = vehicleLabelById.get(a.vehicleId) || a.vehicleId;
+      }
+      setAssignedVehicleByDriverId(next);
+    } catch (err: unknown) {
+      const maybeAny = err as { response?: { data?: unknown } };
+      const data = maybeAny.response?.data;
+      const msg =
+        data && typeof data === "object" && "message" in data
+          ? String((data as Record<string, unknown>).message)
+          : "Failed to load drivers";
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [fleetId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   return (
     <div className="space-y-4">
@@ -21,15 +65,57 @@ export default function FleetDrivers() {
         </Button>
       </div>
 
-      <Table
-        columns={[
-          { key: "name", label: "Name" },
-          { key: "phone", label: "Phone" },
-        ]}
-        data={mockDrivers}
-      />
+      {loading ? (
+        <div className="text-sm text-black/60">Loading drivers…</div>
+      ) : (
+        <Table
+          columns={[
+            { key: "name", label: "Name" },
+            { key: "phone", label: "Phone" },
+            {
+              key: "assignedVehicle",
+              label: "Assigned Vehicle",
+              render: (d) => assignedVehicleByDriverId[d.id] || "—",
+            },
+            {
+              key: "isActive",
+              label: "Active",
+              render: (d) => (
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    d.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {d.isActive ? "Active" : "Inactive"}
+                </span>
+              ),
+            },
+            {
+              key: "isAvailable",
+              label: "Available",
+              render: (d) => (
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    d.isAvailable ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-800"
+                  }`}
+                >
+                  {d.isAvailable ? "Yes" : "No"}
+                </span>
+              ),
+            },
+          ]}
+          data={rows}
+        />
+      )}
 
-      <AddDriversModal open={open} onClose={() => setOpen(false)} />
+      {fleetId && (
+        <AddDriversModal
+          open={open}
+          onClose={() => setOpen(false)}
+          fleetId={fleetId}
+          onAdded={() => void refresh()}
+        />
+      )}
     </div>
   );
 }

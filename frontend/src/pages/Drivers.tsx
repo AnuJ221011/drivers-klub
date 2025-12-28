@@ -15,6 +15,8 @@ import { getDriversByFleet } from '../api/driver.api';
 import type { Driver } from '../models/driver/driver';
 import { useFleet } from '../context/FleetContext';
 import FleetSelectBar from '../components/fleet/FleetSelectBar';
+import { getAssignmentsByFleet } from '../api/assignment.api';
+import { getVehiclesByFleet } from '../api/vehicle.api';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -32,6 +34,7 @@ export default function DriverManagement() {
   const [open, setOpen] = useState(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(false);
+  const [assignedVehicleByDriverId, setAssignedVehicleByDriverId] = useState<Record<string, string>>({});
   const [searchPhone, setSearchPhone] = useState('');
   const [searchName, setSearchName] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -40,13 +43,32 @@ export default function DriverManagement() {
   const refreshDrivers = useCallback(async () => {
     if (!effectiveFleetId) {
       setDrivers([]);
+      setAssignedVehicleByDriverId({});
       return;
     }
     setLoading(true);
     try {
-      const data = await getDriversByFleet(effectiveFleetId);
+      const [data, assignments, vehicles] = await Promise.all([
+        getDriversByFleet(effectiveFleetId),
+        getAssignmentsByFleet(effectiveFleetId),
+        getVehiclesByFleet(effectiveFleetId),
+      ]);
+
       console.log('Fetched drivers:', data);
       setDrivers(data);
+
+      const vehicleLabelById = new Map<string, string>();
+      for (const v of vehicles || []) {
+        const label = v.model ? `${v.number} (${v.model})` : v.number;
+        vehicleLabelById.set(v.id, label);
+      }
+
+      const next: Record<string, string> = {};
+      for (const a of assignments || []) {
+        if (a.status !== 'ACTIVE') continue;
+        next[a.driverId] = vehicleLabelById.get(a.vehicleId) || a.vehicleId;
+      }
+      setAssignedVehicleByDriverId(next);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to load drivers'));
     } finally {
@@ -87,6 +109,11 @@ export default function DriverManagement() {
     {
       key: "phone",
       label: "Phone Number",
+    },
+    {
+      key: "assignedVehicle",
+      label: "Assigned Vehicle",
+      render: (d) => assignedVehicleByDriverId[d.id] || "—",
     },
     {
       key: "status",
