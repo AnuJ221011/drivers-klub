@@ -6,19 +6,40 @@ import Table from "../../../ui/Table";
 import AddDriversModal from "./AddDriverModal";
 import { getDriversByFleet } from "../../../../api/driver.api";
 import type { Driver } from "../../../../models/driver/driver";
+import { getAssignmentsByFleet } from "../../../../api/assignment.api";
+import { getVehiclesByFleet } from "../../../../api/vehicle.api";
 
 export default function FleetDrivers() {
   const { id: fleetId } = useParams();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(false);
+  const [assignedVehicleByDriverId, setAssignedVehicleByDriverId] = useState<Record<string, string>>({});
 
   const refresh = useCallback(async () => {
     if (!fleetId) return;
     setLoading(true);
     try {
-      const data = await getDriversByFleet(fleetId);
-      setRows(data || []);
+      const [drivers, assignments, vehicles] = await Promise.all([
+        getDriversByFleet(fleetId),
+        getAssignmentsByFleet(fleetId),
+        getVehiclesByFleet(fleetId),
+      ]);
+
+      setRows(drivers || []);
+
+      const vehicleLabelById = new Map<string, string>();
+      for (const v of vehicles || []) {
+        const label = v.model ? `${v.number} (${v.model})` : v.number;
+        vehicleLabelById.set(v.id, label);
+      }
+
+      const next: Record<string, string> = {};
+      for (const a of assignments || []) {
+        if (a.status !== "ACTIVE") continue;
+        next[a.driverId] = vehicleLabelById.get(a.vehicleId) || a.vehicleId;
+      }
+      setAssignedVehicleByDriverId(next);
     } catch (err: unknown) {
       const maybeAny = err as { response?: { data?: unknown } };
       const data = maybeAny.response?.data;
@@ -51,6 +72,11 @@ export default function FleetDrivers() {
           columns={[
             { key: "name", label: "Name" },
             { key: "phone", label: "Phone" },
+            {
+              key: "assignedVehicle",
+              label: "Assigned Vehicle",
+              render: (d) => assignedVehicleByDriverId[d.id] || "—",
+            },
             {
               key: "isActive",
               label: "Active",
