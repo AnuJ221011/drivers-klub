@@ -51,6 +51,32 @@ export default function FleetDrivers() {
           columns={[
             { key: "name", label: "Name" },
             { key: "phone", label: "Phone" },
+            {
+              key: "isActive",
+              label: "Active",
+              render: (d) => (
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    d.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {d.isActive ? "Active" : "Inactive"}
+                </span>
+              ),
+            },
+            {
+              key: "isAvailable",
+              label: "Available",
+              render: (d) => (
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    d.isAvailable ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-800"
+                  }`}
+                >
+                  {d.isAvailable ? "Yes" : "No"}
+                </span>
+              ),
+            },
           ]}
           data={rows}
         />

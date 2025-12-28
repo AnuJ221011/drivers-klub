@@ -50,7 +50,22 @@ export default function FleetVehicles() {
         <Table
           columns={[
             { key: "number", label: "Vehicle Number" },
-            { key: "bodyType", label: "Type" },
+            { key: "brand", label: "Brand" },
+            { key: "model", label: "Model" },
+            { key: "fuelType", label: "Fuel Type" },
+            {
+              key: "isActive",
+              label: "Status",
+              render: (v) => (
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    v.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {v.isActive ? "ACTIVE" : "INACTIVE"}
+                </span>
+              ),
+            },
           ]}
           data={rows}
         />
