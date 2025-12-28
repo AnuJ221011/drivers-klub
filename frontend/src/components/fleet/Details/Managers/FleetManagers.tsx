@@ -1,12 +1,40 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import Button from "../../../ui/Button";
 import Table from "../../../ui/Table";
 import AddManagersModal from "./AddManagersModal";
+import { getFleetManagersByFleet } from "../../../../api/fleetManager.api";
+import type { FleetManagerEntity } from "../../../../api/fleetManager.api";
 
 export default function FleetManagers() {
   const { id: fleetId } = useParams();
   const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<FleetManagerEntity[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!fleetId) return;
+    setLoading(true);
+    try {
+      const data = await getFleetManagersByFleet(fleetId);
+      setRows(data || []);
+    } catch (err: unknown) {
+      const maybeAny = err as { response?: { data?: unknown } };
+      const data = maybeAny.response?.data;
+      const msg =
+        data && typeof data === "object" && "message" in data
+          ? String((data as Record<string, unknown>).message)
+          : "Failed to load managers";
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [fleetId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   return (
     <div className="space-y-4">
@@ -16,22 +44,28 @@ export default function FleetManagers() {
         </Button>
       </div>
 
-      <Table
-        columns={[
-          { key: "name", label: "Name" },
-          { key: "phone", label: "Phone" },
-          { key: "email", label: "Email" },
-        ]}
-        data={[
-          {
-            name: "Amit Sharma",
-            phone: "9876543211",
-            email: "amit@fleet.com",
-          },
-        ]}
-      />
+      {loading ? (
+        <div className="text-sm text-black/60">Loading managers…</div>
+      ) : (
+        <Table
+          columns={[
+            { key: "name", label: "Name" },
+            { key: "mobile", label: "Phone" },
+            { key: "city", label: "City" },
+            { key: "status", label: "Status" },
+          ]}
+          data={rows}
+        />
+      )}
 
-      <AddManagersModal open={open} onClose={() => setOpen(false)} />
+      {fleetId && (
+        <AddManagersModal
+          open={open}
+          onClose={() => setOpen(false)}
+          fleetId={fleetId}
+          onAdded={() => void refresh()}
+        />
+      )}
     </div>
   );
 }
