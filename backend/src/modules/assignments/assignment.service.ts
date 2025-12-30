@@ -67,8 +67,10 @@ export class AssignmentService {
     }));
   }
 
-  getAssignmentById(id: string) {
-    return this.repo.findById(id);
+  async getAssignmentById(id: string) {
+    const assignment = await this.repo.findById(id);
+    if (!assignment) throw new ApiError(404, "Assignment not found");
+    return assignment;
   }
 
   endAssignment(id: string) {
