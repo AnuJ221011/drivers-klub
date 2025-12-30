@@ -1,32 +1,86 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import Button from "../ui/Button";
 import MediaGallery from "./MediaGallary";
 import AuditTrail from "./AuditTrail";
 import AssignVehicleModal from "./AssignVehicleModal";
-
-const mockCheckin = {
-  id: "CHK_1021",
-  driver: {
-    name: "Rohit Kumar",
-    phone: "9876543210",
-  },
-  fleet: {
-    name: "Delhi Fleet",
-  },
-  checkinTime: "06:30 AM",
-  remarks: "Vehicle condition looks fine. No visible issues.",
-};
+import { approveAttendance, attendanceEntityToDriverCheckin, getAttendanceById, rejectAttendance } from "../../api/attendance.api";
+import { useAuth } from "../../context/AuthContext";
 
 export default function DriverCheckinDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { userId } = useAuth();
 
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignedVehicle, setAssignedVehicle] = useState<{
     number: string;
     model: string;
   } | null>(null);
+
+  const [loading, setLoading] = useState(false);
+  const [attendance, setAttendance] = useState<Awaited<ReturnType<typeof getAttendanceById>> | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    let mounted = true;
+    void (async () => {
+      setLoading(true);
+      try {
+        const data = await getAttendanceById(id);
+        if (!mounted) return;
+        setAttendance(data);
+      } catch (err: unknown) {
+        const maybeAny = err as { response?: { data?: unknown } };
+        const data = maybeAny.response?.data;
+        const msg =
+          data && typeof data === "object" && "message" in data
+            ? String((data as Record<string, unknown>).message)
+            : "Failed to load check-in";
+        toast.error(msg);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  const ui = useMemo(() => (attendance ? attendanceEntityToDriverCheckin(attendance) : null), [attendance]);
+
+  const checkinTimeLabel = useMemo(() => {
+    const raw = attendance?.checkInTime;
+    if (!raw) return "-";
+    const dt = new Date(raw);
+    if (Number.isNaN(dt.getTime())) return String(raw);
+    return dt.toLocaleString();
+  }, [attendance?.checkInTime]);
+
+  const canAct = Boolean(id && userId);
+
+  const onApprove = async () => {
+    if (!id || !userId) return;
+    try {
+      const updated = await approveAttendance({ id, adminId: userId });
+      setAttendance(updated);
+      toast.success("Check-in approved");
+    } catch {
+      toast.error("Failed to approve");
+    }
+  };
+
+  const onReject = async () => {
+    if (!id || !userId) return;
+    try {
+      const updated = await rejectAttendance({ id, adminId: userId });
+      setAttendance(updated);
+      toast.success("Check-in rejected");
+    } catch {
+      toast.error("Failed to reject");
+    }
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -40,20 +94,22 @@ export default function DriverCheckinDetail() {
         </Button>
       </div>
 
+      {loading && <div className="text-sm text-black/60">Loading…</div>}
+
       {/* Summary Card */}
       <div className="rounded-lg border border-black/10 bg-white p-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-black/60">Driver</p>
-            <p className="font-medium">{mockCheckin.driver.name}</p>
+            <p className="font-medium">{ui?.driverName || "-"}</p>
             <p className="text-xs text-black/50">
-              {mockCheckin.driver.phone}
+              {ui?.driverPhone || "-"}
             </p>
           </div>
 
           <div>
             <p className="text-black/60">Fleet</p>
-            <p className="font-medium">{mockCheckin.fleet.name}</p>
+            <p className="font-medium">{ui?.fleetName || "-"}</p>
           </div>
 
           <div>
@@ -72,7 +128,7 @@ export default function DriverCheckinDetail() {
 
           <div>
             <p className="text-black/60">Check-in Time</p>
-            <p className="font-medium">{mockCheckin.checkinTime}</p>
+            <p className="font-medium">{checkinTimeLabel}</p>
           </div>
         </div>
       </div>
@@ -80,31 +136,14 @@ export default function DriverCheckinDetail() {
       {/* Media */}
       <MediaGallery
         title="Selfie"
-        images={[
-          "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=800",
-        ]}
-      />
-
-      <MediaGallery
-        title="Vehicle Images"
-        images={[
-          "https://images.unsplash.com/photo-1549924231-f129b911e442?w=800",
-          "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800",
-        ]}
-      />
-
-      <MediaGallery
-        title="Odometer"
-        images={[
-          "https://images.unsplash.com/photo-1581091215367-59ab6b0f5c44?w=800",
-        ]}
+        images={ui?.selfieUrl ? [ui.selfieUrl] : []}
       />
 
       {/* Remarks */}
       <div className="rounded-lg border border-black/10 bg-white p-4">
         <h3 className="font-medium mb-2">Driver Remarks</h3>
         <p className="text-sm text-black/70">
-          {mockCheckin.remarks}
+          {ui?.remarks || "—"}
         </p>
       </div>
 
@@ -119,12 +158,18 @@ export default function DriverCheckinDetail() {
 
         <Button
           className="bg-green-500 hover:bg-green-600"
-          disabled={!assignedVehicle}
+          disabled={!assignedVehicle || !canAct}
+          onClick={() => void onApprove()}
         >
           Approve
         </Button>
 
-        <Button variant="secondary" className="text-red-600">
+        <Button
+          variant="secondary"
+          className="text-red-600"
+          disabled={!canAct}
+          onClick={() => void onReject()}
+        >
           Reject
         </Button>
       </div>
@@ -139,8 +184,7 @@ export default function DriverCheckinDetail() {
       {/* Audit Trail */}
       <AuditTrail
         logs={[
-          { action: "Check-in submitted", by: "Driver", at: "06:30 AM" },
-          { action: "Viewed by Admin", by: "Admin", at: "06:45 AM" },
+          { action: "Check-in submitted", by: "Driver", at: checkinTimeLabel },
         ]}
       />
     </div>

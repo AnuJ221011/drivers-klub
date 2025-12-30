@@ -1,41 +1,73 @@
 import Modal from "../../../layout/Modal";
 import Button from "../../../ui/Button";
+import Input from "../../../ui/Input";
+import { useState } from "react";
+import toast from "react-hot-toast";
+import { createDriver } from "../../../../api/driver.api";
 
 type Props = {
   open: boolean;
   onClose: () => void;
+  fleetId: string;
+  onAdded: () => void;
 };
 
-const availableDrivers = [
-  { id: "d3", name: "Suresh", phone: "9000000001" },
-  { id: "d4", name: "Ravi", phone: "9000000002" },
-];
+export default function AddDriversModal({ open, onClose, fleetId, onAdded }: Props) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
 
-export default function AddDriversModal({ open, onClose }: Props) {
+  const onSubmit = async () => {
+    setLoading(true);
+    try {
+      await createDriver({ fleetId, name, phone, isActive: true });
+      toast.success("Driver added");
+      onAdded();
+      onClose();
+      setName("");
+      setPhone("");
+    } catch (err: unknown) {
+      const maybeAny = err as { response?: { data?: unknown } };
+      const data = maybeAny.response?.data;
+      const msg =
+        data && typeof data === "object" && "message" in data
+          ? String((data as Record<string, unknown>).message)
+          : "Failed to add driver";
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Modal open={open} onClose={onClose} title="Add Drivers">
       <div className="space-y-4">
-        {availableDrivers.map((d) => (
-          <label
-            key={d.id}
-            className="flex items-center gap-3 border p-2 rounded"
-          >
-            <input type="checkbox" />
-            <div>
-              <div className="font-medium">{d.name}</div>
-              <div className="text-xs text-black/60">{d.phone}</div>
-            </div>
-          </label>
-        ))}
+        <Input
+          label="Driver Name"
+          placeholder="Rohit Kumar"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Input
+          label="Phone"
+          placeholder="9876543210"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+        />
 
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button>Add Selected</Button>
+          <Button
+            loading={loading}
+            disabled={!name || !phone || !fleetId}
+            onClick={() => void onSubmit()}
+          >
+            Add
+          </Button>
         </div>
       </div>
     </Modal>
   );
 }
-
