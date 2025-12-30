@@ -245,10 +245,24 @@ model Attendance {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   driver        Driver           @relation(fields: [driverId], references: [id])
+  breaks        Break[]
 
   @@index([driverId])
   @@index([status])
   @@index([createdAt])
+}
+
+model Break {
+  id           String     @id @default(uuid())
+  attendanceId String
+  startTime    DateTime   @default(now())
+  endTime      DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  @@index([attendanceId])
+  @@index([endTime])
 }
 
 enum UserRole {
