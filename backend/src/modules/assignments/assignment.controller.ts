@@ -18,6 +18,11 @@ export const getAssignmentsByTrip = async (req: any, res: any) => {
   ApiResponse.send(res, 200, list, "Trip assignments retrieved successfully");
 };
 
+export const getAssignmentById = async (req: any, res: any) => {
+  const assignment = await service.getAssignmentById(req.params.id);
+  ApiResponse.send(res, 200, assignment, "Assignment retrieved successfully");
+};
+
 export const endAssignment = async (req: any, res: any) => {
   const assignment = await service.endAssignment(req.params.id);
   ApiResponse.send(res, 200, assignment, "Assignment ended successfully");

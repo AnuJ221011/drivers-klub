@@ -3,6 +3,7 @@ import {
   createAssignment,
   getAssignmentsByFleet,
   getAssignmentsByTrip,
+  getAssignmentById,
   endAssignment
 } from "./assignment.controller.js";
 import { authenticate } from "../../middlewares/authenticate.js";
@@ -28,6 +29,12 @@ router.get(
   "/trip/:tripId",
   authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER"),
   getAssignmentsByTrip
+);
+
+router.get(
+  "/:id",
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER"),
+  getAssignmentById
 );
 
 router.patch(

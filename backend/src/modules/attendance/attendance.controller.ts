@@ -60,6 +60,39 @@ export class AttendanceController {
     }
   }
 
+  async getById(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      const attendance = await prisma.attendance.findUnique({
+        where: { id },
+        include: {
+          breaks: { orderBy: { startTime: "desc" } },
+          driver: {
+            include: {
+              fleet: true,
+              assignments: {
+                where: { status: "ACTIVE" },
+                include: { vehicle: true },
+                orderBy: { createdAt: "desc" }
+              }
+            }
+          }
+        },
+      });
+
+      if (!attendance) {
+        return res.status(404).json({ message: "Attendance not found" });
+      }
+
+      return ApiResponse.send(res, 200, attendance, "Attendance retrieved");
+    } catch (error: any) {
+      return res
+        .status(500)
+        .json({ message: "Internal Server Error", error: error.message });
+    }
+  }
+
   // Driver Check-Out
   async checkOut(req: Request, res: Response) {
     try {
