@@ -64,9 +64,12 @@ export default function FleetCreateHub() {
   });
 
   const [address, setAddress] = useState("");
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  const hasMaps = Boolean((apiKey || "").trim());
 
   /* ---------- Reverse Geocoding ---------- */
   const fetchAddress = async (lat: number, lng: number) => {
+    if (!window.google?.maps) return;
     const geocoder = new google.maps.Geocoder();
     const res = await geocoder.geocode({ location: { lat, lng } });
     if (res.results[0]) {
@@ -102,16 +105,6 @@ export default function FleetCreateHub() {
     navigate(`/admin/fleets/${fleetId}?tab=HUBS`);
   };
 
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
-  if (!apiKey) {
-    return (
-      <div className="p-6 text-red-600">
-        Google Maps API key missing
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 max-w-7xl">
       {/* Header */}
@@ -125,19 +118,29 @@ export default function FleetCreateHub() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ---------- Map ---------- */}
         <div className="lg:col-span-2 h-[520px] rounded-lg overflow-hidden border">
-          <APIProvider apiKey={apiKey}>
-            <Map
-              defaultZoom={13}
-              defaultCenter={location}
-              onClick={handleMapClick}
-            >
-              <AdvancedMarker position={location}>
-                <Pin background="#facc15" />
-              </AdvancedMarker>
+          {hasMaps ? (
+            <APIProvider apiKey={apiKey!}>
+              <Map
+                defaultZoom={13}
+                defaultCenter={location}
+                onClick={handleMapClick}
+              >
+                <AdvancedMarker position={location}>
+                  <Pin background="#facc15" />
+                </AdvancedMarker>
 
-              <GeofenceCircle center={location} radius={radius} />
-            </Map>
-          </APIProvider>
+                <GeofenceCircle center={location} radius={radius} />
+              </Map>
+            </APIProvider>
+          ) : (
+            <div className="h-full w-full p-4 bg-yellow-50 text-yellow-900">
+              <div className="font-semibold">Map not configured</div>
+              <div className="text-sm mt-1">
+                Set <code>VITE_GOOGLE_MAPS_API_KEY</code> to enable map picking. You can still
+                create a hub using manual latitude/longitude inputs.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ---------- Form ---------- */}
@@ -176,13 +179,33 @@ export default function FleetCreateHub() {
             />
           </div>
 
-          <div className="text-sm bg-yellow-50 p-3 rounded">
-            <div><b>Latitude:</b> {location.lat.toFixed(6)}</div>
-            <div><b>Longitude:</b> {location.lng.toFixed(6)}</div>
-            <div className="mt-1">
-              <b>Address:</b> {address || "—"}
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Latitude"
+              value={String(location.lat)}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (!Number.isFinite(v)) return;
+                setLocation((prev) => ({ ...prev, lat: v }));
+              }}
+            />
+            <Input
+              label="Longitude"
+              value={String(location.lng)}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (!Number.isFinite(v)) return;
+                setLocation((prev) => ({ ...prev, lng: v }));
+              }}
+            />
           </div>
+
+          <Input
+            label="Address"
+            placeholder={hasMaps ? "Auto-filled from map click (optional)" : "Enter address (optional)"}
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+          />
 
           <Button
             className="w-full"
