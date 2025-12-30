@@ -67,9 +67,18 @@ export class AttendanceController {
       const attendance = await prisma.attendance.findUnique({
         where: { id },
         include: {
-          driver: true,
-          breaks: { orderBy: { startTime: "desc" } }
-        }
+          breaks: { orderBy: { startTime: "desc" } },
+          driver: {
+            include: {
+              fleet: true,
+              assignments: {
+                where: { status: "ACTIVE" },
+                include: { vehicle: true },
+                orderBy: { createdAt: "desc" }
+              }
+            }
+          }
+        },
       });
 
       if (!attendance) {
