@@ -276,4 +276,30 @@ export class AttendanceController {
         .json({ message: "Internal Server Error", error: error.message });
     }
   }
+
+  // Get Attendance by ID (Admin)
+  async getById(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        return res.status(400).json({ message: "Attendance ID is required" });
+      }
+
+      const attendance = await prisma.attendance.findUnique({
+        where: { id },
+        include: { driver: true },
+      });
+
+      if (!attendance) {
+        return res.status(404).json({ message: "Attendance not found" });
+      }
+
+      return ApiResponse.send(res, 200, attendance, "Attendance retrieved");
+    } catch (error: any) {
+      return res
+        .status(500)
+        .json({ message: "Internal Server Error", error: error.message });
+    }
+  }
 }
