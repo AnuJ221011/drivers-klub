@@ -23,13 +23,19 @@ export async function getTripsByFleet(fleetId: string): Promise<TripEntity[]> {
   return res.data;
 }
 
-export async function createTrip(input: {
-  tripType: string;
+export type CreateTripInput = {
+  distanceKm: number;
+  bookingDate: string; // ISO datetime
+  tripDate: string; // ISO datetime
   originCity: string;
   destinationCity?: string;
-  tripDate: string; // ISO datetime
-  distanceKm?: number;
-}): Promise<TripEntity> {
+  pickupLocation?: string;
+  dropLocation?: string;
+  tripType: string;
+  vehicleSku: string;
+};
+
+export async function createTrip(input: CreateTripInput): Promise<TripEntity> {
   const res = await api.post<TripEntity>('/trips', input);
   return res.data;
 }
