@@ -63,6 +63,12 @@ Copy code
 
 ---
 
+## 📄 Feature Docs
+
+- **Admin Dashboard (`AdminHome`)**: see `ADMIN_HOME.md`
+
+---
+
 ## 📜 License
 
 MIT License

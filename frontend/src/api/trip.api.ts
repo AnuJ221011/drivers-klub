@@ -10,12 +10,43 @@ type AdminTripsResponse =
  * Admin trips list.
  * Backend: GET /admin/trips  -> { trips, total, page, limit }
  */
-export async function getTrips(): Promise<TripEntity[]> {
-  const res = await api.get<AdminTripsResponse>('/admin/trips');
+export async function getTrips(params?: { page?: number; limit?: number; status?: string }): Promise<TripEntity[]> {
+  const qs = new URLSearchParams();
+  if (params?.page) qs.set('page', String(params.page));
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.status) qs.set('status', String(params.status));
+
+  const url = qs.toString() ? `/admin/trips?${qs.toString()}` : '/admin/trips';
+  const res = await api.get<AdminTripsResponse>(url);
   const data = res.data;
   if (Array.isArray(data)) return data;
   console.log('Fetched admin trips:', data);
   return data?.trips || [];
+}
+
+export type AdminTripsPage = {
+  trips: TripEntity[];
+  total?: number;
+  page?: number;
+  limit?: number;
+};
+
+export async function getAdminTripsPage(params?: { page?: number; limit?: number; status?: string }): Promise<AdminTripsPage> {
+  const qs = new URLSearchParams();
+  if (params?.page) qs.set('page', String(params.page));
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.status) qs.set('status', String(params.status));
+
+  const url = qs.toString() ? `/admin/trips?${qs.toString()}` : '/admin/trips';
+  const res = await api.get<AdminTripsResponse>(url);
+  const data = res.data;
+  if (Array.isArray(data)) return { trips: data };
+  return {
+    trips: data?.trips || [],
+    total: data?.total,
+    page: data?.page,
+    limit: data?.limit,
+  };
 }
 
 export async function getTripsByFleet(fleetId: string): Promise<TripEntity[]> {
@@ -23,13 +54,19 @@ export async function getTripsByFleet(fleetId: string): Promise<TripEntity[]> {
   return res.data;
 }
 
-export async function createTrip(input: {
-  tripType: string;
+export type CreateTripInput = {
+  distanceKm: number;
+  bookingDate: string; // ISO datetime
+  tripDate: string; // ISO datetime
   originCity: string;
   destinationCity?: string;
-  tripDate: string; // ISO datetime
-  distanceKm?: number;
-}): Promise<TripEntity> {
+  pickupLocation?: string;
+  dropLocation?: string;
+  tripType: string;
+  vehicleSku: string;
+};
+
+export async function createTrip(input: CreateTripInput): Promise<TripEntity> {
   const res = await api.post<TripEntity>('/trips', input);
   return res.data;
 }
