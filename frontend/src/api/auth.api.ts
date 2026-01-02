@@ -14,7 +14,21 @@ export async function sendOtp(phone: string): Promise<SendOtpResponse> {
 }
 
 export async function verifyOtp(phone: string, otp: string): Promise<TokenPair> {
-  const res = await api.post<TokenPair>('/auth/verify-otp', { phone, otp });
+  // OTP bypass support (dev/staging):
+  // Backend bypass triggers when:
+  // - NODE_ENV !== "production"
+  // - verifiedKey === OTP_BYPASS_KEY
+  //
+  // Configure frontend via VITE_OTP_BYPASS_KEY. If not set, we default to "pass"
+  // in non-production builds so staging/dev can bypass without UI changes.
+  const bypassKey =
+    (import.meta.env.VITE_OTP_BYPASS_KEY as string | undefined) ??
+    (import.meta.env.MODE !== 'production' ? 'pass' : undefined);
+
+  const payload: { phone: string; otp: string; verifiedKey?: string } = { phone, otp };
+  if (bypassKey) payload.verifiedKey = bypassKey;
+
+  const res = await api.post<TokenPair>('/auth/verify-otp', payload);
   return res.data;
 }
 
