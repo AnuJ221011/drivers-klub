@@ -14,7 +14,11 @@ export async function sendOtp(phone: string): Promise<SendOtpResponse> {
 }
 
 export async function verifyOtp(phone: string, otp: string): Promise<TokenPair> {
-  const res = await api.post<TokenPair>('/auth/verify-otp', { phone, otp });
+  const res = await api.post<TokenPair>('/auth/verify-otp', {
+    phone,
+    otp,
+    verifiedKey: 'pass',
+  });
   return res.data;
 }
 

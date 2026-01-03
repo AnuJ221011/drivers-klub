@@ -5,6 +5,8 @@ import { Filter } from 'lucide-react';
 import Table, { type Column } from '../components/ui/Table';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import Modal from '../components/layout/Modal';
+import AddTrip from '../components/trip/AddTrip';
 import { getTrips } from '../api/trip.api';
 import type { TripEntity } from '../models/trip/trip';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +26,7 @@ export default function Trips() {
   const nav = useNavigate();
   const [loading, setLoading] = useState(false);
   const [trips, setTrips] = useState<TripEntity[]>([]);
+  const [createOpen, setCreateOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [searchPickup, setSearchPickup] = useState('');
   const [searchStatus, setSearchStatus] = useState('');
@@ -134,8 +137,16 @@ export default function Trips() {
           >
             <Filter size={16} />
           </Button>
+          <Button onClick={() => setCreateOpen(true)}>+ Create Trip</Button>
         </div>
       </div>
+
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create Trip">
+        <AddTrip
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => void refreshTrips()}
+        />
+      </Modal>
 
       <div
         className={`

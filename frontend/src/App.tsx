@@ -10,12 +10,14 @@ import Driver from './pages/Drivers';
 import TeamManagement from './pages/Team';
 import Trips from './pages/Trips';
 import TripDetails from './pages/TripDetails';
+import AdminHome from './pages/AdminHome';
 import FleetsPage from './pages/Fleet';
 import FleetDetails from './pages/FleetDetails';
 import FleetCreateHub from './components/fleet/Details/Hubs/FleetCreateHub';
 import FleetHubDetails from './components/fleet/Details/Hubs/FleetHubDetails';
 import DriverCheckins from './pages/DriverCheckins';
 import DriverCheckinDetail from './components/DriverCheckins/DriverCheckinDetail';
+import PaymentPricing from './pages/PaymentPricing';
 
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -41,7 +43,14 @@ export default function App() {
             </PrivateRoute>
           }
         >
-          <Route index element={<div>Welcome to admin</div>} />
+          <Route
+            index
+            element={
+              <PrivateRoute>
+                <AdminHome />
+              </PrivateRoute>
+            }
+          />
           <Route
             path="fleets"
             element={
@@ -103,6 +112,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <DriverCheckinDetail />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="payment"
+            element={
+              <PrivateRoute>
+                <PaymentPricing />
               </PrivateRoute>
             }
           />
