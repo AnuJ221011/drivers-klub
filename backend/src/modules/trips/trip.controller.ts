@@ -237,4 +237,29 @@ export class TripController {
       live: tracking.data.live,
     }, "Tracking data retrieved successfully");
   }
+
+  async updateLocation(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { lat, lng } = req.body;
+
+      // Validate input
+      if (!lat || !lng) {
+        return res.status(400).json({ message: "Latitude and Longitude are required" });
+      }
+
+      // We could persist this location to a RideLocationHistory table here if needed.
+      // For now, we just foward it to the provider.
+
+      const mapping = await this.mappingRepo.findByRideId(id);
+      if (mapping && mapping.providerType === "MMT") {
+        await this.mmtWebhook.pushUpdateLocation(mapping.externalBookingId, lat, lng);
+      }
+
+      return ApiResponse.send(res, 200, null, "Location updated successfully");
+    } catch (error: any) {
+      console.error("updateLocation Error:", error);
+      return res.status(error.statusCode || 500).json({ message: error.message });
+    }
+  }
 }

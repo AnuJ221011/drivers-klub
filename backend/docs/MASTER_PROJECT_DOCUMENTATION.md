@@ -1,6 +1,7 @@
 # 🧠 Drivers Klub Backend - Master System Documentation
+
 **Version:** 3.1.0 (Production / Exhaustive)
-**Date:** December 26, 2025
+**Date:** December 30, 2025
 **Status:** ✅ **PRODUCTION-READY** - Live / Stable
 **Repository:** `driversklub-backend`
 
@@ -17,6 +18,7 @@
 - **Documentation:** Comprehensive
 
 ### Recent Updates (Dec 2025)
+
 - ✅ All critical security vulnerabilities resolved
 - ✅ Comprehensive test suite implemented (100% pass rate)
 - ✅ Rate limiting and CORS configured
@@ -25,13 +27,16 @@
 - ✅ Input validation implemented
 - ✅ Health check enhanced with DB connectivity
 - ✅ OTP security hardened (one-time use, deleted after verification)
+- ✅ **Payment system implemented** (Easebuzz integration, rental & payout models)
 
 ---
 
 ## 1. System Architecture
+
 The platform is a **Node.js/Express** monolith designed with **Microservice-ready modularity**. It serves as the central orchestration layer between Fleet Supply (Drivers/Vehicles) and Demand Sources (MMT, Apps).
 
 ### 1.1 High-Level Flow
+
 ```mermaid
 graph TD
     User[Mobile/Web Apps] -->|REST API| API[Backend API]
@@ -51,27 +56,32 @@ graph TD
 ```
 
 ### 1.2 Tech Stack
-*   **Runtime**: Node.js v18+ (TypeScript 5.x)
-*   **Framework**: Express.js 5.x
-*   **Database**: PostgreSQL 15+
-*   **ORM**: Prisma Client v5.x
-*   **Auth**: JWT (1h Access / 30d Refresh) + Custom OTP (Exotel Integration)
-*   **Logging**: Winston (File + Console)
-*   **Testing**: `tsx` scripts (E2E Flow)
+
+- **Runtime**: Node.js v18+ (TypeScript 5.x)
+
+- **Framework**: Express.js 5.x
+- **Database**: PostgreSQL 15+
+- **ORM**: Prisma Client v5.x
+- **Auth**: JWT (1h Access / 30d Refresh) + Custom OTP (Exotel Integration)
+- **Logging**: Winston (File + Console)
+- **Testing**: `tsx` scripts (E2E Flow)
 
 ---
 
 ## 2. Directory Structure
+
 The codebase follows a Domain-Driven Design (DDD) hybrid approach:
 
 ```text
 src/
 ├── adapters/            # External Integrations
+│   ├── easebuzz/        # Easebuzz Payment Gateway Integration
 │   ├── mmt/             # MakeMyTrip API Logic
 │   └── providers/       # Generic Provider Interfaces (Internal, MojoBoxx)
 │
 ├── core/                # Business Logic & Intelligence (Framework Agnostic)
 │   ├── constraints/     # Trip Intelligence (Constraint Rules, Engine)
+│   ├── payment/         # Payment System (Rental, Payout, Penalties, Incentives, Virtual QR)
 │   ├── pricing/         # Pricing Engine (Rules, Config, Calculator)
 │   ├── provider/        # Provider Fulfillment (Factory, Booking Service)
 │   └── trip/            # Core Trip Services (Orchestrator, Lifecycle)
@@ -86,8 +96,10 @@ src/
 │   ├── assignments/     # Daily Roster Management
 │   ├── attendance/      # Driver Attendance & Check-in/out
 │   ├── trips/           # Trip Endpoints (Driver App)
+│   ├── payment/         # Payment & Payout Endpoints (Driver & Admin)
 │   ├── pricing/         # Pricing Calculator
-│   └── partner/         # MMT Webhooks
+│   ├── partner/         # MMT Webhooks
+│   └── webhooks/        # Easebuzz Webhooks (Payment Gateway & Virtual Accounts)
 │
 ├── shared/              # Shared Code (Enums, Constants, Errors)
 ├── middlewares/         # Express Middlewares (Auth, Error Handling)
@@ -98,10 +110,13 @@ src/
 ---
 
 ## 3. Data Dictionary (Canonical)
+
 This section defines the database schema based on [prisma/schema.prisma](file:///d:/drivers-klub/driversklub-backend/prisma/schema.prisma).
 
 ### 3.1 Trip ([Ride](file:///d:/drivers-klub/driversklub-backend/src/core/trip/services/provider-status-sync.service.ts#13-40))
+
 The central entity representing a booking.
+
 | Field | Type | Description |
 | :--- | :--- | :--- |
 | [id](file:///d:/drivers-klub/driversklub-backend/src/core/trip/services/provider-status-sync.service.ts#13-40) | UUID | Primary Key |
@@ -120,6 +135,7 @@ The central entity representing a booking.
 | `provider` | Enum | `INTERNAL`, [MMT](file:///d:/drivers-klub/driversklub-backend/src/modules/partner/mmt/mmt.service.ts#5-150), `MOJOBOXX` |
 
 ### 3.2 Driver
+
 Driver profiles linked to User accounts and Fleet organizations.
 
 | Field | Type | Description |
@@ -137,6 +153,7 @@ Driver profiles linked to User accounts and Fleet organizations.
 | `isAvailable` | Boolean | Online/Offline status |
 
 ### 3.3 Fleet
+
 Fleet operator organizations that own vehicles and employ drivers.
 
 | Field | Type | Description |
@@ -150,6 +167,7 @@ Fleet operator organizations that own vehicles and employ drivers.
 | `status` | Enum | `ACTIVE`, `INACTIVE` |
 
 ### 3.4 FleetManager
+
 Managers who oversee fleet operations.
 
 | Field | Type | Description |
@@ -162,6 +180,7 @@ Managers who oversee fleet operations.
 | `status` | Enum | `ACTIVE`, `INACTIVE` |
 
 ### 3.5 HubManager
+
 Managers who oversee specific fleet hubs/locations.
 
 | Field | Type | Description |
@@ -175,6 +194,7 @@ Managers who oversee specific fleet hubs/locations.
 | `status` | Enum | `ACTIVE`, `INACTIVE` |
 
 ### 3.6 FleetHub
+
 Physical hub locations for fleet operations.
 
 | Field | Type | Description |
@@ -187,6 +207,7 @@ Physical hub locations for fleet operations.
 | `hubManagerId` | UUID? | Foreign Key to HubManager |
 
 ### 3.7 Vehicle
+
 Vehicle assets managed by fleets.
 
 | Field | Type | Description |
@@ -201,6 +222,7 @@ Vehicle assets managed by fleets.
 | `status` | Enum | `ACTIVE`, `INACTIVE`, `MAINTENANCE` |
 
 ### 3.8 Attendance
+
 Driver daily check-in/check-out tracking.
 
 | Field | Type | Description |
@@ -217,7 +239,19 @@ Driver daily check-in/check-out tracking.
 | `odometerStart` | Int? | Odometer reading at check-in |
 | `odometerEnd` | Int? | Odometer reading at check-out |
 
-### 3.9 Assignment
+### 3.9 Break
+
+Driver break tracking during active attendance.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | UUID | Primary Key |
+| `attendanceId` | UUID | Foreign Key to Attendance |
+| `startTime` | DateTime | Break start timestamp |
+| `endTime` | DateTime? | Break end timestamp (optional) |
+
+### 3.10 Assignment
+
 Daily driver-vehicle assignments (roster).
 
 | Field | Type | Description |
@@ -230,7 +264,8 @@ Daily driver-vehicle assignments (roster).
 | `startTime` | DateTime | Assignment start |
 | `endTime` | DateTime? | Assignment end (optional) |
 
-### 3.10 TripAssignment
+### 3.11 TripAssignment
+
 Links drivers to specific trips.
 
 | Field | Type | Description |
@@ -243,9 +278,99 @@ Links drivers to specific trips.
 | `assignedAt` | DateTime | Assignment timestamp |
 | `unassignedAt` | DateTime? | Unassignment timestamp (optional) |
 
+### 3.12 Payment System Models
+
+#### RentalPlan
+
+Rental plans offered to drivers for vehicle usage.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | UUID | Primary Key |
+| `fleetId` | UUID | Foreign Key to Fleet |
+| `name` | String | Plan name (e.g., "Weekly Plan") |
+| `rentalAmount` | Float | Rental fee amount |
+| `depositAmount` | Float | Required security deposit |
+| `validityDays` | Int | Plan validity in days |
+| `isActive` | Boolean | Plan availability status |
+
+#### Transaction
+
+All payment transactions (deposits, rentals, penalties, payouts).
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | UUID | Primary Key |
+| `driverId` | UUID | Foreign Key to Driver |
+| `type` | Enum | `DEPOSIT`, `RENTAL`, `PENALTY`, `INCENTIVE`, `PAYOUT` |
+| `amount` | Float | Transaction amount |
+| `status` | Enum | `PENDING`, `SUCCESS`, `FAILED` |
+| `paymentMethod` | Enum | `PG_UPI`, `PG_CARD`, `CASH`, `BANK_TRANSFER` |
+| `easebuzzTxnId` | String? | Easebuzz transaction ID |
+
+#### Penalty
+
+Driver penalties with automatic deposit deduction.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | UUID | Primary Key |
+| `driverId` | UUID | Foreign Key to Driver |
+| `type` | Enum | `MONETARY`, `WARNING`, `SUSPENSION`, `BLACKLIST` |
+| `amount` | Float | Penalty amount |
+| `reason` | String | Penalty reason |
+| `isPaid` | Boolean | Payment status |
+| `isWaived` | Boolean | Waiver status |
+| `deductedFromDeposit` | Boolean | Auto-deduction flag |
+
+#### Incentive
+
+Driver incentives and bonuses.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | UUID | Primary Key |
+| `driverId` | UUID | Foreign Key to Driver |
+| `amount` | Float | Incentive amount |
+| `reason` | String | Incentive reason |
+| `category` | String | Incentive category |
+| `isPaid` | Boolean | Payout status |
+
+#### DailyCollection
+
+Daily collection tracking for payout model drivers.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | UUID | Primary Key |
+| `driverId` | UUID | Foreign Key to Driver |
+| `date` | DateTime | Collection date |
+| `qrCollectionAmount` | Float | QR/UPI collections |
+| `cashCollectionAmount` | Float | Cash collections |
+| `totalCollection` | Float | Total daily collection |
+| `revShareAmount` | Float | Revenue share amount |
+| `netPayout` | Float | Net payout after incentives/penalties |
+| `isReconciled` | Boolean | Reconciliation status |
+| `isPaid` | Boolean | Payout status |
+
+#### VirtualQR
+
+Vehicle-specific virtual QR codes for payment collection.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | UUID | Primary Key |
+| `vehicleId` | UUID | Foreign Key to Vehicle |
+| `virtualAccountId` | String | Easebuzz virtual account ID |
+| `virtualAccountNumber` | String | Virtual account number |
+| `qrCodeBase64` | String | QR code image (base64) |
+| `upiId` | String | UPI ID for payments |
+| `isActive` | Boolean | QR code status |
+
 ...
 
 ### 4.4 Strict Trip Logic (Industrial Standard)
+
 The system enforces strict validations on trip lifecycle transitions to prevent fraud and ensure operational compliance.
 
 | Validation | Rule | Error Code |
@@ -256,37 +381,53 @@ The system enforces strict validations on trip lifecycle transitions to prevent 
 | **No Show** | Allowed ONLY AFTER **30 Minutes** past `pickupTime`. | `400` "Too Early for No Show" |
 
 ### 4.5 Assignment Service
+
 Located in [src/core/trip/services/trip-assignment.service.ts](file:///d:/drivers-klub/driversklub-backend/src/core/trip/services/trip-assignment.service.ts).
-*   **Transactional**: Updates [Ride](file:///d:/drivers-klub/driversklub-backend/src/core/trip/services/provider-status-sync.service.ts#13-40) status to `DRIVER_ASSIGNED` and creates [TripAssignment](file:///d:/drivers-klub/driversklub-backend/src/core/trip/services/trip-assignment.service.ts#5-148) record atomically.
-*   **Hook**: Triggers `ProviderBookingService` to notify external partners (MMT).
+
+- **Transactional**: Updates [Ride](file:///d:/drivers-klub/driversklub-backend/src/core/trip/services/provider-status-sync.service.ts#13-40) status to `DRIVER_ASSIGNED` and creates [TripAssignment](file:///d:/drivers-klub/driversklub-backend/src/core/trip/services/trip-assignment.service.ts#5-148) record atomically.
+- **Hook**: Triggers `ProviderBookingService` to notify external partners (MMT).
 
 ---
 
 ## 5. Partner Integration (MMT)
+
 We act as a **Vendor** for MakeMyTrip.
 
 ### 5.1 Inbound API (MMT calls Us)
-*   **Search**: `POST /partner/mmt/partnersearchendpoint`
-    *   Checks city coverage and vehicle availability.
-*   **Block**: `POST /partner/mmt/partnerblockendpoint`
-    *   Creates a `BLOCKED` trip to hold inventory.
-*   **Confirm**: `POST /partner/mmt/partnerpaidendpoint`
-    *   Converts `BLOCKED` to `CREATED`.
+
+- **Search**: `POST /partner/mmt/partnersearchendpoint`
+  - Checks city coverage and vehicle availability.
+
+- **Block**: `POST /partner/mmt/partnerblockendpoint`
+  - Creates a `BLOCKED` trip to hold inventory.
+- **Confirm**: `POST /partner/mmt/partnerpaidendpoint`
+  - Converts `BLOCKED` to `CREATED`.
 
 ### 5.2 Outbound Webhooks (We call MMT)
+
 We push status updates to MMT's webhook URL:
-*   `/driver-assigned`: When Admin assigns a driver.
-*   `/start`: When Driver slides "Start".
-*   `/arrived`: When Driver reaches pickup.
-*   `/pickup`: When Passenger boards (OTP).
-*   `/alight`: When Trip completes.
-*   `/detach-trip`: When Admin unassigns/cancels.
+
+- `/driver-assigned`: When Admin assigns a driver.
+- `/start`: When Driver slides "Start".
+- `/arrived`: When Driver reaches pickup.
+- `/pickup`: When Passenger boards (OTP).
+- `/alight`: When Trip completes.
+- `/detach-trip`: When Admin unassigns/cancels.
+- `/update-location`: When Driver app pushes live GPS updates.
+- `/reassign-chauffeur`: When Admin reassigns a driver.
+
+### 5.3 Reschedule Logic
+
+- **Endpoint:** `POST /partner/mmt/partnerrescheduleendpoint`
+- **Logic:** Updates `pickupTime` for an existing confirmed booking.
+- **Constraint:** Cannot reschedule `COMPLETED` or `CANCELLED` trips.
 
 ---
 
 ## 6. Developer Setup & Operations
 
 ### 6.1 Installation
+
 ```bash
 # 1. Install dependencies
 npm install
@@ -351,6 +492,19 @@ WORKER_SYNC_INTERVAL_MS="300000"  # 5 minutes (300000ms)
 WORKER_ENABLED="true"  # Set to false to disable background worker
 
 # ========================================
+# Payment Gateway (Easebuzz)
+# ========================================
+EASEBUZZ_MERCHANT_KEY="your_easebuzz_merchant_key"
+EASEBUZZ_SALT_KEY="your_easebuzz_salt_key"
+EASEBUZZ_ENV="test"  # test or production
+EASEBUZZ_BASE_URL="https://testpay.easebuzz.in"  # Use https://pay.easebuzz.in for production
+
+# Payment System Configuration
+DEFAULT_REV_SHARE_PERCENTAGE=70  # Driver gets 70%, platform gets 30%
+PAYMENT_SUCCESS_URL="http://localhost:3000/payment/success"
+PAYMENT_FAILURE_URL="http://localhost:3000/payment/failure"
+
+# ========================================
 # Testing
 # ========================================
 TEST_BASE_URL="http://localhost:5000"
@@ -364,12 +518,15 @@ RATE_LIMIT_MAX_REQUESTS="100"  # Max requests per window
 ```
 
 ### 6.3 Verification (Comprehensive Test Suite)
+
 Run the comprehensive test suite to verify system health:
+
 ```bash
 npx tsx scripts/test-all.ts
 ```
 
 **Test Coverage:**
+
 - ✅ Database connectivity
 - ✅ Authentication (Admin & Driver)
 - ✅ Fleet, Driver, Vehicle management
@@ -382,9 +539,11 @@ npx tsx scripts/test-all.ts
 ---
 
 ## 7. Known Issues / Constraints
-*   **Orphaned Trips**: Admin can create trips without a linked "Customer User". This is by design for B2B.
-*   **Offline Support**: Not implemented. API requires active connection.
-*   **Concurrency**: Handled via Prisma Transactions in [TripAssignmentService](file:///d:/drivers-klub/driversklub-backend/src/core/trip/services/trip-assignment.service.ts#5-148).
+
+- **Orphaned Trips**: Admin can create trips without a linked "Customer User". This is by design for B2B.
+
+- **Offline Support**: Not implemented. API requires active connection.
+- **Concurrency**: Handled via Prisma Transactions in [TripAssignmentService](file:///d:/drivers-klub/driversklub-backend/src/core/trip/services/trip-assignment.service.ts#5-148).
 
 ---
 *End of Master Documentation*

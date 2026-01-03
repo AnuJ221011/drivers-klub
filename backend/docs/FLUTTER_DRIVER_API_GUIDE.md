@@ -1,11 +1,11 @@
 # 📱 Flutter Driver App - API Integration Guide (Production)
 
 **Target Audience:** Mobile Engineering Team  
-**Base URL (Production):** `https://driversklub-backend.onrender.com`  
+**Base URL (Production):** `https://driversklub-backend.onrender.com/`  
 **Base URL (Development):** `http://localhost:5000`  
 **Auth Header:** `Authorization: Bearer <ACCESS_TOKEN>`  
 **Version:** 3.1.0  
-**Last Updated:** December 26, 2025
+**Last Updated:** December 30, 2025
 
 ---
 
@@ -23,10 +23,12 @@
 ## 1. Authentication
 
 ### 1.1 Send OTP
+
 **Endpoint:** `POST /auth/send-otp`  
 **Auth Required:** No
 
 **Request Body:**
+
 ```json
 {
   "phone": "9876543210"
@@ -34,6 +36,7 @@
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -42,7 +45,8 @@
 ```
 
 **Dev Mode:** When `NODE_ENV !== 'production'`, OTP is printed to server console:
-```
+
+```text
 ==========================================
 [DEV OTP] Phone: +919876543210
 [DEV OTP] Code : 123456
@@ -52,10 +56,12 @@
 ---
 
 ### 1.2 Verify OTP
+
 **Endpoint:** `POST /auth/verify-otp`  
 **Auth Required:** No
 
 **Request Body:**
+
 ```json
 {
   "phone": "9876543210",
@@ -64,6 +70,7 @@
 ```
 
 **Dev Bypass (Development Only):**
+
 ```json
 {
   "phone": "9876543210",
@@ -73,6 +80,7 @@
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -90,10 +98,12 @@
 ```
 
 **Token Expiry:**
+
 - **Access Token:** 15 minutes
 - **Refresh Token:** 7 days
 
 **Action:**
+
 1. Check if `user.role === 'DRIVER'`. If not, show "Unauthorized App" error.
 2. Store `accessToken` securely (Keychain/Keystore).
 3. Store `refreshToken` for silent token renewal.
@@ -101,10 +111,12 @@
 ---
 
 ### 1.3 Refresh Token
+
 **Endpoint:** `POST /auth/refresh`  
 **Auth Required:** No
 
 **Request Body:**
+
 ```json
 {
   "refreshToken": "8f8e23..."
@@ -112,6 +124,7 @@
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -128,11 +141,13 @@
 ## 2. Daily Attendance
 
 ### 2.1 Check In (Start Shift)
+
 **Endpoint:** `POST /attendance/check-in`  
 **Auth Required:** Yes  
 **Role:** DRIVER
 
 **Request Body:**
+
 ```json
 {
   "driverId": "uuid-driver-id-from-profile",
@@ -146,6 +161,7 @@
 **Important:** Upload selfie to S3/Cloudinary first, then send the URL.
 
 **Response (201):**
+
 ```json
 {
   "success": true,
@@ -160,11 +176,13 @@
 ---
 
 ### 2.2 Check Out (End Shift)
+
 **Endpoint:** `POST /attendance/check-out`  
 **Auth Required:** Yes  
 **Role:** DRIVER
 
 **Request Body:**
+
 ```json
 {
   "driverId": "uuid-driver-id",
@@ -173,6 +191,7 @@
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -186,11 +205,101 @@
 
 ---
 
-### 2.3 Get Attendance History
+### 2.3 Start Break (Start Break in Shift)
+
+**Endpoint:** `POST /attendance/start-break`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Request Body:**
+
+```json
+{
+  "driverId": "uuid-driver-id"
+}
+```
+
+**Response (200):**
+
+```json
+{
+    "success": true,
+    "statusCode": 200,
+    "message": "Break started successfully",
+    "data": {
+        "id": "1d0c84d0-a593-4079-8ed3-2ce274ad378d",
+        "driverId": "b16dd8ec-a030-44a9-9175-ebd77013dbd0",
+        "checkInTime": "2025-12-25T10:06:20.674Z",
+        "checkOutTime": null,
+        "status": "APPROVED",
+        "approvedBy": null,
+        "adminRemarks": null,
+        "checkInLat": 19.076,
+        "checkInLng": 72.8777,
+        "selfieUrl": "https://cdn.example.com/selfies/driver_98765.jpg",
+        "odometerStart": 45230,
+        "odometerEnd": null,
+        "breakStartTime": "2025-12-25T10:07:31.911Z",
+        "breakEndTime": null,
+        "createdAt": "2025-12-25T10:06:20.674Z",
+        "updatedAt": "2025-12-25T10:07:31.920Z"
+    }
+}
+```
+
+---
+
+### 2.4 End Break (End Break in shift)
+
+**Endpoint:** `POST /attendance/end-break`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Request Body:**
+
+```json
+{
+  "driverId": "uuid-driver-id",
+}
+```
+
+**Response (200):**
+
+```json
+{
+    "success": true,
+    "statusCode": 200,
+    "message": "Break ended successfully",
+    "data": {
+        "id": "1d0c84d0-a593-4079-8ed3-2ce274ad378d",
+        "driverId": "b16dd8ec-a030-44a9-9175-ebd77013dbd0",
+        "checkInTime": "2025-12-25T10:06:20.674Z",
+        "checkOutTime": null,
+        "status": "APPROVED",
+        "approvedBy": null,
+        "adminRemarks": null,
+        "checkInLat": 19.076,
+        "checkInLng": 72.8777,
+        "selfieUrl": "https://cdn.example.com/selfies/driver_98765.jpg",
+        "odometerStart": 45230,
+        "odometerEnd": null,
+        "breakStartTime": "2025-12-25T10:07:31.911Z",
+        "breakEndTime": "2025-12-25T10:08:14.312Z",
+        "createdAt": "2025-12-25T10:06:20.674Z",
+        "updatedAt": "2025-12-25T10:08:14.316Z"
+    }
+}
+```
+
+---
+
+### 2.5 Get Attendance History
+
 **Endpoint:** `GET /attendance/history?driverId={uuid}`  
 **Auth Required:** Yes
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -212,11 +321,13 @@
 ## 3. Trip Management
 
 ### 3.1 Get My Assigned Trips
+
 **Endpoint:** `GET /trips?status=DRIVER_ASSIGNED`  
 **Auth Required:** Yes  
 **Role:** DRIVER
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -241,10 +352,12 @@
 ---
 
 ### 3.2 Get Trip Details
+
 **Endpoint:** `GET /trips/:id`  
 **Auth Required:** Yes
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -272,10 +385,12 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ---
 
 #### Step A: Start Trip (En-route to Pickup)
+
 **Endpoint:** `POST /trips/:id/start`  
 **Auth Required:** Yes
 
 **Request Body:**
+
 ```json
 {
   "lat": 28.5500,
@@ -284,10 +399,12 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ```
 
 **⚠️ STRICT CONSTRAINT:**
+
 - Can ONLY start within **2.5 hours** of `pickupTime`
 - Error if too early: `400 "Cannot start trip more than 2.5 hours before pickup"`
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -296,16 +413,19 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ```
 
 **Side Effects:**
+
 - Status: `DRIVER_ASSIGNED` → `STARTED`
 - MMT Webhook triggered (if MMT trip)
 
 ---
 
 #### Step B: Arrived (At Pickup Location)
+
 **Endpoint:** `POST /trips/:id/arrived`  
 **Auth Required:** Yes
 
 **Request Body:**
+
 ```json
 {
   "lat": 28.5562,
@@ -314,14 +434,17 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ```
 
 **⚠️ STRICT CONSTRAINTS:**
+
 1. **Geofence:** Must be within **500m** of `pickupLat`/`pickupLng`
 2. **Time:** Must be within **30 minutes** of `pickupTime`
 
 **Errors:**
+
 - `400 "Driver not within 500m geofence"` - Too far from pickup
 - `400 "Cannot arrive more than 30 minutes before pickup"` - Too early
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -330,16 +453,19 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ```
 
 **Side Effects:**
+
 - Status: `STARTED` → `ARRIVED`
 - SMS sent to customer: "Driver Arrived"
 
 ---
 
 #### Step C: Passenger Onboard (Ride Begins)
+
 **Endpoint:** `POST /trips/:id/onboard`  
 **Auth Required:** Yes
 
 **Request Body:**
+
 ```json
 {
   "otp": "1234"
@@ -349,6 +475,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 **Note:** OTP field is optional. Backend validates if provided.
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -357,15 +484,18 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ```
 
 **Side Effects:**
+
 - Status: `ARRIVED` → `ONBOARD`
 
 ---
 
 #### Step D: Complete (Dropoff)
+
 **Endpoint:** `POST /trips/:id/complete`  
 **Auth Required:** Yes
 
 **Request Body:**
+
 ```json
 {
   "distance": 45.5,
@@ -374,6 +504,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -382,16 +513,19 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ```
 
 **Side Effects:**
+
 - Status: `ONBOARD` → `COMPLETED`
 - Driver becomes available for next assignment
 
 ---
 
 #### Alternative: No Show
+
 **Endpoint:** `POST /trips/:id/noshow`  
 **Auth Required:** Yes
 
 **Request Body:**
+
 ```json
 {
   "reason": "Customer not reachable"
@@ -399,10 +533,12 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ```
 
 **⚠️ STRICT CONSTRAINT:**
+
 - Can ONLY mark no-show **AFTER 30 minutes** past `pickupTime`
 - Error if too early: `400 "Cannot mark no-show before 30 minutes past pickup time"`
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -411,15 +547,45 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ```
 
 **Side Effects:**
+
 - Status: → `NO_SHOW`
 
 ---
 
-### 3.4 Get Live Tracking
+### 3.4 Update Live Location
+
+**Endpoint:** `POST /trips/:id/location`
+**Auth Required:** Yes
+
+**Request Body:**
+
+```json
+{
+  "lat": 28.5500,
+  "lng": 77.0900
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Location updated successfully"
+}
+```
+
+**Implementation Note:** Call this endpoint every 30-60 seconds while the trip is in progress (`STARTED`, `ARRIVED`, `ONBOARD`) to update the driver's live location.
+
+---
+
+### 3.5 Get Live Tracking
+
 **Endpoint:** `GET /trips/:id/tracking`  
 **Auth Required:** Yes
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -436,11 +602,13 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ## 4. Driver Profile
 
 ### 4.1 Get My Profile
+
 **Endpoint:** `GET /drivers/me`  
 **Auth Required:** Yes  
 **Role:** DRIVER
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -467,7 +635,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ### 5.1 HTTP Status Codes
 
 | Code | Error | Meaning | Action |
-|------|-------|---------|--------|
+| ---- | ----- | ------- | ------ |
 | `400` | `VALIDATION_ERROR` | Invalid request body | Check request format |
 | `400` | `TOO_EARLY_START` | Cannot start > 2.5h before pickup | Wait until allowed time |
 | `400` | `TOO_EARLY_ARRIVE` | Cannot arrive > 30min before pickup | Wait until allowed time |
@@ -496,23 +664,27 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 ## 6. Implementation Notes
 
 ### 6.1 Background Location Tracking
+
 - The backend expects GPS coordinates during status changes
 - Implement background location service to track driver position
 - Send location updates during trip lifecycle transitions
 
 ### 6.2 Offline Handling
+
 - The API requires online connectivity
 - Queue requests locally (SQLite) when offline
 - Sync when connection is restored
 - Show clear offline indicator to driver
 
 ### 6.3 UI Feedback
+
 - Always show loading indicators during API calls
 - API latency can vary (200ms - 2s)
 - Implement retry logic for failed requests (max 3 retries)
 - Show clear error messages from API responses
 
 ### 6.4 Token Management
+
 ```dart
 // Pseudo-code for token refresh
 Future<void> refreshTokenIfNeeded() async {
@@ -530,6 +702,7 @@ if (response.statusCode == 401) {
 ```
 
 ### 6.5 Geofencing Implementation
+
 ```dart
 // Check if driver is within 500m of pickup
 double distance = Geolocator.distanceBetween(
@@ -544,6 +717,7 @@ if (distance > 500) {
 ```
 
 ### 6.6 Time Constraint Checks
+
 ```dart
 // Check if within 2.5h window for start
 DateTime now = DateTime.now();
@@ -557,12 +731,14 @@ if (diff.inHours > 2.5) {
 ```
 
 ### 6.7 State Management
+
 - Use Provider/Riverpod/Bloc for state management
 - Cache trip list locally
 - Implement pull-to-refresh for trip list
 - Auto-refresh every 30 seconds when on trip list screen
 
 ### 6.8 Push Notifications
+
 - Implement FCM for trip assignments
 - Handle notification when app is in background/killed
 - Deep link to specific trip when notification tapped
@@ -584,4 +760,267 @@ if (diff.inHours > 2.5) {
 
 ---
 
-**End of Flutter Driver API Guide**
+---
+
+## 5. Payment & Wallet
+
+### 5.1 Get Balance & Rental Status
+
+**Endpoint:** `GET /payment/balance`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Response (200):**
+
+```json
+{
+  "depositBalance": 5000,
+  "paymentModel": "RENTAL",
+  "hasActiveRental": true,
+  "rental": {
+    "planName": "Weekly Plan",
+    "startDate": "2025-12-23T00:00:00.000Z",
+    "expiryDate": "2025-12-30T00:00:00.000Z",
+    "daysRemaining": 3,
+    "isExpired": false
+  }
+}
+```
+
+**UI Display:**
+
+- Show deposit balance prominently at top of wallet screen
+- Display rental validity like a SIM card validity (days remaining)
+- Show warning when rental expires in < 2 days
+
+---
+
+### 5.2 Get Transaction History
+
+**Endpoint:** `GET /payment/transactions?page=1&limit=20`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Query Parameters:**
+
+- `page` (number, default: 1)
+- `limit` (number, default: 20)
+- `type` (optional): DEPOSIT, RENTAL, INCENTIVE, PENALTY, PAYOUT
+- `status` (optional): PENDING, SUCCESS, FAILED
+
+**Response (200):**
+
+```json
+{
+  "transactions": [
+    {
+      "id": "uuid",
+      "type": "DEPOSIT",
+      "amount": 5000,
+      "status": "SUCCESS",
+      "paymentMethod": "PG_UPI",
+      "description": "Security deposit - ₹5000",
+      "createdAt": "2025-12-23T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 45,
+    "totalPages": 3
+  }
+}
+```
+
+**UI Implementation:**
+
+- Implement infinite scroll or pagination
+- Show transaction type with icons (deposit, rental, incentive, penalty)
+- Color code: Green (credit), Red (debit)
+
+---
+
+### 5.3 Get Incentives
+
+**Endpoint:** `GET /payment/incentives`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Response (200):**
+
+```json
+{
+  "incentives": [
+    {
+      "id": "uuid",
+      "amount": 500,
+      "reason": "Completed 50 trips",
+      "category": "MILESTONE",
+      "isPaid": false,
+      "createdAt": "2025-12-25T00:00:00.000Z"
+    }
+  ],
+  "summary": {
+    "totalIncentives": 10,
+    "paidIncentives": 7,
+    "unpaidIncentives": 3,
+    "totalAmount": 5000,
+    "paidAmount": 3500,
+    "unpaidAmount": 1500
+  }
+}
+```
+
+**UI Display:**
+
+- Show total unpaid incentives prominently
+- List all incentives with paid/unpaid status
+- Show payout date for paid incentives
+
+---
+
+### 5.4 Get Penalties
+
+**Endpoint:** `GET /payment/penalties`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Response (200):**
+
+```json
+{
+  "penalties": [
+    {
+      "id": "uuid",
+      "type": "MONETARY",
+      "amount": 200,
+      "reason": "Late for pickup",
+      "isPaid": true,
+      "isWaived": false,
+      "deductedFromDeposit": true,
+      "depositDeductionAmount": 200,
+      "createdAt": "2025-12-24T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+**Penalty Types:**
+
+- `MONETARY` - Financial penalty (auto-deducted from deposit)
+- `WARNING` - Verbal/written warning
+- `SUSPENSION` - Temporary suspension
+- `BLACKLIST` - Permanent ban
+
+**UI Display:**
+
+- Show penalties with clear reason
+- Indicate if waived (show in green)
+- Show deposit deduction for monetary penalties
+
+---
+
+### 5.5 Initiate Deposit Payment
+
+**Endpoint:** `POST /payment/deposit`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Request Body:**
+
+```json
+{
+  "amount": 5000
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "transactionId": "uuid",
+  "paymentUrl": "https://testpay.easebuzz.in/pay/...",
+  "txnId": "TXN_1735123456_ABC123"
+}
+```
+
+**Implementation:**
+
+- Open `paymentUrl` in WebView or external browser
+- Handle success/failure callbacks
+- Refresh balance after payment
+
+---
+
+### 5.6 Initiate Rental Payment
+
+**Endpoint:** `POST /payment/rental`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Request Body:**
+
+```json
+{
+  "rentalPlanId": "uuid"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "transactionId": "uuid",
+  "paymentUrl": "https://testpay.easebuzz.in/pay/...",
+  "txnId": "TXN_1735123456_XYZ789"
+}
+```
+
+**Implementation:**
+
+- Show available rental plans first
+- Open payment URL in WebView
+- Activate rental after successful payment
+
+---
+
+### 5.7 Get Daily Collections (Payout Model Only)
+
+**Endpoint:** `GET /payment/collections`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Query Parameters:**
+
+- `startDate` (optional): ISO date
+- `endDate` (optional): ISO date
+
+**Response (200):**
+
+```json
+{
+  "collections": [
+    {
+      "id": "uuid",
+      "date": "2025-12-29T00:00:00.000Z",
+      "qrCollectionAmount": 3000,
+      "cashCollectionAmount": 2000,
+      "totalCollection": 5000,
+      "revShareAmount": 3500,
+      "netPayout": 3800,
+      "isPaid": false
+    }
+  ],
+  "summary": {
+    "totalDays": 30,
+    "totalCollections": 150000,
+    "totalPayout": 108000,
+    "paidAmount": 75000,
+    "unpaidAmount": 33000
+  }
+}
+```
+
+**Note:** Only visible for drivers on PAYOUT model
+
+---

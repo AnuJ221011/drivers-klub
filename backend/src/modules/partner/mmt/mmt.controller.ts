@@ -42,6 +42,24 @@ export class MMTController {
         }
     };
 
+    rescheduleBlock = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const result = await this.service.rescheduleBlock(req.body);
+            ApiResponse.send(res, 200, result, "Reschedule block successful");
+        } catch (error) {
+            next(error);
+        }
+    };
+
+    rescheduleConfirm = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const result = await this.service.rescheduleConfirm(req.body);
+            ApiResponse.send(res, 200, result, "Reschedule confirm successful");
+        } catch (error) {
+            next(error);
+        }
+    };
+
     getBookingDetails = async (req: Request, res: Response, next: NextFunction) => {
         try {
             // "GET /booking/details?partner_reference_number=...&order_reference_number=..."

@@ -9,6 +9,9 @@ router.post("/partnersearchendpoint", controller.search);
 router.post("/partnerblockendpoint", controller.block);
 router.post("/partnerpaidendpoint", controller.paid);
 router.post("/partnercancelendpoint", controller.cancel);
+// router.post("/partnerrescheduleendpoint", controller.reschedule); // REMOVED as per spec
+router.post("/partnerrescheduleblockendpoint", controller.rescheduleBlock);
+router.post("/partnerrescheduleconfirmendpoint", controller.rescheduleConfirm);
 
 // Booking Details (Query Params based)
 router.get("/booking/details", controller.getBookingDetails);

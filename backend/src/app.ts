@@ -17,6 +17,8 @@ import pricingRoutes from "./modules/pricing/pricing.routes.js";
 import adminTripRoutes from "./modules/trips/admin-trip.routes.js";
 import mmtRoutes from "./modules/partner/mmt/mmt.routes.js";
 import attendanceRoutes from "./modules/attendance/attendance.routes.js";
+import webhookRoutes from "./modules/webhooks/webhook.routes.js";
+import paymentRoutes from "./modules/payment/payment.routes.js";
 
 
 const app: Application = express();
@@ -95,6 +97,8 @@ app.use("/pricing", pricingRoutes);
 app.use("/admin/trips", adminTripRoutes);
 app.use("/attendance", attendanceRoutes);
 app.use("/partner/mmt", mmtRoutes);
+app.use("/webhooks", webhookRoutes);
+app.use("/payment", paymentRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -42,5 +42,6 @@ router.post("/:id/onboard", (req, res) => tripController.onboardTrip(req, res));
 router.post("/:id/noshow", (req, res) => tripController.noShowTrip(req, res));
 router.post("/:id/complete", (req, res) => tripController.completeTrip(req, res));
 router.get("/:id/tracking", (req, res) => tripController.getTracking(req, res));
+router.post("/:id/location", (req, res) => tripController.updateLocation(req, res));
 
 export default router;

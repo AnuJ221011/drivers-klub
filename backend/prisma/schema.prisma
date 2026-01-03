@@ -63,6 +63,7 @@ model Fleet {
   fleetManagers FleetManager[]
   vehicles      Vehicle[]
   hubManagers   HubManager[]
+  rentalPlans   RentalPlan[]
 
   @@index([mobile])
   @@index([city])
@@ -86,62 +87,78 @@ model FleetManager {
 }
 
 model Vehicle {
-  id              String           @id @default(uuid())
-  fleetId         String
-  hubId           String?
-  vehicleNumber   String           @unique
-  vehicleName     String
-  vehicleModel    String
-  vehicleColor    String?
-  ownership       VehicleOwnership
-  fuelType        FuelType
-  rcFrontImage    String?
-  rcBackImage     String?
-  permitImage     String?
-  permitExpiry    DateTime?
-  fitnessImage    String?
-  fitnessExpiry   DateTime?
-  insuranceImage  String?
-  insuranceExpiry DateTime?
-  status          VehicleStatus    @default(ACTIVE)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  assignments     Assignment[]
-  fleet           Fleet            @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+  id               String             @id @default(uuid())
+  fleetId          String
+  hubId            String?
+  vehicleNumber    String             @unique
+  vehicleName      String
+  vehicleModel     String
+  vehicleColor     String?
+  ownership        VehicleOwnership
+  fuelType         FuelType
+  rcFrontImage     String?
+  rcBackImage      String?
+  permitImage      String?
+  permitExpiry     DateTime?
+  fitnessImage     String?
+  fitnessExpiry    DateTime?
+  insuranceImage   String?
+  insuranceExpiry  DateTime?
+  status           VehicleStatus      @default(ACTIVE)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  assignments      Assignment[]
+  fleet            Fleet              @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+  virtualQR        VirtualQR?
+  dailyCollections DailyCollection[]
 
   @@index([fleetId])
 }
 
 model Driver {
-  id              String           @id @default(uuid())
-  userId          String           @unique
-  fleetId         String
-  hubId           String?
-  isAvailable     Boolean          @default(true)
-  firstName       String
-  lastName        String
-  mobile          String
-  profilePic      String?
-  licenseFront    String?
-  licenseBack     String?
-  aadharFront     String?
-  aadharBack      String?
-  panCardImage    String?
-  livePhoto       String?
-  bankIdProof     String?
-  kycStatus       KycStatus        @default(PENDING)
-  status          DriverStatus     @default(ACTIVE)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  licenseNumber   String?
-  assignments     Assignment[]
-  attendance      Attendance[]
-  fleet           Fleet            @relation(fields: [fleetId], references: [id], onDelete: Cascade)
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tripAssignments TripAssignment[]
+  id                 String           @id @default(uuid())
+  userId             String           @unique
+  fleetId            String
+  hubId              String?
+  isAvailable        Boolean          @default(true)
+  firstName          String
+  lastName           String
+  mobile             String
+  profilePic         String?
+  licenseFront       String?
+  licenseBack        String?
+  aadharFront        String?
+  aadharBack         String?
+  panCardImage       String?
+  livePhoto          String?
+  bankIdProof        String?
+  kycStatus          KycStatus        @default(PENDING)
+  status             DriverStatus     @default(ACTIVE)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  licenseNumber      String?
+  // Payment system fields
+  paymentModel       PaymentModel?
+  depositBalance     Float            @default(0)
+  revSharePercentage Float?           @default(70)
+  bankAccountNumber  String?
+  bankIfscCode       String?
+  bankAccountName    String?
+  // Relations
+  assignments        Assignment[]
+  attendance         Attendance[]
+  fleet              Fleet            @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tripAssignments    TripAssignment[]
+  driverRentals      DriverRental[]
+  transactions       Transaction[]
+  incentives         Incentive[]
+  penalties          Penalty[]
+  dailyCollections   DailyCollection[]
 
   @@index([fleetId])
   @@index([mobile])
+  @@index([paymentModel])
 }
 
 model Assignment {
@@ -202,6 +219,7 @@ model Ride {
   dropLng            Float?
   pickupLat          Float?
   pickupLng          Float?
+  pendingRescheduleTime DateTime?
   providerMapping    RideProviderMapping?
   tripAssignments    TripAssignment[]
 
@@ -230,26 +248,226 @@ model TripAssignment {
 }
 
 model Attendance {
-  id            String           @id @default(uuid())
-  driverId      String
-  checkInTime   DateTime         @default(now())
-  checkOutTime  DateTime?
-  status        AttendanceStatus @default(PENDING)
-  approvedBy    String?
-  adminRemarks  String?
-  checkInLat    Float?
-  checkInLng    Float?
-  selfieUrl     String?
+  id           String           @id @default(uuid())
+  driverId     String
+  checkInTime  DateTime         @default(now())
+  checkOutTime DateTime?
+  status       AttendanceStatus @default(PENDING)
+  approvedBy   String?
+  adminRemarks String?
+  checkInLat   Float?
+  checkInLng   Float?
+  selfieUrl    String?
   odometerStart Int?
-  odometerEnd   Int?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  driver        Driver           @relation(fields: [driverId], references: [id])
+  odometerEnd  Int?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  driver       Driver           @relation(fields: [driverId], references: [id])
+  breaks       Break[]
 
   @@index([driverId])
   @@index([status])
   @@index([createdAt])
 }
+
+model Break {
+  id           String     @id @default(uuid())
+  attendanceId String
+  startTime    DateTime
+  endTime      DateTime?
+  attendance   Attendance @relation(fields: [attendanceId], references: [id])
+}
+
+// ============================================
+// PAYMENT SYSTEM MODELS
+// ============================================
+
+model RentalPlan {
+  id            String         @id @default(uuid())
+  fleetId       String
+  fleet         Fleet          @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+  name          String
+  rentalAmount  Float
+  depositAmount Float
+  validityDays  Int
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  driverRentals DriverRental[]
+
+  @@index([fleetId])
+  @@index([isActive])
+}
+
+model DriverRental {
+  id           String     @id @default(uuid())
+  driverId     String
+  driver       Driver     @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  rentalPlanId String
+  rentalPlan   RentalPlan @relation(fields: [rentalPlanId], references: [id])
+  startDate    DateTime
+  expiryDate   DateTime
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([driverId])
+  @@index([expiryDate])
+  @@index([isActive])
+}
+
+model Transaction {
+  id                String            @id @default(uuid())
+  driverId          String
+  driver            Driver            @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  type              TransactionType
+  amount            Float
+  status            TransactionStatus @default(PENDING)
+  paymentMethod     PaymentMethod
+  easebuzzTxnId     String?           @unique
+  easebuzzStatus    String?
+  easebuzzPaymentId String?
+  tripId            String?
+  incentiveId       String?
+  penaltyId         String?
+  collectionId      String?
+  description       String?
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([driverId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@index([easebuzzTxnId])
+}
+
+model Incentive {
+  id            String    @id @default(uuid())
+  driverId      String
+  driver        Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  amount        Float
+  reason        String
+  category      String?
+  isPaid        Boolean   @default(false)
+  paidAt        DateTime?
+  transactionId String?
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([driverId])
+  @@index([isPaid])
+  @@index([createdAt])
+}
+
+model Penalty {
+  id                    String       @id @default(uuid())
+  driverId              String
+  driver                Driver       @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  // Penalty details
+  type                  PenaltyType
+  amount                Float        @default(0)  // 0 for non-monetary penalties
+  reason                String
+  category              String?
+  
+  // Payment tracking (for MONETARY penalties)
+  isPaid                Boolean      @default(false)
+  paidAt                DateTime?
+  transactionId         String?
+  
+  // Deposit deduction (for RENTAL model drivers)
+  deductedFromDeposit   Boolean      @default(false)
+  depositDeductionAt    DateTime?
+  depositDeductionAmount Float?
+  
+  // Suspension/Blacklist tracking (for non-monetary penalties)
+  suspensionStartDate   DateTime?
+  suspensionEndDate     DateTime?
+  isActive              Boolean      @default(true)  // For blacklist/suspension status
+  
+  // Admin review and waiver tracking
+  isWaived              Boolean      @default(false)
+  waivedBy              String?      // Admin user ID who waived
+  waivedAt              DateTime?
+  waiverReason          String?      // Reason for waiving penalty
+  reviewedBy            String?      // Admin user ID who reviewed
+  reviewedAt            DateTime?
+  reviewNotes           String?      @db.Text
+  
+  createdBy             String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@index([driverId])
+  @@index([type])
+  @@index([isPaid])
+  @@index([isActive])
+  @@index([isWaived])
+  @@index([createdAt])
+}
+
+model VirtualQR {
+  id                   String            @id @default(uuid())
+  vehicleId            String            @unique
+  vehicle              Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  virtualAccountId     String            @unique
+  virtualAccountNumber String?
+  ifscCode             String?
+  qrCodeUrl            String?
+  qrCodeBase64         String?           @db.Text
+  upiId                String?           @unique
+  isActive             Boolean           @default(true)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  collections          DailyCollection[]
+
+  @@index([vehicleId])
+  @@index([virtualAccountId])
+}
+
+model DailyCollection {
+  id                   String     @id @default(uuid())
+  driverId             String
+  driver               Driver     @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicleId            String
+  vehicle              Vehicle    @relation(fields: [vehicleId], references: [id])
+  virtualQRId          String?
+  virtualQR            VirtualQR? @relation(fields: [virtualQRId], references: [id])
+  date                 DateTime   @db.Date
+  qrCollectionAmount   Float      @default(0)
+  cashCollectionAmount Float      @default(0)
+  totalCollection      Float
+  expectedRevenue      Float?
+  variance             Float?
+  revSharePercentage   Float?
+  revShareAmount       Float?
+  incentiveAmount      Float      @default(0)
+  penaltyAmount        Float      @default(0)
+  netPayout            Float?
+  isReconciled         Boolean    @default(false)
+  reconciledBy         String?
+  reconciledAt         DateTime?
+  reconciliationNotes  String?    @db.Text
+  isPaid               Boolean    @default(false)
+  paidAt               DateTime?
+  payoutTransactionId  String?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  @@unique([driverId, date])
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([date])
+  @@index([isReconciled])
+  @@index([isPaid])
+}
+
+// ============================================
+// ENUMS
+// ============================================
 
 enum UserRole {
   SUPER_ADMIN
@@ -274,13 +492,12 @@ enum FleetManagerStatus {
 }
 
 model FleetHub {
-  id             String      @id @default(uuid())
-  
-  fleetId        String
-  location       Json
-  address        String
-  hubType        String
-  hubManagerId   String?
+  id           String  @id @default(uuid())
+  fleetId      String
+  location     Json
+  address      String
+  hubType      String
+  hubManagerId String?
 }
 
 enum HubManagerStatus {
@@ -289,28 +506,23 @@ enum HubManagerStatus {
 }
 
 model HubManager {
-  id             String             @id @default(uuid())
-
+  id             String           @id @default(uuid())
   name           String
   mobile         String
   city           String
   profilePicture String?
-
   status         HubManagerStatus @default(ACTIVE)
   remarks        String?
-  
   hubId          String?
   fleetId        String
-  fleet          Fleet              @relation(fields: [fleetId], references: [id], onDelete: Cascade)
-
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  fleet          Fleet            @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@index([fleetId])
   @@index([mobile])
 }
 
-// Vehicle Model for fleet vehicles
 enum VehicleOwnership {
   OWNED
   LEASED
@@ -339,7 +551,6 @@ enum KycStatus {
   REJECTED
 }
 
-// Assignment Model for Driver-Vehicle assignment to Fleet
 enum AssignmentStatus {
   ACTIVE
   ENDED
@@ -398,4 +609,42 @@ enum AttendanceStatus {
   APPROVED
   REJECTED
   CHECKED_OUT
+}
+
+// Payment System Enums
+enum PaymentModel {
+  RENTAL
+  PAYOUT
+}
+
+enum TransactionType {
+  DEPOSIT
+  RENTAL
+  TRIP_PAYMENT
+  INCENTIVE
+  PENALTY
+  DAILY_COLLECTION
+  PAYOUT
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PenaltyType {
+  MONETARY      // Financial penalty - deducted from deposit or paid via PG
+  WARNING       // Verbal/written warning - no financial impact
+  SUSPENSION    // Temporary suspension from platform
+  BLACKLIST     // Permanent ban from platform
+}
+
+enum PaymentMethod {
+  PG_CARD
+  PG_UPI
+  PG_NETBANKING
+  VIRTUAL_QR
+  CASH
 }

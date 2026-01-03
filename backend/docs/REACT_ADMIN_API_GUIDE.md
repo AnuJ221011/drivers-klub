@@ -1,11 +1,11 @@
 # 💻 React Admin Dashboard - API Integration Guide (Production)
 
 **Target Audience:** Web Frontend Team  
-**Base URL (Production):** `https://driversklub-backend.onrender.com`  
+**Base URL (Production):** `https://driversklub-backend.onrender.com/`  
 **Base URL (Development):** `http://localhost:5000`  
 **Auth:** Requires `Authorization: Bearer <TOKEN>` with Role `SUPER_ADMIN` or `OPERATIONS`  
 **Version:** 3.1.0  
-**Last Updated:** December 26, 2025
+**Last Updated:** December 30, 2025
 
 ---
 
@@ -24,11 +24,13 @@
 ## 1. Authentication
 
 ### 1.1 Admin Login Flow
+
 Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 **Endpoint:** `POST /auth/verify-otp`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -50,10 +52,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ## 2. Dispatch & Trip Operations
 
 ### 2.1 Create New Trip
+
 **Endpoint:** `POST /trips`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "tripType": "AIRPORT",
@@ -71,11 +75,13 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 > [!IMPORTANT]
 > **Strict Trip Constraints:**
+>
 > - **Start Window:** Driver can only start trip **2.5 Hours** before pickup
 > - **Geofence:** `pickupLat` & `pickupLng` are **MANDATORY** for the app to allow "Arrived" status (500m radius)
 > - **T-1 Constraint:** `pickupTime` must be > 24 hours from now
 
 **Response (201):**
+
 ```json
 {
   "success": true,
@@ -92,15 +98,18 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ---
 
 ### 2.2 List All Trips (Grid View)
+
 **Endpoint:** `GET /admin/trips`  
 **Role:** `SUPER_ADMIN`
 
 **Query Params:**
+
 - `page` (default: 1)
 - `limit` (default: 10)
 - `status` (optional): Filter by status (e.g., `CREATED`, `DRIVER_ASSIGNED`, `STARTED`)
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -127,11 +136,13 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ---
 
 ### 2.3 Assign Driver (Dispatch)
+
 **Endpoint:** `POST /admin/trips/assign`  
 **Role:** `SUPER_ADMIN`  
 **Description:** The core action of the dashboard. Logic: "Select Trip → Select Driver → Assign"
 
 **Request Body:**
+
 ```json
 {
   "tripId": "uuid-trip-id",
@@ -140,6 +151,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -148,6 +160,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Side Effects:**
+
 1. Updates Trip Status → `DRIVER_ASSIGNED`
 2. Creates `TripAssignment` record (transactional)
 3. Pushes Notification to Driver App
@@ -156,11 +169,13 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ---
 
 ### 2.4 Unassign Driver
+
 **Endpoint:** `POST /admin/trips/unassign`  
 **Role:** `SUPER_ADMIN`  
 **Description:** Force cancel/detach driver from trip
 
 **Request Body:**
+
 ```json
 {
   "tripId": "uuid"
@@ -168,6 +183,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -176,17 +192,20 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Side Effects:**
+
 - Status: `DRIVER_ASSIGNED` → `CREATED`
 - If MMT Trip, triggers `/detach-trip` webhook
 
 ---
 
 ### 2.5 Reassign Driver
+
 **Endpoint:** `POST /admin/trips/reassign`  
 **Role:** `SUPER_ADMIN`  
 **Description:** Change assigned driver (e.g., when driver cancels or car breaks down)
 
 **Request Body:**
+
 ```json
 {
   "tripId": "uuid",
@@ -195,6 +214,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -203,6 +223,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Side Effects:**
+
 - If MMT Trip, triggers `/reassign-chauffeur` webhook
 
 ---
@@ -212,10 +233,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ### 3.1 Fleets (Operators)
 
 #### Create Fleet
+
 **Endpoint:** `POST /fleets`  
 **Role:** `SUPER_ADMIN`
 
 **Request Body:**
+
 ```json
 {
   "name": "Delhi Cabs Pvt Ltd",
@@ -227,6 +250,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Response (201):**
+
 ```json
 {
   "success": true,
@@ -239,10 +263,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 #### List Fleets
+
 **Endpoint:** `GET /fleets`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -259,10 +285,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 #### Get Fleet Details
+
 **Endpoint:** `GET /fleets/:id`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 #### Deactivate Fleet
+
 **Endpoint:** `PATCH /fleets/:id/deactivate`  
 **Role:** `SUPER_ADMIN`
 
@@ -271,10 +299,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ### 3.2 Vehicles (Cars)
 
 #### Add Vehicle
+
 **Endpoint:** `POST /vehicles`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "fleetId": "uuid-fleet-id",
@@ -286,6 +316,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Response (201):**
+
 ```json
 {
   "success": true,
@@ -298,10 +329,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 #### List Vehicles by Fleet
+
 **Endpoint:** `GET /vehicles/fleet/:fleetId`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -318,10 +351,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 #### Update Vehicle Documents
+
 **Endpoint:** `PATCH /vehicles/:id/docs`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "rcUrl": "https://s3.aws.com/rc.pdf",
@@ -329,7 +364,27 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 }
 ```
 
+#### Update Vehicle Status
+
+**Endpoint:** `PATCH /vehicles/:id/status`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "status": "ACTIVE"
+}
+```
+
+**Status Values:**
+
+- `ACTIVE` - Vehicle is operational
+- `INACTIVE` - Vehicle temporarily unavailable
+- `MAINTENANCE` - Vehicle under maintenance
+
 #### Deactivate Vehicle
+
 **Endpoint:** `PATCH /vehicles/:id/deactivate`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
@@ -338,10 +393,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ### 3.3 Drivers (Profiles)
 
 #### Onboard Driver
+
 **Endpoint:** `POST /drivers`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "fleetId": "uuid-fleet-id",
@@ -354,6 +411,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Response (201):**
+
 ```json
 {
   "success": true,
@@ -367,10 +425,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 #### List Drivers by Fleet
+
 **Endpoint:** `GET /drivers/fleet/:fleetId`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -388,6 +448,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 #### Get Driver Details
+
 **Endpoint:** `GET /drivers/:id`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
@@ -396,11 +457,13 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ## 4. Operations & Assignments
 
 ### 4.1 Approve Attendance
+
 **Endpoint:** `POST /attendance/:id/approve`  
 **Roles:** `SUPER_ADMIN`, `MANAGER`  
 **Description:** Admins review selfies and odometer readings before approving the shift
 
 **Request Body:**
+
 ```json
 {
   "remarks": "Approved by Ops"
@@ -408,6 +471,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -420,11 +484,13 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ---
 
 ### 4.2 Daily Vehicle Assignment (Roster)
+
 **Endpoint:** `POST /assignments`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`  
 **Description:** Link a driver to a car for the day
 
 **Request Body:**
+
 ```json
 {
   "driverId": "uuid-driver",
@@ -434,6 +500,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Response (201):**
+
 ```json
 {
   "success": true,
@@ -451,10 +518,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ---
 
 ### 4.3 Get Assignments by Fleet
+
 **Endpoint:** `GET /assignments/fleet/:fleetId`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -478,6 +547,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ---
 
 ### 4.4 End Assignment
+
 **Endpoint:** `PATCH /assignments/:id/end`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
@@ -486,10 +556,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ## 5. User Management
 
 ### 5.1 Create User
+
 **Endpoint:** `POST /users`  
 **Role:** `SUPER_ADMIN`
 
 **Request Body:**
+
 ```json
 {
   "phone": "9876543210",
@@ -503,12 +575,14 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ---
 
 ### 5.2 List All Users
+
 **Endpoint:** `GET /users`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 ---
 
 ### 5.3 Deactivate User
+
 **Endpoint:** `PATCH /users/:id/deactivate`  
 **Role:** `SUPER_ADMIN`
 
@@ -517,11 +591,13 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ## 6. Pricing Calculator
 
 ### 6.1 Preview Pricing
+
 **Endpoint:** `POST /pricing/preview`  
 **Auth Required:** No  
 **Description:** "Get Estimate" button on Create Trip form
 
 **Request Body:**
+
 ```json
 {
   "distanceKm": 45,
@@ -530,6 +606,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Response (200):**
+
 ```json
 {
   "success": true,
@@ -552,10 +629,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ## 7. Frontend Implementation Notes
 
 ### 7.1 CORS
+
 - **Current:** Configured to allow all origins (`*`)
 - **Production:** Whitelist specific domains
 
 ### 7.2 Date Handling
+
 - Use `date-fns` or `moment` to parse UTC ISO strings from API
 - **Always display in User's Local Time**
 - Store in UTC, display in local
@@ -568,13 +647,16 @@ const displayTime = format(parseISO(trip.pickupTime), 'PPpp');
 ```
 
 ### 7.3 State Management
+
 **Recommendations:**
+
 - Cache `Fleets` and `Drivers` lists (TanStack Query recommended) as they change infrequently
 - Poll `Trips` list (every 30s) or use a "Refresh" button for operations
 - Handle `401 Unauthorized` by redirecting to Login
 - Implement optimistic updates for better UX
 
 **Example with TanStack Query:**
+
 ```javascript
 const { data: trips } = useQuery({
   queryKey: ['trips', { status, page }],
@@ -584,6 +666,7 @@ const { data: trips } = useQuery({
 ```
 
 ### 7.4 Error Handling
+
 ```javascript
 try {
   await assignDriver(tripId, driverId);
@@ -599,6 +682,7 @@ try {
 ```
 
 ### 7.5 Role-Based UI
+
 ```javascript
 const canCreateTrip = ['SUPER_ADMIN', 'OPERATIONS'].includes(user.role);
 const canApproveAttendance = ['SUPER_ADMIN', 'MANAGER'].includes(user.role);
@@ -607,6 +691,7 @@ const canApproveAttendance = ['SUPER_ADMIN', 'MANAGER'].includes(user.role);
 ```
 
 ### 7.6 Pagination Component
+
 ```javascript
 <Pagination
   currentPage={page}
@@ -616,6 +701,7 @@ const canApproveAttendance = ['SUPER_ADMIN', 'MANAGER'].includes(user.role);
 ```
 
 ### 7.7 Status Badge Component
+
 ```javascript
 const getStatusColor = (status) => {
   switch (status) {
@@ -632,7 +718,9 @@ const getStatusColor = (status) => {
 ```
 
 ### 7.8 Real-time Updates (Optional)
+
 Consider implementing WebSocket connection for real-time trip status updates:
+
 ```javascript
 const socket = io('wss://driversklub-backend.onrender.com');
 
@@ -658,4 +746,317 @@ socket.on('trip:updated', (trip) => {
 
 ---
 
-**End of React Admin API Guide**
+---
+
+## 8. Payment System (Admin)
+
+### 8.1 Create Rental Plan
+
+**Endpoint:** `POST /payment/admin/rental-plans`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "fleetId": "uuid",
+  "name": "Weekly Plan",
+  "rentalAmount": 3500,
+  "depositAmount": 5000,
+  "validityDays": 7
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "id": "uuid",
+  "fleetId": "uuid",
+  "name": "Weekly Plan",
+  "rentalAmount": 3500,
+  "depositAmount": 5000,
+  "validityDays": 7,
+  "isActive": true
+}
+```
+
+---
+
+### 8.2 Get Rental Plans
+
+**Endpoint:** `GET /payment/admin/rental-plans/:fleetId`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Query Parameters:**
+
+- `activeOnly` (boolean, default: true)
+
+---
+
+### 8.3 Create Penalty
+
+**Endpoint:** `POST /payment/admin/penalty`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "driverId": "uuid",
+  "type": "MONETARY",
+  "amount": 500,
+  "reason": "Customer complaint",
+  "category": "BEHAVIOR"
+}
+```
+
+**Penalty Types:**
+
+- `MONETARY` - Financial penalty (auto-deducted from deposit for rental model)
+- `WARNING` - Verbal/written warning
+- `SUSPENSION` - Temporary suspension (requires `suspensionStartDate` and `suspensionEndDate`)
+- `BLACKLIST` - Permanent ban
+
+**Response (201):**
+
+```json
+{
+  "id": "uuid",
+  "driverId": "uuid",
+  "type": "MONETARY",
+  "amount": 500,
+  "reason": "Customer complaint",
+  "isPaid": true,
+  "deductedFromDeposit": true
+}
+```
+
+---
+
+### 8.4 Waive Penalty
+
+**Endpoint:** `POST /payment/admin/penalty/:id/waive`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "waiverReason": "First-time offense, driver apologized"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Penalty waived successfully"
+}
+```
+
+**Side Effects:**
+
+- Refunds deposit if already deducted
+- Reverses suspension/blacklist status
+
+---
+
+### 8.5 Create Incentive
+
+**Endpoint:** `POST /payment/admin/incentive`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "driverId": "uuid",
+  "amount": 500,
+  "reason": "Completed 50 trips this month",
+  "category": "MILESTONE"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "id": "uuid",
+  "driverId": "uuid",
+  "amount": 500,
+  "reason": "Completed 50 trips this month",
+  "isPaid": false
+}
+```
+
+---
+
+### 8.6 Process Incentive Payout
+
+**Endpoint:** `POST /payment/admin/incentive/:id/payout`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "txnId": "TXN_1735123456_PAY123",
+  "status": "PENDING",
+  "utr": "UTR123456789"
+}
+```
+
+**Note:** Sends money to driver's bank account via Easebuzz
+
+---
+
+### 8.7 Reconcile Daily Collection
+
+**Endpoint:** `POST /payment/admin/collection/:id/reconcile`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Request Body:**
+
+```json
+{
+  "expectedRevenue": 5000,
+  "reconciliationNotes": "All collections verified"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Collection reconciled successfully"
+}
+```
+
+**Side Effects:**
+
+- Calculates revenue share
+- Applies incentives and penalties
+- Prepares for payout
+
+---
+
+### 8.8 Process Daily Payout
+
+**Endpoint:** `POST /payment/admin/collection/:id/payout`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "txnId": "TXN_1735123456_PAY456",
+  "status": "SUCCESS",
+  "utr": "UTR987654321",
+  "amount": 3800
+}
+```
+
+**Note:** Sends payout to driver's bank account
+
+---
+
+### 8.9 Get Pending Reconciliations
+
+**Endpoint:** `GET /payment/admin/reconciliations/pending`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Response (200):**
+
+```json
+{
+  "reconciliations": [
+    {
+      "id": "uuid",
+      "driver": {
+        "firstName": "Raj",
+        "lastName": "Kumar"
+      },
+      "date": "2025-12-29T00:00:00.000Z",
+      "totalCollection": 5000,
+      "isReconciled": false
+    }
+  ]
+}
+```
+
+---
+
+### 8.10 Get Pending Payouts
+
+**Endpoint:** `GET /payment/admin/payouts/pending`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Response (200):**
+
+```json
+{
+  "payouts": [
+    {
+      "id": "uuid",
+      "driver": {
+        "firstName": "Raj",
+        "lastName": "Kumar",
+        "bankAccountNumber": "1234567890"
+      },
+      "date": "2025-12-29T00:00:00.000Z",
+      "netPayout": 3800,
+      "isPaid": false
+    }
+  ]
+}
+```
+
+---
+
+### 8.11 Generate Vehicle QR Code
+
+**Endpoint:** `POST /payment/admin/vehicle/:id/qr`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Response (201):**
+
+```json
+{
+  "id": "uuid",
+  "vehicleId": "uuid",
+  "virtualAccountId": "VA123456",
+  "virtualAccountNumber": "1234567890123456",
+  "ifscCode": "HDFC0000001",
+  "qrCodeBase64": "data:image/png;base64,...",
+  "upiId": "driversklub.va123456@easebuzz",
+  "isActive": true
+}
+```
+
+**Use Case:** Generate QR code for vehicle to accept payments
+
+---
+
+### 8.12 Get Vehicle QR Code
+
+**Endpoint:** `GET /payment/admin/vehicle/:id/qr`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Response (200):**
+
+```json
+{
+  "id": "uuid",
+  "vehicleId": "uuid",
+  "qrCodeBase64": "data:image/png;base64,...",
+  "upiId": "driversklub.va123456@easebuzz",
+  "isActive": true
+}
+```
+
+---

@@ -3,19 +3,19 @@ info:
   title: Driver's Klub Backend API
   description: |
     # Driver's Klub Backend API (Master Canonical Reference)
-    
-    **Version 1.0.0 - Production**
-    
+
+    **Version 2.0.0 - Production**
+
     This specification represents the **Single Source of Truth** for the Driver's Klub platform. It combines strict schema definitions, business logic documentation, and comprehensive endpoint coverage.
-    
+
     ## 🔍 System Overview & Business Logic
-    
+
     ### 1. Trip Intelligence
     *   **Booking Window**: A strict "T-1" rule applies. Trips must be booked at least **1 day in advance**.
     *   **Operational Hours**: Trips cannot start between 12:00 AM and 04:00 AM (`PREBOOK_MIN_HOUR = 4`).
     *   **Allowed Origins**: Pickups are restricted to `DELHI`, `NOIDA`, `GURGAON`, `FARIDABAD`, `GHAZIABAD`.
     *   **Vehicle Policy**: Currently exclusive to `TATA_TIGOR_EV` to meet green fleet targets.
-    
+
     ### 2. Pricing Engine
     *   **Base Rate**: ₹25.00 per km.
     *   **Minimum Fare**: Minimum billable distance is 5 km.
@@ -23,23 +23,27 @@ info:
         *   `AIRPORT`: 1.0x (Standard)
         *   `RENTAL`: 1.1x (Premium Hold)
         *   `INTER_CITY`: 1.2x (Outstation Allowance)
-    
+
     ### 3. Provider Orchestration
     *   The system acts as a meta-layer over external providers (**MojoBoxx**, **MMT**).
     *   **Sync**: Trip status is synced every 60s via background jobs, but can be force-synced via `/providers/{id}/sync`.
     *   **Dispatch**: If internal fleet is unavailable, the `DispatchEngine` routes bookings to external providers automatically.
-    
-    ### 4. Safety & Ops
-    *   **Break-Glass**: Endpoints under `/ops` override all business rules to resolve deadlocks (e.g., driver phone dead, car breakdown).
-    *   **Zombie Trips**: Use `/ops/trips/stuck` to find trips stuck in `STARTED` state for > 24 hours.
 
-  version: 1.0.0
+    ### 4. Payment System (NEW)
+    *   **Rental Model**: Drivers pay upfront rental + deposit. Valid for set days.
+    *   **Payout Model**: Revenue share (70/30 split). Daily collections via Virtual QR.
+    *   **Reconciliation**: Automatic reconciling of UPI payments; manual for cash.
+    *   **Gateway**: Integrated with **Easebuzz** for Collections & Payouts.
+
+  version: 2.0.0
   contact:
     name: Driver's Klub Engineering
 
 servers:
-  - url: http://localhost:5000
+  - url: https://driversklub-backend.onrender.com/
     description: Production API
+  - url: http://localhost:5000
+    description: Development API
 
 components:
   securitySchemes:
@@ -52,1522 +56,419 @@ components:
     # --- COMMON ---
     ApiResponse:
       type: object
-      required: 
+      required:
         - message
       properties:
-        message: 
+        success:
+          type: boolean
+          example: true
+        message:
           type: string
           example: "Operation completed successfully"
+        data:
+          type: object
 
     # --- ENUMS ---
     UserRole:
       type: string
-      enum: 
-        - SUPER_ADMIN
-        - OPERATIONS
-        - MANAGER
-        - DRIVER
-      description: "RBAC Role. SUPER_ADMIN has root access."
-    TripType: 
+      enum: [SUPER_ADMIN, OPERATIONS, MANAGER, DRIVER]
+    TripType:
       type: string
-      enum: 
-        - AIRPORT
-        - RENTAL
-        - INTER_CITY
-      description: "Determines pricing logic."
-    FuelType: 
+      enum: [AIRPORT, RENTAL, INTER_CITY]
+    VehicleStatus:
       type: string
-      enum: 
-        - PETROL
-        - DIESEL
-        - CNG
-        - ELECTRIC
-    VehicleOwnership: 
+      enum: [ACTIVE, INACTIVE, MAINTENANCE]
+    PaymentModel:
       type: string
-      enum: 
-        - OWNED
-        - LEASED
-    VehicleStatus: 
+      enum: [RENTAL, PAYOUT]
+    TransactionType:
       type: string
-      enum: 
-        - ACTIVE
-        - INACTIVE
-        - MAINTENANCE
-    
+      enum:
+        [
+          DEPOSIT,
+          RENTAL,
+          TRIP_PAYMENT,
+          INCENTIVE,
+          PENALTY,
+          DAILY_COLLECTION,
+          PAYOUT,
+        ]
+    TransactionStatus:
+      type: string
+      enum: [PENDING, SUCCESS, FAILED, REFUNDED]
+
     # --- CORE ENTITIES ---
     User:
       type: object
       properties:
-        id: 
-          type: string
-          format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-        name: 
-          type: string
-          example: "Aditya Sharma"
-        phone: 
-          type: string
-          example: "+919876543210"
-        role: 
-          $ref: '#/components/schemas/UserRole'
-        isActive: 
-          type: boolean
-    
+        id: { type: string, format: uuid }
+        name: { type: string }
+        phone: { type: string }
+        role: { $ref: "#/components/schemas/UserRole" }
+        isActive: { type: boolean }
+
     Driver:
       type: object
       properties:
-        id: 
-          type: string
-          format: uuid
-        firstName: 
-          type: string
-          example: "Rajesh"
-        lastName: 
-          type: string
-          example: "Kumar"
-        mobile: 
-          type: string
-          example: "+919999988888"
-        licenseNumber: 
-          type: string
-          example: "DL1420110012345"
-        isAvailable: 
-          type: boolean
-        fleetId: 
-          type: string
-          format: uuid
+        id: { type: string, format: uuid }
+        firstName: { type: string }
+        lastName: { type: string }
+        mobile: { type: string }
+        licenseNumber: { type: string }
+        status: { type: string }
+        isAvailable: { type: boolean }
+        paymentModel: { $ref: "#/components/schemas/PaymentModel" }
+        depositBalance: { type: number }
 
     Fleet:
       type: object
       properties:
-        id: 
-          type: string
-          format: uuid
-        name: 
-          type: string
-          example: "Delhi Darshan Travels"
-        city: 
-          type: string
-          example: "Delhi"
-        mobile: 
-          type: string
-          example: "+911122334455"
-
-    FleetManager:
-      type: object
-      properties:
-        id: 
-          type: string
-          format: uuid
-        name: 
-          type: string
-        mobile: 
-          type: string
-        fleetId: 
-          type: string
-          format: uuid
+        id: { type: string, format: uuid }
+        name: { type: string }
+        city: { type: string }
+        mobile: { type: string }
 
     Vehicle:
       type: object
       properties:
-        id: 
-          type: string
-          format: uuid
-        vehicleNumber: 
-          type: string
-          example: "DL01CAB1234"
-        model: 
-          type: string
-          example: "Tata Tigor EV"
-        status: 
-          $ref: '#/components/schemas/VehicleStatus'
+        id: { type: string, format: uuid }
+        vehicleNumber: { type: string }
+        model: { type: string }
+        status: { $ref: "#/components/schemas/VehicleStatus" }
+        virtualQRId: { type: string, format: uuid }
 
     Trip:
       type: object
       properties:
-        id: 
-          type: string
-          format: uuid
-        tripType: 
-          $ref: '#/components/schemas/TripType'
-        originCity: 
-          type: string
-          example: "GURGAON"
-        destinationCity: 
-          type: string
-          example: "AIRPORT T3"
-        tripDate: 
-          type: string
-          format: date-time
-        status: 
-          type: string
-          example: "CREATED"
-        price: 
-          type: number
-          example: 850.50
-        provider: 
-          type: string
-          example: "MOJOBOXX"
+        id: { type: string, format: uuid }
+        tripType: { $ref: "#/components/schemas/TripType" }
+        originCity: { type: string }
+        destinationCity: { type: string }
+        tripDate: { type: string, format: date-time }
+        status: { type: string }
+        price: { type: number }
 
-    Assignment:
+    # --- PAYMENT ENTITIES ---
+    Transaction:
       type: object
       properties:
-        id: 
-          type: string
-          format: uuid
-        driverId: 
-          type: string
-          format: uuid
-        vehicleId: 
-          type: string
-          format: uuid
-        startTime: 
-          type: string
-          format: date-time
-        status: 
-          type: string
-          example: "ACTIVE"
+        id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/TransactionType" }
+        amount: { type: number }
+        status: { $ref: "#/components/schemas/TransactionStatus" }
+        createdAt: { type: string, format: date-time }
+
+    RentalPlan:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        rentalAmount: { type: number }
+        depositAmount: { type: number }
+        validityDays: { type: number }
+
+    DailyCollection:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        date: { type: string, format: date }
+        totalCollection: { type: number }
+        qrCollectionAmount: { type: number }
+        cashCollectionAmount: { type: number }
+        netPayout: { type: number }
+        isReconciled: { type: boolean }
 
 security:
   - bearerAuth: []
 
 paths:
-  # ================= 1️⃣ AUTHENTICATION & SESSION =================
+  # ================= AUTH =================
   /auth/send-otp:
     post:
-      summary: Send Login OTP
-      description: |
-        Triggers an OTP SMS. 
-        **Logic**: Uses Exotel API. Limits to 3 OTPs/10min.
-        **Privacy**: Returns strict success even if phone not registered (prevent enum).
       tags: [Auth]
-      security: []
+      summary: Send Login OTP
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               type: object
               required: [phone]
               properties:
-                phone: 
-                  type: string
-                  example: "+919999999999"
-                role: 
-                  type: string
-                  example: "DRIVER"
+                phone: { type: string }
       responses:
         200:
           description: OTP Sent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
 
   /auth/verify-otp:
     post:
-      summary: Verify OTP
-      description: "Exchange OTP for JWT Tokens (Access + Refresh)."
       tags: [Auth]
-      security: []
+      summary: Verify OTP & Login
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               type: object
               required: [phone, otp]
               properties:
-                phone: 
-                  type: string
-                otp: 
-                  type: string
+                phone: { type: string }
+                otp: { type: string }
       responses:
-        200: 
+        200:
           description: Tokens Issued
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  accessToken: 
-                    type: string
-                  refreshToken: 
-                    type: string
-                  user: 
-                    $ref: '#/components/schemas/User'
 
-  /auth/resend-otp:
-    post:
-      summary: Resend OTP
-      description: "Re-trigger last OTP. Must wait 60 seconds between calls."
-      tags: [Auth]
-      security: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                phone: 
-                  type: string
-      responses: 
-        200:
-          description: OTP Resent
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
-
-  /auth/refresh-token:
-    post:
-      summary: Refresh Access Token
-      description: "Use long-lived Refresh Token to get short-lived Access Token."
-      tags: [Auth]
-      security: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                refreshToken: 
-                  type: string
-      responses: 
-        200:
-          description: Token Refreshed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  accessToken: 
-                    type: string
-
-  /auth/me:
+  # ================= PAYMENT (DRIVER) =================
+  /payment/balance:
     get:
-      summary: Get Current Session User
-      description: "Who am I? Resolve JWT to User Profile."
-      tags: [Auth]
+      tags: [Payment]
+      summary: Get Driver Balance & Model
       responses:
         200:
-          description: Success
+          description: Balance Details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                type: object
+                properties:
+                  depositBalance: { type: number }
+                  paymentModel: { $ref: "#/components/schemas/PaymentModel" }
 
-  # ================= 2️⃣ USERS & RBAC =================
+  /payment/transactions:
+    get:
+      tags: [Payment]
+      summary: List Transactions
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer }
+        - name: type
+          in: query
+          schema: { $ref: "#/components/schemas/TransactionType" }
+      responses:
+        200:
+          description: Transaction History
+
+  /payment/deposit:
+    post:
+      tags: [Payment]
+      summary: Initiate Deposit Payment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount: { type: number }
+      responses:
+        200:
+          description: Payment Link Generated
+
+  /payment/rental:
+    post:
+      tags: [Payment]
+      summary: Initiate Rental Payment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rentalPlanId]
+              properties:
+                rentalPlanId: { type: string, format: uuid }
+      responses:
+        200:
+          description: Payment Link Generated
+
+  # ================= PAYMENT (ADMIN) =================
+  /payment/admin/rental-plans:
+    post:
+      tags: [Payment Admin]
+      summary: Create Rental Plan
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RentalPlan"
+      responses:
+        201:
+          description: Plan Created
+
+  /payment/admin/payouts/process:
+    post:
+      tags: [Payment Admin]
+      summary: Process Batch Payouts
+      description: "Trigger payouts for selected collections."
+      responses:
+        200:
+          description: Payouts Initiated
+
+  # ================= WEBHOOKS =================
+  /webhooks/easebuzz:
+    post:
+      tags: [Webhooks]
+      summary: Easebuzz Payment Webhook
+      description: "Receives payment status updates from Easebuzz."
+      security: []
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                txnid: { type: string }
+                status: { type: string }
+                hash: { type: string }
+      responses:
+        200:
+          description: Processed
+
+  # ================= CORE ENTITIES (Abbreviated) =================
   /users:
-    post:
-      summary: Create New User
-      description: "**Admin Only**. Create back-office staff or fleet managers."
-      tags: [Users]
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [name, phone]
-              properties:
-                name: 
-                  type: string
-                phone: 
-                  type: string
-                role: 
-                  type: string
-      responses:
-        201:
-          description: User Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
     get:
-      summary: List All Users
       tags: [Users]
+      summary: List Users
       responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/User'
+        200: { description: OK }
 
-  /users/{id}:
-    get:
-      summary: Get User Detail
-      tags: [Users]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-
-  /users/{id}/status:
-    patch:
-      summary: Toggle User Status
-      description: "Soft delete/ban functionality. Sets `isActive=false`."
-      tags: [Users]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                isActive: 
-                  type: boolean
-      responses:
-        200:
-          description: Status Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-
-  # ================= 3️⃣ DRIVERS =================
   /drivers:
+    get:
+      tags: [Drivers]
+      summary: List Drivers
+      responses:
+        200: { description: OK }
     post:
-      summary: Onboard Driver
-      description: "Register a driver. Requires validated KYC docs (Aadhar/License)."
       tags: [Drivers]
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Driver'
+      summary: Create Driver
       responses:
-        201:
-          description: Driver Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Driver'
-    get:
-      summary: List All Drivers
-      tags: [Drivers]
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Driver'
+        201: { description: Created }
 
-  /drivers/{id}:
-    get:
-      summary: Get Driver Profile
-      tags: [Drivers]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Driver'
-    patch:
-      summary: Update Driver Profile
-      tags: [Drivers]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                firstName: 
-                  type: string
-                licenseNumber: 
-                  type: string
-      responses:
-        200:
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Driver'
-
-  /drivers/{id}/availability:
-    patch:
-      summary: Set Driver Availability
-      description: "Driver toggle: Online/Offline. offline drivers are ignored by Dispatch."
-      tags: [Drivers]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                isAvailable: 
-                  type: boolean
-      responses:
-        200:
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Driver'
-
-  /drivers/{id}/assignments:
-    get:
-      summary: Driver Assignment Logs
-      tags: [Drivers]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Assignment'
-
-  /drivers/{id}/trips:
-    get:
-      summary: Driver Trip History
-      tags: [Drivers]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Trip'
-
-  # ================= 4️⃣ FLEETS & FLEET MANAGERS =================
   /fleets:
-    post:
-      summary: Create Fleet Organization
-      tags: [Fleets]
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Fleet'
-      responses:
-        201:
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Fleet'
     get:
+      tags: [Fleets]
       summary: List Fleets
-      tags: [Fleets]
       responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Fleet'
+        200: { description: OK }
 
-  /fleets/{id}:
-    get:
-      summary: Get Fleet Details
-      tags: [Fleets]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Fleet'
-
-  /fleets/{id}/managers:
-    post:
-      summary: Add Manager to Fleet
-      tags: [Fleets]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [name, mobile]
-              properties:
-                name: 
-                  type: string
-                mobile: 
-                  type: string
-      responses:
-        201:
-          description: Manager Added
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FleetManager'
-
-  /fleets/{id}/drivers:
-    get:
-      summary: List Fleet Drivers
-      tags: [Fleets]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Driver'
-
-  /fleets/{id}/vehicles:
-    get:
-      summary: List Fleet Vehicles
-      tags: [Fleets]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Vehicle'
-
-  # ================= 5️⃣ VEHICLES =================
   /vehicles:
-    post:
-      summary: Add New Vehicle
-      tags: [Vehicles]
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Vehicle'
-      responses:
-        201:
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Vehicle'
     get:
-      summary: List All Vehicles
       tags: [Vehicles]
+      summary: List Vehicles
       responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Vehicle'
+        200: { description: OK }
 
-  /vehicles/{id}:
-    get:
-      summary: Get Vehicle Details
-      tags: [Vehicles]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Vehicle'
-    patch:
-      summary: Update Vehicle Details
-      tags: [Vehicles]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Vehicle'
-
-  /vehicles/{id}/status:
-    patch:
-      summary: Set Vehicle Status
-      tags: [Vehicles]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                status: 
-                  type: string
-      responses:
-        200:
-          description: Status Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Vehicle'
-
-  /vehicles/{id}/assignments:
-    get:
-      summary: Vehicle Usage History
-      tags: [Vehicles]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Assignment'
-
-  # ================= 6️⃣ TRIPS (CORE DOMAIN) =================
   /trips:
     post:
-      summary: Create / Book Trip
-      description: |
-        **Core Logic**: 
-        1. Checks `TripRules`: Next-Day only.
-        2. Checks `PricingConfig`: Calculates base + multiplier.
-        3. Creates Trip in `CREATED` status.
       tags: [Trips]
+      summary: Create/Prebook Trip
+      responses:
+        201: { description: Trip Created }
+
+  /update-location:
+    post:
+      tags: [Trips]
+      summary: Driver Location Update
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              required: [tripType, originCity, tripDate]
+              required: [lat, lng]
               properties:
-                tripType: 
-                  $ref: '#/components/schemas/TripType'
-                originCity: 
-                  type: string
-                tripDate: 
-                  type: string
-                  format: date-time
-                distanceKm: 
-                  type: number
+                lat: { type: number }
+                lng: { type: number }
       responses:
-        201:
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Trip'
-    get:
-      summary: List Trips (Paginated)
-      tags: [Trips]
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Trip'
+        200: { description: Location Updated }
 
-  /trips/{id}:
-    get:
-      summary: Get Trip Details
-      tags: [Trips]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Trip'
-
-  /trips/{id}/assignments:
-    get:
-      summary: Get Driver Assignment
-      tags: [Trips]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Assignment'
-
-  /trips/{id}/cancel:
+  # ================= MMT PARTNER ENDPOINTS =================
+  /partner/mmt/partnersearchendpoint:
     post:
-      summary: Client Cancel Trip
-      description: "Cancels trip. If within 4 hours, cancellation fee applies."
-      tags: [Trips]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
+      tags: [MMT]
+      summary: MMT Fare Search
       responses:
-        200:
-          description: Cancelled
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
+        200: { description: OK }
 
-  /trips/{id}/start:
+  /partner/mmt/partnerblockendpoint:
     post:
-      summary: Start Trip (Driver)
-      description: "State transition: DRIVER_ASSIGNED -> STARTED."
-      tags: [Trips]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
+      tags: [MMT]
+      summary: MMT Block Ride
       responses:
-        200:
-          description: Started
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Trip'
+        200: { description: OK }
 
-  /trips/{id}/complete:
+  /partner/mmt/partnerpaidendpoint:
     post:
-      summary: Complete Trip (Driver)
-      description: "State transition: STARTED -> COMPLETED. Triggers invoice generation."
-      tags: [Trips]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
+      tags: [MMT]
+      summary: MMT Confirm Paid
       responses:
-        200:
-          description: Completed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Trip'
+        200: { description: OK }
 
-  /trips/{id}/update-time:
-    patch:
-      summary: Reschedule Trip
-      tags: [Trips]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
+  /partner/mmt/partnercancelendpoint:
+    post:
+      tags: [MMT]
+      summary: MMT Cancel Ride
+      responses:
+        200: { description: OK }
+
+  /partner/mmt/partnerrescheduleblockendpoint:
+    post:
+      tags: [MMT]
+      summary: MMT Reschedule Block (Check)
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              required: [newDate]
+              required: [order_reference_number, start_time]
               properties:
-                newDate: 
-                  type: string
-                  format: date-time
+                order_reference_number: { type: string }
+                start_time: { type: string, format: date-time }
       responses:
         200:
-          description: Time Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Trip'
-
-  /trips/{id}/update-route:
-    patch:
-      summary: Modify Route / Destination
-      tags: [Trips]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                destination: 
-                  type: string
-                distanceKm: 
-                  type: number
-      responses:
-        200:
-          description: Route Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Trip'
-
-  /trips/{id}/provider:
-    get:
-      summary: Get Fulfillment Provider
-      tags: [Trips]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
+          description: Reschedule Allowed
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  providerName: 
-                    type: string
-                  bookingId: 
-                    type: string
+                  response:
+                    type: object
+                    properties:
+                      success: { type: boolean }
 
-  /trips/{id}/status-history:
-    get:
-      summary: Audit Log (Status History)
-      tags: [Trips]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    status: 
-                      type: string
-                    timestamp: 
-                      type: string
-
-  /trips/{id}/confirm:
+  /partner/mmt/partnerrescheduleconfirmendpoint:
     post:
-      summary: Manual Confirm (Ops)
-      description: "Force transition `CREATED -> CONFIRMED`. Bypasses auto-dispatch checks."
-      tags: [Trips]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Confirmed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Trip'
-
-  # ================= 7️⃣ MANUAL DISPATCH / ASSIGNMENT =================
-  /trips/{id}/assign:
-    post:
-      summary: Manual Dispatch (Assign Driver)
-      description: "Assigns driver and triggers provider invite."
-      tags: [Dispatch]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
+      tags: [MMT]
+      summary: MMT Reschedule Confirm
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              required: [driverId]
+              required: [order_reference_number]
               properties:
-                driverId: 
-                  type: string
-                  format: uuid
+                order_reference_number: { type: string }
       responses:
         200:
-          description: Assigned
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Assignment'
-
-  /trips/{id}/unassign:
-    post:
-      summary: Remove Driver
-      tags: [Dispatch]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Unassigned
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
-
-  /trips/{id}/reassign:
-    post:
-      summary: Reassign (Swap) Driver
-      tags: [Dispatch]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [driverId]
-              properties:
-                driverId: 
-                  type: string
-                  format: uuid
-      responses:
-        200:
-          description: Reassigned
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Assignment'
-
-  /assignments:
-    get:
-      summary: View Roster
-      tags: [Dispatch]
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Assignment'
-
-  /assignments/{id}:
-    get:
-      summary: Get Roster Entry
-      tags: [Dispatch]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Assignment'
-
-  /assignments/{id}/history:
-  /assignments/trip/{tripId}:
-    get:
-      summary: Get Trip Assignments (Driver + Vehicle)
-      tags: [Assignments]
-      parameters:
-        - name: tripId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                      format: uuid
-                    tripId:
-                      type: string
-                      format: uuid
-                    driverId:
-                      type: string
-                      format: uuid
-                    vehicleId:
-                      type: string
-                      format: uuid
-                      nullable: true
-                    status:
-                      type: string
-                    startTime:
-                      type: string
-                      format: date-time
-                    endTime:
-                      type: string
-                      format: date-time
-                      nullable: true
-                    createdAt:
-                      type: string
-                      format: date-time
-                    updatedAt:
-                      type: string
-                      format: date-time
-    get:
-      summary: Assignment Change Logs
-      tags: [Dispatch]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-
-  # ================= 8️⃣ PROVIDER (MMT / MOJOBOXX) OPS =================
-  /providers/{tripId}/book:
-    post:
-      summary: Force Book Provider API
-      description: "Direct API Call: `MojoBoxx.createBooking()`. Bypasses internal cache."
-      tags: [Providers]
-      parameters:
-        - name: tripId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Booked
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
-
-  /providers/{tripId}/cancel:
-    post:
-      summary: Force Cancel Provider API
-      tags: [Providers]
-      parameters:
-        - name: tripId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Cancelled
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
-
-  /providers/{tripId}/retry:
-    post:
-      summary: Retry Failed Booking
-      tags: [Providers]
-      parameters:
-        - name: tripId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Retrying
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
-
-  /providers/{tripId}/status:
-    get:
-      summary: Check External Status
-      tags: [Providers]
-      parameters:
-        - name: tripId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Success
+          description: Reschedule confirmed
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status: 
-                    type: string
+                  response:
+                    type: object
+                    properties:
+                      success: { type: boolean }
 
-  /providers/{tripId}/raw-response:
+  /partner/mmt/booking/details:
     get:
-      summary: Get Raw Provider Response
-      tags: [Providers]
+      tags: [MMT]
+      summary: MMT Booking Details
       parameters:
-        - name: tripId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
+        - name: partner_reference_number
+          in: query
+          schema: { type: string }
+        - name: order_reference_number
+          in: query
+          schema: { type: string }
       responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: object
-
-  /providers/{tripId}/sync:
-    get:
-      summary: Sync Trip State
-      description: "Pull latest status from Provider and update DB."
-      tags: [Providers]
-      parameters:
-        - name: tripId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Synced
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
-
-  /providers/{tripId}/force-complete:
-    post:
-      summary: Force Complete Trip (Provider)
-      description: "Use when provider system is down but trip actually finished."
-      tags: [Providers]
-      parameters:
-        - name: tripId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        200:
-          description: Forced Completion
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Trip'
-
-  # ================= 9️⃣ OPS / ADMIN SAFETY =================
-  /ops/trips/{id}/override-status:
-    post:
-      summary: Emergency Status Override
-      description: "⚠️ DANGER: Force DB status change. No side-effects triggered."
-      tags: [Ops]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [status]
-              properties:
-                status: 
-                  type: string
-      responses:
-        200:
-          description: Overridden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Trip'
-
-  /ops/trips/{id}/override-driver:
-    post:
-      summary: Emergency Driver Override
-      tags: [Ops]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          example: "550e8400-e29b-41d4-a716-446655440000"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [driverId]
-              properties:
-                driverId: 
-                  type: string
-                  format: uuid
-      responses:
-        200:
-          description: Overridden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Trip'
-
-  /ops/trips/failed:
-    get:
-      summary: List Failed/Error Trips
-      tags: [Ops]
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Trip'
-
-  /ops/trips/stuck:
-    get:
-      summary: List Stuck Trips
-      tags: [Ops]
-      responses:
-        200:
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Trip'
-
-  # ================= 🔟 SYSTEM / INTERNAL =================
-  /health:
-    get:
-      summary: System Health Check
-      tags: [System]
-      responses:
-        200:
-          description: OK
-          content:
-            application/json; charset=utf-8:
-              schema:
-                type: object
-                properties:
-                  status: 
-                    type: string
-                    example: "ok"
-                  service:
-                    type: string
-                    example: "drivers-klub-backend"
-                  timestamp:
-                    type: string
-                    example: "2023-10-25T12:00:00Z"
-
-
+        200: { description: OK }

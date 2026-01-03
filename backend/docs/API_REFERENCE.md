@@ -1,7 +1,8 @@
 # Driver's Klub API Reference
 
 **Version:** 1.0.0  
-**Base URL:** `http://localhost:5000` (Development) | `https://api.driversklub.com` (Production)
+**Base URL:** `http://localhost:5000` (Development) | `https://driversklub-backend.onrender.com/` (Production)
+**Last Updated:** December 30, 2025
 
 ---
 
@@ -21,8 +22,10 @@
   - [Trips](#trips)
   - [Admin Trips](#admin-trips)
   - [Pricing](#pricing)
+  - [Payment System](#payment-system)
 - [Partner Integrations](#partner-integrations)
   - [MakeMyTrip (MMT)](#makemytrip-mmt)
+- [Webhooks](#webhooks)
 - [Error Handling](#error-handling)
 - [Rate Limiting](#rate-limiting)
 
@@ -32,7 +35,7 @@
 
 All authenticated endpoints require a valid JWT token in the `Authorization` header:
 
-```
+```json
 Authorization: Bearer <access_token>
 ```
 
@@ -56,6 +59,7 @@ Check server and database connectivity.
 **Authentication:** None
 
 **Response:**
+
 ```json
 {
   "status": "ok",
@@ -76,6 +80,7 @@ Send OTP to user's phone number.
 **Authentication:** None
 
 **Request Body:**
+
 ```json
 {
   "phone": "9876543210"
@@ -83,6 +88,7 @@ Send OTP to user's phone number.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -91,6 +97,7 @@ Send OTP to user's phone number.
 ```
 
 **Notes:**
+
 - In development, OTP is logged to console
 - OTP expires in 5 minutes (configurable)
 - Maximum 3 verification attempts per OTP
@@ -104,6 +111,7 @@ Verify OTP and authenticate user.
 **Authentication:** None
 
 **Request Body:**
+
 ```json
 {
   "phone": "9876543210",
@@ -113,6 +121,7 @@ Verify OTP and authenticate user.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -131,6 +140,7 @@ Verify OTP and authenticate user.
 ```
 
 **Security:**
+
 - OTP is deleted after successful verification (prevents reuse)
 - Dev bypass only works in non-production environments
 
@@ -143,6 +153,7 @@ Refresh access token using refresh token.
 **Authentication:** None
 
 **Request Body:**
+
 ```json
 {
   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -150,6 +161,7 @@ Refresh access token using refresh token.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -169,6 +181,7 @@ Logout user and revoke tokens.
 **Authentication:** Optional (Bearer token)
 
 **Request Body:**
+
 ```json
 {
   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
@@ -176,6 +189,7 @@ Logout user and revoke tokens.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -197,6 +211,7 @@ Create a new user.
 **Roles:** `SUPER_ADMIN`
 
 **Request Body:**
+
 ```json
 {
   "name": "John Doe",
@@ -207,6 +222,7 @@ Create a new user.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -231,6 +247,7 @@ Get all users.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -256,6 +273,7 @@ Get user by ID.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -279,6 +297,7 @@ Deactivate a user.
 **Roles:** `SUPER_ADMIN`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -300,6 +319,7 @@ Create a new driver profile.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "userId": "uuid",
@@ -323,6 +343,7 @@ Create a new driver profile.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -351,6 +372,7 @@ Get all drivers for a specific fleet.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -377,6 +399,7 @@ Get all drivers for a specific hub.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -402,6 +425,7 @@ Get current driver's profile.
 **Roles:** `DRIVER`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -428,6 +452,7 @@ Get driver by ID.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -453,6 +478,7 @@ Update driver details.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Request Body:**
+
 ```json
 {
   "firstName": "Rajesh",
@@ -463,6 +489,7 @@ Update driver details.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -484,6 +511,7 @@ Update driver status.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "status": "ACTIVE"
@@ -491,6 +519,7 @@ Update driver status.
 ```
 
 **Possible Status Values:**
+
 - `ACTIVE`
 - `INACTIVE`
 - `SUSPENDED`
@@ -505,6 +534,7 @@ Update driver availability.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Request Body:**
+
 ```json
 {
   "isAvailable": true
@@ -525,6 +555,7 @@ Create a new fleet.
 **Roles:** `SUPER_ADMIN`
 
 **Request Body:**
+
 ```json
 {
   "name": "Demo Fleet Pvt Ltd",
@@ -538,10 +569,12 @@ Create a new fleet.
 ```
 
 **Fleet Types:**
+
 - `COMPANY`
 - `INDIVIDUAL`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -565,6 +598,7 @@ Get all fleets.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -589,6 +623,7 @@ Get fleet by ID.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -613,6 +648,7 @@ Deactivate a fleet.
 **Roles:** `SUPER_ADMIN`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -630,6 +666,7 @@ Create a hub for a fleet.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "name": "Gurgaon Hub",
@@ -639,6 +676,7 @@ Create a hub for a fleet.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -662,6 +700,7 @@ Get all hubs for a fleet.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -686,6 +725,7 @@ Create a hub manager for a fleet.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "userId": "uuid",
@@ -695,6 +735,7 @@ Create a hub manager for a fleet.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -718,6 +759,7 @@ Get all hub managers for a fleet.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -741,6 +783,7 @@ Get hub manager by ID.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -763,6 +806,7 @@ Assign a manager to a hub.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "managerId": "uuid"
@@ -770,6 +814,7 @@ Assign a manager to a hub.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -787,6 +832,7 @@ Add a vehicle to a hub.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "vehicleId": "uuid"
@@ -794,6 +840,7 @@ Add a vehicle to a hub.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -811,6 +858,7 @@ Add a driver to a hub.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "driverId": "uuid"
@@ -818,6 +866,7 @@ Add a driver to a hub.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -835,6 +884,7 @@ Remove a vehicle from a hub.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "vehicleId": "uuid"
@@ -842,6 +892,7 @@ Remove a vehicle from a hub.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -859,6 +910,7 @@ Remove a driver from a hub.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "driverId": "uuid"
@@ -866,6 +918,7 @@ Remove a driver from a hub.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -887,6 +940,7 @@ Create a fleet manager.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "userId": "uuid",
@@ -897,6 +951,7 @@ Create a fleet manager.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -920,6 +975,7 @@ Get all fleet managers for a fleet.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -943,6 +999,7 @@ Deactivate a fleet manager.
 **Roles:** `SUPER_ADMIN`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -964,6 +1021,7 @@ Create a new vehicle.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "fleetId": "uuid",
@@ -986,21 +1044,25 @@ Create a new vehicle.
 ```
 
 **Fuel Types:**
+
 - `PETROL`
 - `DIESEL`
 - `CNG`
 - `ELECTRIC`
 
 **Ownership Types:**
+
 - `OWNED`
 - `LEASED`
 
 **Vehicle Status:**
+
 - `ACTIVE`
 - `INACTIVE`
 - `MAINTENANCE`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1023,6 +1085,7 @@ Get all vehicles for a fleet.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1047,6 +1110,7 @@ Get all vehicles for a hub.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1071,6 +1135,7 @@ Get vehicle by ID.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1095,6 +1160,7 @@ Update vehicle details.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "vehicleName": "Tata Tigor EV",
@@ -1104,6 +1170,7 @@ Update vehicle details.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1124,6 +1191,7 @@ Update vehicle documents.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "rcFrontImage": "https://example.com/rc-front.jpg",
@@ -1134,6 +1202,7 @@ Update vehicle documents.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1151,6 +1220,7 @@ Update vehicle status.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
+
 ```json
 {
   "status": "ACTIVE"
@@ -1167,6 +1237,90 @@ Deactivate a vehicle.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response:**
+
+```json
+{
+  "success": true,
+  "message": "Vehicle deactivated successfully"
+}
+```
+
+---
+
+#### PATCH_DOCS `/vehicles/:id/docs`
+
+Update vehicle documents.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "rcFrontImage": "https://example.com/rc-front.jpg",
+  "rcBackImage": "https://example.com/rc-back.jpg",
+  "permitImage": "https://example.com/permit.jpg",
+  "permitExpiry": "2034-12-31",
+  "fitnessImage": "https://example.com/fitness.jpg",
+  "fitnessExpiry": "2026-12-31",
+  "insuranceImage": "https://example.com/insurance.jpg",
+  "insuranceExpiry": "2025-12-31"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Vehicle documents updated successfully"
+}
+```
+
+---
+
+#### PATCH_STATUS `/vehicles/:id/status`
+
+Update vehicle status.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "status": "ACTIVE"
+}
+```
+
+**Status Values:**
+
+- `ACTIVE`
+- `INACTIVE`
+- `MAINTENANCE`
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Vehicle status updated successfully"
+}
+```
+
+---
+
+#### PATCH_DEACTIVATE `/vehicles/:id/deactivate`
+
+Deactivate a vehicle.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Response:**
+
 ```json
 {
   "success": true,
@@ -1188,6 +1342,7 @@ Create a driver-vehicle assignment.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Request Body:**
+
 ```json
 {
   "fleetId": "uuid",
@@ -1198,6 +1353,7 @@ Create a driver-vehicle assignment.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1221,6 +1377,7 @@ Get all assignments for a fleet.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1252,6 +1409,7 @@ Get assignments for a specific trip.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1276,6 +1434,7 @@ End an assignment.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1297,6 +1456,7 @@ Driver check-in.
 **Roles:** Any authenticated user
 
 **Request Body:**
+
 ```json
 {
   "driverId": "uuid",
@@ -1309,6 +1469,7 @@ Driver check-in.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1331,6 +1492,7 @@ Driver check-out.
 **Roles:** Any authenticated user
 
 **Request Body:**
+
 ```json
 {
   "attendanceId": "uuid",
@@ -1343,12 +1505,72 @@ Driver check-out.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
   "data": {
     "id": "uuid",
     "checkOutTime": "2025-12-26T18:00:00.000Z"
+  }
+}
+```
+
+---
+
+#### POST `/attendance/start-break`
+
+Start a break during active attendance.
+
+**Authentication:** Required  
+**Roles:** `DRIVER`
+
+**Request Body:**
+
+```json
+{
+  "attendanceId": "uuid"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "attendanceId": "uuid",
+    "startTime": "2025-12-26T12:00:00.000Z"
+  }
+}
+```
+
+---
+
+#### POST `/attendance/end-break`
+
+End current break.
+
+**Authentication:** Required  
+**Roles:** `DRIVER`
+
+**Request Body:**
+
+```json
+{
+  "breakId": "uuid"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "endTime": "2025-12-26T12:30:00.000Z"
   }
 }
 ```
@@ -1363,11 +1585,13 @@ Get attendance history.
 **Roles:** Any authenticated user
 
 **Query Parameters:**
+
 - `driverId` (optional) - Filter by driver
 - `startDate` (optional) - Start date
 - `endDate` (optional) - End date
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1393,6 +1617,7 @@ Approve attendance record.
 **Roles:** `SUPER_ADMIN`, `MANAGER`
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1410,6 +1635,7 @@ Reject attendance record.
 **Roles:** `SUPER_ADMIN`, `MANAGER`
 
 **Request Body:**
+
 ```json
 {
   "reason": "Invalid check-in location"
@@ -1417,6 +1643,7 @@ Reject attendance record.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1437,6 +1664,7 @@ Create a new trip.
 **Authentication:** Required
 
 **Request Body:**
+
 ```json
 {
   "pickupLocation": {
@@ -1458,10 +1686,12 @@ Create a new trip.
 ```
 
 **Booking Types:**
+
 - `PREBOOK` - Scheduled in advance
 - `INSTANT` - Immediate booking
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1495,10 +1725,12 @@ Get trips for current driver.
 **Roles:** `DRIVER`
 
 **Query Parameters:**
+
 - `status` (optional) - Filter by status
 - `date` (optional) - Filter by date
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1528,6 +1760,7 @@ Get trip details by ID.
 **Authentication:** Required
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1570,6 +1803,7 @@ Assign driver to trip.
 **Authentication:** Required
 
 **Request Body:**
+
 ```json
 {
   "driverId": "uuid"
@@ -1577,6 +1811,7 @@ Assign driver to trip.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1599,6 +1834,7 @@ Start a trip (driver en route to pickup).
 **Roles:** `DRIVER`
 
 **Request Body:**
+
 ```json
 {
   "location": {
@@ -1610,10 +1846,12 @@ Start a trip (driver en route to pickup).
 ```
 
 **Constraints:**
+
 - Must be within 2.5 hours of pickup time
 - Trip must be in `DRIVER_ASSIGNED` status
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1635,6 +1873,7 @@ Mark driver as arrived at pickup location.
 **Roles:** `DRIVER`
 
 **Request Body:**
+
 ```json
 {
   "location": {
@@ -1646,11 +1885,13 @@ Mark driver as arrived at pickup location.
 ```
 
 **Constraints:**
+
 - Must be within 30 minutes of pickup time
 - Must be within 500m radius of pickup location
 - Trip must be in `STARTED` status
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1672,6 +1913,7 @@ Mark passenger as onboarded.
 **Roles:** `DRIVER`
 
 **Request Body:**
+
 ```json
 {
   "otp": "1234",
@@ -1680,6 +1922,7 @@ Mark passenger as onboarded.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1701,6 +1944,7 @@ Mark trip as no-show.
 **Roles:** `DRIVER`
 
 **Request Body:**
+
 ```json
 {
   "reason": "Passenger did not arrive",
@@ -1709,9 +1953,11 @@ Mark trip as no-show.
 ```
 
 **Constraints:**
+
 - Can only be marked after 30 minutes past pickup time
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1733,6 +1979,7 @@ Complete a trip.
 **Roles:** `DRIVER`
 
 **Request Body:**
+
 ```json
 {
   "location": {
@@ -1745,6 +1992,7 @@ Complete a trip.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1767,6 +2015,7 @@ Get real-time trip tracking information.
 **Authentication:** Required
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1804,12 +2053,14 @@ Get all trips (admin view).
 **Roles:** `SUPER_ADMIN`
 
 **Query Parameters:**
+
 - `status` (optional) - Filter by status
 - `date` (optional) - Filter by date
 - `driverId` (optional) - Filter by driver
 - `fleetId` (optional) - Filter by fleet
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1845,6 +2096,7 @@ Manually assign driver to trip (admin).
 **Roles:** `SUPER_ADMIN`
 
 **Request Body:**
+
 ```json
 {
   "tripId": "uuid",
@@ -1853,6 +2105,7 @@ Manually assign driver to trip (admin).
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1870,6 +2123,7 @@ Unassign driver from trip.
 **Roles:** `SUPER_ADMIN`
 
 **Request Body:**
+
 ```json
 {
   "tripId": "uuid"
@@ -1877,6 +2131,7 @@ Unassign driver from trip.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1894,6 +2149,7 @@ Reassign trip to different driver.
 **Roles:** `SUPER_ADMIN`
 
 **Request Body:**
+
 ```json
 {
   "tripId": "uuid",
@@ -1902,6 +2158,7 @@ Reassign trip to different driver.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1920,6 +2177,7 @@ Get pricing preview for a trip.
 **Authentication:** None
 
 **Request Body:**
+
 ```json
 {
   "pickupLocation": {
@@ -1936,6 +2194,7 @@ Get pricing preview for a trip.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -1969,6 +2228,7 @@ Search for available vehicles (MMT → Driver's Klub).
 **Authentication:** None (Partner API)
 
 **Request Body:**
+
 ```json
 {
   "pickupLocation": "Sector 29, Gurgaon",
@@ -1979,6 +2239,7 @@ Search for available vehicles (MMT → Driver's Klub).
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -2004,6 +2265,7 @@ Block a vehicle for booking (MMT → Driver's Klub).
 **Authentication:** None (Partner API)
 
 **Request Body:**
+
 ```json
 {
   "bookingId": "MMT123456",
@@ -2015,6 +2277,7 @@ Block a vehicle for booking (MMT → Driver's Klub).
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -2034,6 +2297,7 @@ Confirm booking payment (MMT → Driver's Klub).
 **Authentication:** None (Partner API)
 
 **Request Body:**
+
 ```json
 {
   "bookingId": "MMT123456",
@@ -2043,6 +2307,7 @@ Confirm booking payment (MMT → Driver's Klub).
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -2062,6 +2327,7 @@ Cancel a booking (MMT → Driver's Klub).
 **Authentication:** None (Partner API)
 
 **Request Body:**
+
 ```json
 {
   "bookingId": "MMT123456",
@@ -2070,6 +2336,7 @@ Cancel a booking (MMT → Driver's Klub).
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -2086,9 +2353,11 @@ Get booking details (MMT → Driver's Klub).
 **Authentication:** None (Partner API)
 
 **Query Parameters:**
+
 - `bookingId` - MMT booking ID
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -2105,6 +2374,122 @@ Get booking details (MMT → Driver's Klub).
       "model": "Tata Tigor EV"
     }
   }
+}
+```
+
+---
+
+#### POST `/partner/mmt/partnerrescheduleblockendpoint`
+
+Validate logic for reschedule request (MMT → Driver's Klub).
+
+**Authentication:** Key/Token based (as per MMT config)
+
+**Request Body:**
+
+```json
+{
+  "order_reference_number": "MMT123456",
+  "start_time": "2025-12-31T10:00:00Z"
+}
+```
+
+**Response:**
+
+```json
+{
+  "response": {
+    "success": true,
+    "verification_code": "1234",
+    "fare_details": {
+      "total_amount": 1000,
+      "payable_amount": 1000
+    },
+    "driver_details": {
+      "name": "Rajesh",
+      "phone": "9876543210"
+    }
+  }
+}
+```
+
+---
+
+#### POST `/partner/mmt/partnerrescheduleconfirmendpoint`
+
+Confirm reschedule request (MMT → Driver's Klub).
+
+**Authentication:** Key/Token based (as per MMT config)
+
+**Request Body:**
+
+```json
+{
+  "order_reference_number": "MMT123456"
+}
+```
+
+**Response:**
+
+```json
+{
+  "response": {
+    "success": true
+  }
+}
+```
+
+---
+
+#### POST `/trips/:id/location`
+
+Update driver live location for a trip.
+
+**Authentication:** Required
+**Roles:** `DRIVER`
+
+**Request Body:**
+
+```json
+{
+  "lat": 28.5355,
+  "lng": 77.3910
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Location updated successfully"
+}
+```
+
+---
+
+## Webhooks
+
+Webhooks allow real-time notifications for system events, primarily payment updates.
+
+### Easebuzz Payment Webhook
+
+#### POST `/webhooks/easebuzz`
+
+Webhook endpoint for Easebuzz payment gateway notifications.
+
+**Authentication:** Signature Verification (Salt-based)
+
+**Request Body:**
+
+- Standard Easebuzz webhook payload (FormData) including `txnid`, `status`, `amount`, `hash`, etc.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Webhook processed successfully"
 }
 ```
 
@@ -2188,10 +2573,12 @@ All timestamps are in **IST (Indian Standard Time)** and follow ISO 8601 format.
 Endpoints returning lists support pagination:
 
 **Query Parameters:**
+
 - `page` - Page number (default: 1)
 - `limit` - Items per page (default: 20, max: 100)
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -2210,6 +2597,485 @@ Endpoints returning lists support pagination:
 ## Support
 
 For API support and questions:
-- **Email:** gourav.singh@triborefin.com
+
+- **Email:** <gourav.singh@triborefin.com>
 - **Documentation:** `/api-docs` (Coming Soon)
 - **Health Check:** `/health`
+
+### Payment System
+
+Complete payment and payout system with Easebuzz integration.
+
+**Base Path:** `/payment`
+
+**Documentation:** See [Payment System Documentation](./PAYMENT_SYSTEM_DOCUMENTATION.md) for complete details.
+
+#### Driver Endpoints
+
+##### GET `/payment/balance`
+
+Get driver balance & rental status.
+
+**Authentication:** Required  
+**Roles:** `DRIVER`
+
+**Response:**
+
+```json
+{
+  "depositBalance": 5000,
+  "paymentModel": "RENTAL",
+  "hasActiveRental": true,
+  "rental": {
+    "planName": "Weekly Plan",
+    "startDate": "2025-12-23T00:00:00.000Z",
+    "expiryDate": "2025-12-30T00:00:00.000Z",
+    "daysRemaining": 3,
+    "isExpired": false
+  }
+}
+```
+
+---
+
+##### GET `/payment/transactions`
+
+Get driver transaction history (paginated).
+
+**Authentication:** Required  
+**Roles:** `DRIVER`
+
+**Query Parameters:**
+
+- `page` (number, default: 1)
+- `limit` (number, default: 20)
+- `type` (string, optional): DEPOSIT, RENTAL, TRIP_PAYMENT, INCENTIVE, PENALTY, PAYOUT
+- `status` (string, optional): PENDING, SUCCESS, FAILED
+- `startDate` (string, optional): ISO date
+- `endDate` (string, optional): ISO date
+
+**Response:**
+
+```json
+{
+  "transactions": [
+    {
+      "id": "uuid",
+      "type": "DEPOSIT",
+      "amount": 5000,
+      "status": "SUCCESS",
+      "paymentMethod": "PG_UPI",
+      "description": "Security deposit - ₹5000",
+      "createdAt": "2025-12-23T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 45,
+    "totalPages": 3
+  }
+}
+```
+
+---
+
+##### GET `/payment/incentives`
+
+Get driver incentives.
+
+**Authentication:** Required  
+**Roles:** `DRIVER`
+
+**Query Parameters:**
+
+- `isPaid` (boolean, optional)
+
+**Response:**
+
+```json
+{
+  "incentives": [
+    {
+      "id": "uuid",
+      "amount": 500,
+      "reason": "Completed 50 trips",
+      "category": "MILESTONE",
+      "isPaid": false,
+      "createdAt": "2025-12-25T00:00:00.000Z"
+    }
+  ],
+  "summary": {
+    "totalIncentives": 10,
+    "paidIncentives": 7,
+    "unpaidIncentives": 3,
+    "totalAmount": 5000,
+    "paidAmount": 3500,
+    "unpaidAmount": 1500
+  }
+}
+```
+
+---
+
+##### GET `/payment/penalties`
+
+Get driver penalties.
+
+**Authentication:** Required  
+**Roles:** `DRIVER`
+
+**Query Parameters:**
+
+- `type` (string, optional): MONETARY, WARNING, SUSPENSION, BLACKLIST
+- `isPaid` (boolean, optional)
+- `isWaived` (boolean, optional)
+
+**Response:**
+
+```json
+{
+  "penalties": [
+    {
+      "id": "uuid",
+      "type": "MONETARY",
+      "amount": 200,
+      "reason": "Late for pickup",
+      "isPaid": true,
+      "isWaived": false,
+      "deductedFromDeposit": true,
+      "depositDeductionAmount": 200,
+      "createdAt": "2025-12-24T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+##### GET `/payment/collections`
+
+Get daily collections (for payout model drivers).
+
+**Authentication:** Required  
+**Roles:** `DRIVER`
+
+**Query Parameters:**
+
+- `startDate` (string, optional): ISO date
+- `endDate` (string, optional): ISO date
+- `isReconciled` (boolean, optional)
+- `isPaid` (boolean, optional)
+
+**Response:**
+
+```json
+{
+  "collections": [
+    {
+      "id": "uuid",
+      "date": "2025-12-29T00:00:00.000Z",
+      "qrCollectionAmount": 3000,
+      "cashCollectionAmount": 2000,
+      "totalCollection": 5000,
+      "revShareAmount": 3500,
+      "incentiveAmount": 500,
+      "penaltyAmount": 200,
+      "netPayout": 3800,
+      "isReconciled": true,
+      "isPaid": false
+    }
+  ],
+  "summary": {
+    "totalDays": 30,
+    "totalCollections": 150000,
+    "totalRevShare": 105000,
+    "totalIncentives": 5000,
+    "totalPenalties": 2000,
+    "totalPayout": 108000,
+    "paidAmount": 75000,
+    "unpaidAmount": 33000
+  }
+}
+```
+
+---
+
+##### POST `/payment/deposit`
+
+Initiate deposit payment.
+
+**Authentication:** Required  
+**Roles:** `DRIVER`
+
+**Request Body:**
+
+```json
+{
+  "amount": 5000
+}
+```
+
+**Response:**
+
+```json
+{
+  "transactionId": "uuid",
+  "paymentUrl": "https://testpay.easebuzz.in/pay/...",
+  "txnId": "TXN_1735123456_ABC123"
+}
+```
+
+---
+
+##### POST `/payment/rental`
+
+Initiate rental payment.
+
+**Authentication:** Required  
+**Roles:** `DRIVER`
+
+**Request Body:**
+
+```json
+{
+  "rentalPlanId": "uuid"
+}
+```
+
+**Response:**
+
+```json
+{
+  "transactionId": "uuid",
+  "paymentUrl": "https://testpay.easebuzz.in/pay/...",
+  "txnId": "TXN_1735123456_XYZ789"
+}
+```
+
+---
+
+#### Admin Endpoints
+
+##### POST `/payment/admin/rental-plans`
+
+Create a rental plan.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "fleetId": "uuid",
+  "name": "Weekly Plan",
+  "rentalAmount": 3500,
+  "depositAmount": 5000,
+  "validityDays": 7
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": "uuid",
+  "fleetId": "uuid",
+  "name": "Weekly Plan",
+  "rentalAmount": 3500,
+  "depositAmount": 5000,
+  "validityDays": 7,
+  "isActive": true
+}
+```
+
+---
+
+##### GET `/payment/admin/rental-plans/:fleetId`
+
+Get rental plans for a fleet.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Query Parameters:**
+
+- `activeOnly` (boolean, default: true)
+
+---
+
+##### POST `/payment/admin/penalty`
+
+Create a penalty for a driver.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "driverId": "uuid",
+  "type": "MONETARY",
+  "amount": 500,
+  "reason": "Customer complaint",
+  "category": "BEHAVIOR"
+}
+```
+
+**Penalty Types:**
+
+- `MONETARY` - Financial penalty (auto-deducted from deposit for rental model)
+- `WARNING` - Verbal/written warning
+- `SUSPENSION` - Temporary suspension (requires `suspensionStartDate` and `suspensionEndDate`)
+- `BLACKLIST` - Permanent ban
+
+---
+
+##### POST `/payment/admin/penalty/:id/waive`
+
+Waive a penalty.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "waiverReason": "First-time offense, driver apologized"
+}
+```
+
+---
+
+##### POST `/payment/admin/incentive`
+
+Create an incentive for a driver.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "driverId": "uuid",
+  "amount": 500,
+  "reason": "Completed 50 trips this month",
+  "category": "MILESTONE"
+}
+```
+
+---
+
+##### POST `/payment/admin/incentive/:id/payout`
+
+Process incentive payout.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "txnId": "TXN_1735123456_PAY123",
+  "status": "PENDING",
+  "utr": "UTR123456789"
+}
+```
+
+---
+
+##### POST `/payment/admin/collection/:id/reconcile`
+
+Reconcile daily collection.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Request Body:**
+
+```json
+{
+  "expectedRevenue": 5000,
+  "reconciliationNotes": "All collections verified"
+}
+```
+
+---
+
+##### POST `/payment/admin/collection/:id/payout`
+
+Process daily payout.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "txnId": "TXN_1735123456_PAY456",
+  "status": "SUCCESS",
+  "utr": "UTR987654321",
+  "amount": 3800
+}
+```
+
+---
+
+##### GET `/payment/admin/reconciliations/pending`
+
+Get pending reconciliations.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+---
+
+##### GET `/payment/admin/payouts/pending`
+
+Get pending payouts.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+---
+
+##### POST `/payment/admin/vehicle/:id/qr`
+
+Generate virtual QR code for a vehicle.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Response:**
+
+```json
+{
+  "id": "uuid",
+  "vehicleId": "uuid",
+  "virtualAccountId": "VA123456",
+  "virtualAccountNumber": "1234567890123456",
+  "ifscCode": "HDFC0000001",
+  "qrCodeBase64": "data:image/png;base64,...",
+  "upiId": "driversklub.va123456@easebuzz",
+  "isActive": true
+}
+```
+
+---
+
+##### GET `/payment/admin/vehicle/:id/qr`
+
+Get vehicle QR code.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+---
