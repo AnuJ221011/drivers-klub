@@ -9,10 +9,13 @@ import { approveAttendance, attendanceEntityToDriverCheckin, getAttendanceById, 
 import { useAuth } from "../../context/AuthContext";
 
 export default function DriverCheckinDetail() {
+  // Route param from `/admin/driver-checkins/:id`
   const { id } = useParams();
   const navigate = useNavigate();
   const { userId } = useAuth();
 
+  // Vehicle assignment in this UI is currently front-end-only (demo flow).
+  // The modal uses mocked vehicles and calls `onAssign()` with the selection.
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignedVehicle, setAssignedVehicle] = useState<{
     number: string;
@@ -20,10 +23,13 @@ export default function DriverCheckinDetail() {
   } | null>(null);
 
   const [loading, setLoading] = useState(false);
+
+  // We store the raw attendance entity returned by the API layer
   const [attendance, setAttendance] = useState<Awaited<ReturnType<typeof getAttendanceById>> | null>(null);
 
   useEffect(() => {
     if (!id) return;
+    // Load the check-in detail record.
     let mounted = true;
     void (async () => {
       setLoading(true);
@@ -48,6 +54,7 @@ export default function DriverCheckinDetail() {
     };
   }, [id]);
 
+  // Convert the raw attendance entity into the UI-friendly `DriverCheckin` model.
   const ui = useMemo(() => (attendance ? attendanceEntityToDriverCheckin(attendance) : null), [attendance]);
 
   const checkinTimeLabel = useMemo(() => {
@@ -58,6 +65,25 @@ export default function DriverCheckinDetail() {
     return dt.toLocaleString();
   }, [attendance?.checkInTime]);
 
+  const auditLogs = useMemo(() => {
+    if (!attendance) return [];
+    const logs: Array<{ action: string; by: string; at: string }> = [
+      { action: "Check-in submitted", by: "Driver", at: checkinTimeLabel },
+    ];
+
+    const updatedAt = attendance.updatedAt ? new Date(attendance.updatedAt).toLocaleString() : "-";
+    const actor = attendance.approvedBy || "Admin";
+
+    if (attendance.status === "APPROVED") {
+      logs.push({ action: "Check-in approved", by: actor, at: updatedAt });
+    }
+    if (attendance.status === "REJECTED") {
+      logs.push({ action: "Check-in rejected", by: actor, at: updatedAt });
+    }
+    return logs;
+  }, [attendance, checkinTimeLabel]);
+
+  // "Can act" means we have the route id and a logged-in admin user.
   const canAct = Boolean(id && userId);
 
   const onApprove = async () => {
@@ -139,9 +165,9 @@ export default function DriverCheckinDetail() {
         images={ui?.selfieUrl ? [ui.selfieUrl] : []}
       />
 
-      {/* Remarks */}
+      {/* Remarks (in current API mapping this comes from `adminRemarks`) */}
       <div className="rounded-lg border border-black/10 bg-white p-4">
-        <h3 className="font-medium mb-2">Driver Remarks</h3>
+        <h3 className="font-medium mb-2">Remarks</h3>
         <p className="text-sm text-black/70">
           {ui?.remarks || "—"}
         </p>
@@ -182,11 +208,7 @@ export default function DriverCheckinDetail() {
       />
 
       {/* Audit Trail */}
-      <AuditTrail
-        logs={[
-          { action: "Check-in submitted", by: "Driver", at: checkinTimeLabel },
-        ]}
-      />
+      <AuditTrail logs={auditLogs} />
     </div>
   );
 }

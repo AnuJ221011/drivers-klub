@@ -18,6 +18,7 @@ import FleetHubDetails from './components/fleet/Details/Hubs/FleetHubDetails';
 import DriverCheckins from './pages/DriverCheckins';
 import DriverCheckinDetail from './components/DriverCheckins/DriverCheckinDetail';
 import PaymentPricing from './pages/PaymentPricing';
+import DriverCheckoutHistory from './pages/DriverCheckoutHistory';
 
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -112,6 +113,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <DriverCheckinDetail />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="driver-checkouts/:driverId"
+            element={
+              <PrivateRoute>
+                <DriverCheckoutHistory />
               </PrivateRoute>
             }
           />

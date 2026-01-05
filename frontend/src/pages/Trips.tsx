@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Filter } from 'lucide-react';
+import { Eye, Filter } from 'lucide-react';
 
 import Table, { type Column } from '../components/ui/Table';
 import Button from '../components/ui/Button';
@@ -111,15 +111,17 @@ export default function Trips() {
     },
     {
       key: 'actions',
-      label: 'Action',
+      label: 'Details',
       render: (t) => (
-        <Button
-          variant="secondary"
-          className="px-3 py-1"
+        <button
+          type="button"
           onClick={() => nav(`/admin/trips/${t.id}`)}
+          className="p-2 rounded hover:bg-yellow-100"
+          aria-label="View trip details"
+          title="View details"
         >
-          Details
-        </Button>
+          <Eye size={16} />
+        </button>
       ),
     },
   ];

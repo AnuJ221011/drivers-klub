@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 export default function AuditTrail({ logs }: { logs?: any[] }) {
+  // Simple collapsible view so the page isn't noisy by default.
   const [open, setOpen] = useState(false);
   if (!logs?.length) return null;
 
