@@ -5,6 +5,7 @@ import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
 import { updateDriverAvailability, updateDriverDetails, updateDriverStatus } from '../../api/driver.api';
+import { getPhoneDigitsRemainingHint } from '../../utils/phoneHint';
 
 type Props = {
   driver: Driver | null;
@@ -66,7 +67,10 @@ export default function DriverDrawer({ driver, onClose, onUpdated }: Props) {
       <Input
         label="Phone Number"
         value={phone}
-        onChange={(e) => setPhone(e.target.value)}
+        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+        inputMode="numeric"
+        maxLength={10}
+        helperText={getPhoneDigitsRemainingHint(phone)}
         disabled={saving}
       />
 

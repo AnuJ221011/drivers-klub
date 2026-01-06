@@ -16,6 +16,7 @@ import TeamDrawer from "../components/TeamManagement/TeamDrawer";
 import type { Column } from "../components/ui/Table";
 import type { TeamMember } from "../models/user/team";
 import { getUsers, deactivateUser } from "../api/user.api";
+import { getPhoneDigitsRemainingHint } from "../utils/phoneHint";
 
 function toRoleLabel(role: string): string {
   switch (role) {
@@ -169,7 +170,9 @@ export default function Team() {
           placeholder="Search by Phone"
           className="mb-2"
           value={searchPhone}
-          onChange={(e) => setSearchPhone(e.target.value)}
+          onChange={(e) => setSearchPhone(e.target.value.replace(/\D/g, ""))}
+          inputMode="numeric"
+          helperText={getPhoneDigitsRemainingHint(searchPhone)}
         />
         <Select
           value={statusFilter}

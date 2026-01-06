@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Filter, Pencil } from 'lucide-react';
+import { Car, Filter, Pencil } from 'lucide-react';
 
 import Drawer from '../components/layout/Drawer';
 import Table from '../components/ui/Table';
@@ -17,6 +17,10 @@ import { useFleet } from '../context/FleetContext';
 import FleetSelectBar from '../components/fleet/FleetSelectBar';
 import { getAssignmentsByFleet } from '../api/assignment.api';
 import { getVehiclesByFleet } from '../api/vehicle.api';
+import type { Vehicle } from '../models/vehicle/vehicle';
+import type { AssignmentEntity } from '../models/assignment/assignment';
+import AssignVehicleToDriverModal from '../components/driver/AssignVehicleToDriverModal';
+import { getPhoneDigitsRemainingHint } from '../utils/phoneHint';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -35,15 +39,21 @@ export default function DriverManagement() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(false);
   const [assignedVehicleByDriverId, setAssignedVehicleByDriverId] = useState<Record<string, string>>({});
+  const [assignments, setAssignments] = useState<AssignmentEntity[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [searchPhone, setSearchPhone] = useState('');
   const [searchName, setSearchName] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const { effectiveFleetId } = useFleet();
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignDriver, setAssignDriver] = useState<Driver | null>(null);
 
   const refreshDrivers = useCallback(async () => {
     if (!effectiveFleetId) {
       setDrivers([]);
       setAssignedVehicleByDriverId({});
+      setAssignments([]);
+      setVehicles([]);
       return;
     }
     setLoading(true);
@@ -56,6 +66,8 @@ export default function DriverManagement() {
 
       console.log('Fetched drivers:', data);
       setDrivers(data);
+      setAssignments(assignments || []);
+      setVehicles(vehicles || []);
 
       const vehicleLabelById = new Map<string, string>();
       for (const v of vehicles || []) {
@@ -145,12 +157,25 @@ export default function DriverManagement() {
       key: "actions",
       label: "Actions",
       render: (d) => (
-        <button
-          onClick={() => setSelectedDriver(d)}
-          className="p-2 hover:bg-yellow-100 rounded"
-        >
-          <Pencil size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setAssignDriver(d);
+              setAssignOpen(true);
+            }}
+            className="p-2 hover:bg-yellow-100 rounded"
+            title="Assign vehicle"
+          >
+            <Car size={16} />
+          </button>
+          <button
+            onClick={() => setSelectedDriver(d)}
+            className="p-2 hover:bg-yellow-100 rounded"
+            title="Edit driver"
+          >
+            <Pencil size={16} />
+          </button>
+        </div>
       ),
     },
   ];
@@ -200,7 +225,9 @@ export default function DriverManagement() {
         <Input
           placeholder="Search by Phone Number"
           value={searchPhone}
-          onChange={(e) => setSearchPhone(e.target.value)}
+          onChange={(e) => setSearchPhone(e.target.value.replace(/\D/g, ''))}
+          inputMode="numeric"
+          helperText={getPhoneDigitsRemainingHint(searchPhone)}
         />
         <Input
           placeholder="Search by Name"
@@ -230,6 +257,18 @@ export default function DriverManagement() {
           onUpdated={() => void refreshDrivers()}
         />
       </Drawer>
+
+      {effectiveFleetId && assignDriver && (
+        <AssignVehicleToDriverModal
+          open={assignOpen}
+          onClose={() => setAssignOpen(false)}
+          fleetId={effectiveFleetId}
+          driver={assignDriver}
+          vehicles={vehicles}
+          assignments={assignments}
+          onAssigned={() => void refreshDrivers()}
+        />
+      )}
     </div>
   );
 }

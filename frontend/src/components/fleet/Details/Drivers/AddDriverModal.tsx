@@ -4,6 +4,7 @@ import Input from "../../../ui/Input";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { createDriver } from "../../../../api/driver.api";
+import { getPhoneDigitsRemainingHint } from "../../../../utils/phoneHint";
 
 type Props = {
   open: boolean;
@@ -52,7 +53,10 @@ export default function AddDriversModal({ open, onClose, fleetId, onAdded }: Pro
           label="Phone"
           placeholder="9876543210"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+          inputMode="numeric"
+          maxLength={10}
+          helperText={getPhoneDigitsRemainingHint(phone)}
         />
 
         <div className="flex justify-end gap-2">
