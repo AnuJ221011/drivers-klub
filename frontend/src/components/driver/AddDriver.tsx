@@ -7,6 +7,7 @@ import Button from "../ui/Button";
 
 import { createDriver } from '../../api/driver.api';
 import { useFleet } from '../../context/FleetContext';
+import { getPhoneDigitsRemainingHint } from '../../utils/phoneHint';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -68,7 +69,10 @@ export default function AddDriver({ onClose, onCreated }: Props) {
         label="Phone Number"
         placeholder="Enter phone number"
         value={phone}
-        onChange={(e) => setPhone(e.target.value)}
+        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+        inputMode="numeric"
+        maxLength={10}
+        helperText={getPhoneDigitsRemainingHint(phone)}
         disabled={saving}
       />
 

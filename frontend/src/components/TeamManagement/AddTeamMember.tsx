@@ -5,6 +5,7 @@ import Select from "../ui/Select";
 import Button from "../ui/Button";
 import { createUser } from "../../api/user.api";
 import type { UserRole } from "../../models/user/user";
+import { getPhoneDigitsRemainingHint } from "../../utils/phoneHint";
 
 type Props = {
   onClose: () => void;
@@ -79,10 +80,13 @@ export default function AddTeamMember({ onClose, onCreated }: Props) {
 
       <Input
         label="Phone Number"
-        placeholder="+91XXXXXXXXXX"
+        placeholder="9876543210"
         type="tel"
         value={phone}
-        onChange={(e) => setPhone(e.target.value)}
+        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+        inputMode="numeric"
+        maxLength={10}
+        helperText={getPhoneDigitsRemainingHint(phone)}
         disabled={saving}
       />
 

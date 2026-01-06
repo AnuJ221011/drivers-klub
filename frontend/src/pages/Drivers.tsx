@@ -20,6 +20,7 @@ import { getVehiclesByFleet } from '../api/vehicle.api';
 import type { Vehicle } from '../models/vehicle/vehicle';
 import type { AssignmentEntity } from '../models/assignment/assignment';
 import AssignVehicleToDriverModal from '../components/driver/AssignVehicleToDriverModal';
+import { getPhoneDigitsRemainingHint } from '../utils/phoneHint';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -224,7 +225,9 @@ export default function DriverManagement() {
         <Input
           placeholder="Search by Phone Number"
           value={searchPhone}
-          onChange={(e) => setSearchPhone(e.target.value)}
+          onChange={(e) => setSearchPhone(e.target.value.replace(/\D/g, ''))}
+          inputMode="numeric"
+          helperText={getPhoneDigitsRemainingHint(searchPhone)}
         />
         <Input
           placeholder="Search by Name"

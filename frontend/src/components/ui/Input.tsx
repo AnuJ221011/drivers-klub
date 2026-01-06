@@ -3,9 +3,15 @@ import React from "react";
 export type InputProps =
   React.InputHTMLAttributes<HTMLInputElement> & {
     label?: string;
+    helperText?: React.ReactNode;
   };
 
-export default function Input({ label, className = "", ...props }: InputProps) {
+export default function Input({
+  label,
+  helperText,
+  className = "",
+  ...props
+}: InputProps) {
   return (
     <div className="space-y-1">
       {label && (
@@ -28,6 +34,10 @@ export default function Input({ label, className = "", ...props }: InputProps) {
           ${className}
         `}
       />
+
+      {helperText ? (
+        <div className="text-xs text-black/60">{helperText}</div>
+      ) : null}
     </div>
   );
 }

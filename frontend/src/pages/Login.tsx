@@ -7,6 +7,7 @@ import Button from '../components/ui/Button';
 import { sendOtp, verifyOtp } from '../api/auth.api';
 import { setLoggedIn } from '../utils/auth';
 import { useAuth } from '../context/AuthContext';
+import { getPhoneDigitsRemainingHint } from '../utils/phoneHint';
 
 function normalizePhone(value: string): string {
   // Keep digits and leading + only
@@ -107,6 +108,7 @@ export default function LoginPage() {
                 placeholder="+91 9876543210"
                 inputMode="tel"
                 autoComplete="tel"
+                helperText={getPhoneDigitsRemainingHint(phone)}
                 disabled={loading}
               />
 
