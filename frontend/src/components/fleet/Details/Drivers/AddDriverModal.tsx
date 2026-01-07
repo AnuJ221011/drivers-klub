@@ -1,6 +1,7 @@
 import Modal from "../../../layout/Modal";
 import Button from "../../../ui/Button";
 import Input from "../../../ui/Input";
+import PhoneInput from "../../../ui/PhoneInput";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { createDriver } from "../../../../api/driver.api";
@@ -14,13 +15,15 @@ type Props = {
 
 export default function AddDriversModal({ open, onClose, fleetId, onAdded }: Props) {
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(""); // digits only
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async () => {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length !== 10) return toast.error("Phone number must be 10 digits");
     setLoading(true);
     try {
-      await createDriver({ fleetId, name, phone, isActive: true });
+      await createDriver({ fleetId, name, phone: digits.slice(0, 10), isActive: true });
       toast.success("Driver added");
       onAdded();
       onClose();
@@ -48,11 +51,10 @@ export default function AddDriversModal({ open, onClose, fleetId, onAdded }: Pro
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <Input
+        <PhoneInput
           label="Phone"
-          placeholder="9876543210"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={setPhone}
         />
 
         <div className="flex justify-end gap-2">

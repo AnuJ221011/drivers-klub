@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
+import PhoneInput from "../ui/PhoneInput";
 
 import { createDriver } from '../../api/driver.api';
 import { useFleet } from '../../context/FleetContext';
@@ -26,7 +27,7 @@ type Props = {
 
 export default function AddDriver({ onClose, onCreated }: Props) {
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(''); // store digits only
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [saving, setSaving] = useState(false);
   const { effectiveFleetId } = useFleet();
@@ -35,13 +36,14 @@ export default function AddDriver({ onClose, onCreated }: Props) {
     e.preventDefault();
     if (!name.trim()) return toast.error('Please enter driver name');
     if (!phone.trim()) return toast.error('Please enter phone number');
+    if (phone.replace(/\D/g, '').length !== 10) return toast.error('Phone number must be 10 digits');
     if (!effectiveFleetId) return toast.error('No fleet selected/available');
 
     setSaving(true);
     try {
       await createDriver({
         name: name.trim(),
-        phone: phone.trim(),
+        phone: phone.replace(/\D/g, '').slice(0, 10),
         isActive: status === 'Active',
         fleetId: effectiveFleetId,
       });
@@ -64,11 +66,10 @@ export default function AddDriver({ onClose, onCreated }: Props) {
         onChange={(e) => setName(e.target.value)}
         disabled={saving}
       />
-      <Input
+      <PhoneInput
         label="Phone Number"
-        placeholder="Enter phone number"
         value={phone}
-        onChange={(e) => setPhone(e.target.value)}
+        onChange={setPhone}
         disabled={saving}
       />
 
