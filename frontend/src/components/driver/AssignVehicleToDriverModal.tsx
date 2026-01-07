@@ -8,6 +8,8 @@ import type { Vehicle } from "../../models/vehicle/vehicle";
 import type { AssignmentEntity } from "../../models/assignment/assignment";
 import { createAssignment, endAssignment } from "../../api/assignment.api";
 
+type VehicleRow = Vehicle & { _disabled: boolean; _status: string };
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -54,7 +56,7 @@ export default function AssignVehicleToDriverModal({
     };
   }, [assignments, driver.id]);
 
-  const rows = useMemo(() => {
+  const rows: VehicleRow[] = useMemo(() => {
     const activeVehicleIds = new Set<string>();
     for (const a of assignments || []) {
       if (a.status !== "ACTIVE") continue;
@@ -132,7 +134,7 @@ export default function AssignVehicleToDriverModal({
             {
               key: "select",
               label: "",
-              render: (v: Vehicle & { _disabled: boolean }) => (
+              render: (v: VehicleRow, _i: number) => (
                 <input
                   type="radio"
                   checked={selectedVehicleId === v.id}
@@ -144,14 +146,14 @@ export default function AssignVehicleToDriverModal({
             { key: "number", label: "Vehicle Number" },
             { key: "model", label: "Model" },
             {
-              key: "status",
+              key: "_status",
               label: "Status",
-              render: (v: Vehicle & { _status: string }) => (
+              render: (v: VehicleRow, _i: number) => (
                 <span className="text-xs text-black/70">{v._status}</span>
               ),
             },
           ]}
-          data={rows as Array<Vehicle>}
+          data={rows}
         />
 
         <div className="flex justify-end gap-2">
