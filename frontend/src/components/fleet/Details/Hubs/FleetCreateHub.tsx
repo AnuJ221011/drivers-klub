@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -8,11 +8,6 @@ import {
   Pin,
   useMap,
 } from "@vis.gl/react-google-maps";
-import { MapContainer, TileLayer, Marker, Circle, useMapEvents, useMap as useLeafletMap } from "react-leaflet";
-import L, { type LeafletMouseEvent } from "leaflet";
-import markerIcon2xUrl from "leaflet/dist/images/marker-icon-2x.png";
-import markerIconUrl from "leaflet/dist/images/marker-icon.png";
-import markerShadowUrl from "leaflet/dist/images/marker-shadow.png";
 
 import Input from "../../../ui/Input";
 import Select from "../../../ui/Select";
@@ -20,13 +15,6 @@ import Button from "../../../ui/Button";
 import { createFleetHub } from "../../../../api/fleetHub.api";
 
 type LatLng = { lat: number; lng: number };
-
-// Fix Leaflet marker icons under bundlers (Vite)
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2xUrl,
-  iconUrl: markerIconUrl,
-  shadowUrl: markerShadowUrl,
-});
 
 /* ---------------- Geofence Circle ---------------- */
 function GeofenceCircle({
@@ -65,28 +53,11 @@ function GeofenceCircle({
   return null;
 }
 
-function LeafletClickHandler({ onPick }: { onPick: (p: LatLng) => void }) {
-  useMapEvents({
-    click(e: LeafletMouseEvent) {
-      onPick({ lat: e.latlng.lat, lng: e.latlng.lng });
-    },
-  });
-  return null;
-}
-
 function GoogleRecenter({ center }: { center: google.maps.LatLngLiteral }) {
   const map = useMap();
   useEffect(() => {
     if (!map) return;
     map.setCenter(center);
-  }, [map, center.lat, center.lng]);
-  return null;
-}
-
-function LeafletRecenter({ center }: { center: LatLng }) {
-  const map = useLeafletMap();
-  useEffect(() => {
-    map.setView([center.lat, center.lng], map.getZoom(), { animate: true });
   }, [map, center.lat, center.lng]);
   return null;
 }
@@ -109,7 +80,13 @@ export default function FleetCreateHub() {
 
   const [address, setAddress] = useState("");
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-  const hasMaps = Boolean((apiKey || "").trim());
+  const hasGoogleKey = Boolean((apiKey || "").trim());
+
+  const googleEmbedSrc = useMemo(() => {
+    const q = `${location.lat},${location.lng}`;
+    const z = 13;
+    return `https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`;
+  }, [location.lat, location.lng]);
 
   /* ---------- Reverse Geocoding ---------- */
   const fetchAddress = async (lat: number, lng: number) => {
@@ -178,7 +155,7 @@ export default function FleetCreateHub() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ---------- Map ---------- */}
         <div className="lg:col-span-2 h-[520px] rounded-lg overflow-hidden border">
-          {hasMaps ? (
+          {hasGoogleKey ? (
             <APIProvider apiKey={apiKey!}>
               <Map
                 defaultZoom={13}
@@ -194,32 +171,19 @@ export default function FleetCreateHub() {
               </Map>
             </APIProvider>
           ) : (
-            <MapContainer
-              center={[location.lat, location.lng]}
-              zoom={13}
-              className="h-full w-full"
-              scrollWheelZoom
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            <div className="h-full w-full">
+              <iframe
+                title="Google Map"
+                src={googleEmbedSrc}
+                className="h-full w-full"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
               />
-
-              <LeafletRecenter center={location} />
-              <LeafletClickHandler
-                onPick={(p) => {
-                  setLocation(p);
-                  // No reverse geocode without a provider/key; keep address manual
-                }}
-              />
-
-              <Marker position={[location.lat, location.lng]} />
-              <Circle
-                center={[location.lat, location.lng]}
-                radius={radius}
-                pathOptions={{ color: "#facc15", fillColor: "#fde68a", fillOpacity: 0.3 }}
-              />
-            </MapContainer>
+              <div className="p-2 text-xs text-black/60 border-t bg-white">
+                Google map is shown in embed mode (no API key). To enable map clicks + geofence drawing,
+                configure <code>VITE_GOOGLE_MAPS_API_KEY</code>.
+              </div>
+            </div>
           )}
         </div>
 
@@ -282,7 +246,7 @@ export default function FleetCreateHub() {
 
           <Input
             label="Address"
-            placeholder={hasMaps ? "Auto-filled from map click (optional)" : "Enter address (optional)"}
+            placeholder={hasGoogleKey ? "Auto-filled from map click (optional)" : "Enter address (optional)"}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
           />

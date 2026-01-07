@@ -1,14 +1,1 @@
 @import "tailwindcss";
-
-/* =========================================
-   Leaflet + Tailwind fix
-   Tailwind preflight sets `img { max-width: 100% }` which breaks Leaflet tiles.
-   ========================================= */
-.leaflet-container {
-  height: 100%;
-  width: 100%;
-}
-
-.leaflet-container img {
-  max-width: none !important;
-}
