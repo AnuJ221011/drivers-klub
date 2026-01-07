@@ -8,25 +8,11 @@ import {
   Pin,
   useMap,
 } from "@vis.gl/react-google-maps";
-import { MapContainer, TileLayer, Marker, Circle, useMapEvents, useMap as useLeafletMap } from "react-leaflet";
-import L, { type LeafletMouseEvent } from "leaflet";
-import markerIcon2xUrl from "leaflet/dist/images/marker-icon-2x.png";
-import markerIconUrl from "leaflet/dist/images/marker-icon.png";
-import markerShadowUrl from "leaflet/dist/images/marker-shadow.png";
 
 import Input from "../../../ui/Input";
 import Select from "../../../ui/Select";
 import Button from "../../../ui/Button";
 import { createFleetHub } from "../../../../api/fleetHub.api";
-
-type LatLng = { lat: number; lng: number };
-
-// Fix Leaflet marker icons under bundlers (Vite)
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2xUrl,
-  iconUrl: markerIconUrl,
-  shadowUrl: markerShadowUrl,
-});
 
 /* ---------------- Geofence Circle ---------------- */
 function GeofenceCircle({
@@ -65,32 +51,6 @@ function GeofenceCircle({
   return null;
 }
 
-function LeafletClickHandler({ onPick }: { onPick: (p: LatLng) => void }) {
-  useMapEvents({
-    click(e: LeafletMouseEvent) {
-      onPick({ lat: e.latlng.lat, lng: e.latlng.lng });
-    },
-  });
-  return null;
-}
-
-function GoogleRecenter({ center }: { center: google.maps.LatLngLiteral }) {
-  const map = useMap();
-  useEffect(() => {
-    if (!map) return;
-    map.setCenter(center);
-  }, [map, center.lat, center.lng]);
-  return null;
-}
-
-function LeafletRecenter({ center }: { center: LatLng }) {
-  const map = useLeafletMap();
-  useEffect(() => {
-    map.setView([center.lat, center.lng], map.getZoom(), { animate: true });
-  }, [map, center.lat, center.lng]);
-  return null;
-}
-
 /* ---------------- Main Component ---------------- */
 export default function FleetCreateHub() {
   // Route uses `/admin/fleets/:id/...` across the app
@@ -102,7 +62,7 @@ export default function FleetCreateHub() {
   const [radius, setRadius] = useState(500);
   const [saving, setSaving] = useState(false);
 
-  const [location, setLocation] = useState<LatLng>({
+  const [location, setLocation] = useState<google.maps.LatLngLiteral>({
     lat: 28.6139,
     lng: 77.209,
   });
@@ -182,44 +142,24 @@ export default function FleetCreateHub() {
             <APIProvider apiKey={apiKey!}>
               <Map
                 defaultZoom={13}
-                defaultCenter={location as google.maps.LatLngLiteral}
+                defaultCenter={location}
                 onClick={handleMapClick}
               >
-                <GoogleRecenter center={location as google.maps.LatLngLiteral} />
-                <AdvancedMarker position={location as google.maps.LatLngLiteral}>
+                <AdvancedMarker position={location}>
                   <Pin background="#facc15" />
                 </AdvancedMarker>
 
-                <GeofenceCircle center={location as google.maps.LatLngLiteral} radius={radius} />
+                <GeofenceCircle center={location} radius={radius} />
               </Map>
             </APIProvider>
           ) : (
-            <MapContainer
-              center={[location.lat, location.lng]}
-              zoom={13}
-              className="h-full w-full"
-              scrollWheelZoom
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-
-              <LeafletRecenter center={location} />
-              <LeafletClickHandler
-                onPick={(p) => {
-                  setLocation(p);
-                  // No reverse geocode without a provider/key; keep address manual
-                }}
-              />
-
-              <Marker position={[location.lat, location.lng]} />
-              <Circle
-                center={[location.lat, location.lng]}
-                radius={radius}
-                pathOptions={{ color: "#facc15", fillColor: "#fde68a", fillOpacity: 0.3 }}
-              />
-            </MapContainer>
+            <div className="h-full w-full p-4 bg-yellow-50 text-yellow-900">
+              <div className="font-semibold">Map not configured</div>
+              <div className="text-sm mt-1">
+                Set <code>VITE_GOOGLE_MAPS_API_KEY</code> to enable map picking. You can still
+                create a hub using manual latitude/longitude inputs.
+              </div>
+            </div>
           )}
         </div>
 
