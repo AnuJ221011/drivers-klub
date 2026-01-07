@@ -1,112 +1,196 @@
-# Access control (RBAC) — Driver’s Klub Admin UI
+# Access control (RBAC + scope) — Driver’s Klub Admin UI (production-ready)
 
-This document defines **who can see which page/path** and which **actions** are allowed per role.
+This document defines **who can access which pages/paths and actions** for the new role set:
+- **Super Admin**
+- **Operations**
+- **Fleet Manager**
+- **Hub Manager**
 
-Roles (source: backend Prisma enum `UserRole`):
-- `SUPER_ADMIN`
-- `OPERATIONS`
-- `MANAGER`
-- `DRIVER`
+It is written in a **scalable** style: roles are coarse; **permissions** are fine-grained; **scope** (which fleet/hub) is enforced everywhere.
 
-## Principles
+---
 
-- **Backend is the source of truth**: every API route is protected with `authenticate` + `authorizeRoles(...)`.
-- **Frontend should mirror backend** for UX:
-  - Hide nav items the user can’t access.
-  - Guard routes so users don’t land on forbidden pages.
-  - Disable/hide buttons for actions the user can’t perform.
+## 1) Definitions
 
-## Route access matrix (frontend)
+### 1.1 Roles (business roles)
 
-Routes from `frontend/src/App.tsx` (admin UI).
+| Role | Intent |
+|---|---|
+| **Super Admin** | Full system control (configuration + user admin). |
+| **Operations** | Central ops user (day-to-day dispatch/admin tasks) but not full system ownership. |
+| **Fleet Manager** | Operates **one fleet** (or a set of fleets) and everything inside that fleet. |
+| **Hub Manager** | Operates **one hub** (or a set of hubs) and resources assigned to that hub. |
 
-| Path | Page | SUPER_ADMIN | OPERATIONS | MANAGER | DRIVER |
+### 1.2 Scope (ABAC)
+
+Every non-global action must be evaluated with **scope**:
+- **Global scope**: system-wide (no fleet/hub restriction)
+- **Fleet scope**: `{ fleetId }`
+- **Hub scope**: `{ hubId }` (implicitly tied to a fleet)
+
+Recommended claim to attach to each user session:
+
+```json
+{
+  "role": "FLEET_MANAGER",
+  "scope": {
+    "fleetIds": ["<fleet-uuid>"],
+    "hubIds": ["<hub-uuid>"]
+  }
+}
+```
+
+> Production recommendation: avoid “manager” without scope. Scoped roles prevent privilege escalation and keep UI + API consistent.
+
+---
+
+## 2) Authorization model (scalable)
+
+### 2.1 Use permissions, not page names
+
+Define canonical permissions as `<resource>:<action>`:
+
+| Resource | Actions (examples) |
+|---|---|
+| `fleet` | `read`, `create`, `update`, `deactivate` |
+| `hub` | `read`, `create`, `update`, `assignManager`, `addDriver`, `addVehicle` |
+| `driver` | `read`, `create`, `update`, `setStatus`, `setAvailability` |
+| `vehicle` | `read`, `create`, `update`, `setStatus`, `deactivate` |
+| `assignment` | `read`, `create`, `end` |
+| `attendance` | `read`, `approve`, `reject` |
+| `trip_admin` | `read`, `assign`, `unassign`, `reassign` |
+| `payment_admin` | `read`, `create`, `reconcile`, `payout`, `qr_generate`, `qr_view` |
+| `user_admin` | `read`, `create`, `deactivate` |
+
+### 2.2 Policy evaluation (role + scope + permission)
+
+Authorize a request if **all** are true:
+1. user is authenticated
+2. user has permission (via role policy)
+3. user scope includes the target resource (fleetId/hubId) — unless the permission is global
+
+---
+
+## 3) Role policies (recommended baseline)
+
+### 3.1 Super Admin (global)
+- **All permissions** in **global scope**
+- Can operate across all fleets/hubs
+
+### 3.2 Operations (global, but not owner)
+Recommended:
+- `fleet:read`
+- `hub:read`, `hub:create`, `hub:update`, `hub:assignManager`, `hub:addDriver`, `hub:addVehicle`
+- `driver:read`, `driver:create`, `driver:update`, `driver:setStatus`, `driver:setAvailability`
+- `vehicle:read`, `vehicle:create`, `vehicle:update`, `vehicle:setStatus`, `vehicle:deactivate`
+- `assignment:read`, `assignment:create`, `assignment:end`
+- `attendance:read` (optionally `approve/reject` if ops approves)
+- `trip_admin:*` only if ops dispatches; otherwise keep to Super Admin
+- `payment_admin:read` + limited admin actions (business decision)
+- `user_admin:read` (no create/deactivate unless required)
+
+### 3.3 Fleet Manager (fleet-scoped)
+- Access limited to their `fleetIds`
+- Recommended:
+  - `fleet:read` (own fleet)
+  - `hub:*` within own fleet
+  - `driver:*` within own fleet
+  - `vehicle:*` within own fleet
+  - `assignment:*` within own fleet
+  - `attendance:read`, `attendance:approve`, `attendance:reject` (own fleet drivers)
+  - `payment_admin:read` (own fleet) + optionally `reconcile`
+
+### 3.4 Hub Manager (hub-scoped)
+- Access limited to their `hubIds` (and derived fleet)
+- Recommended:
+  - `hub:read` (own hub)
+  - `driver:read`, `driver:update`, `driver:setAvailability` (drivers in hub)
+  - `vehicle:read` (vehicles in hub)
+  - `assignment:read`, `assignment:create`, `assignment:end` (hub drivers/vehicles only)
+  - `attendance:read`, `attendance:approve`, `attendance:reject` (hub drivers)
+  - `payment_admin:qr_view` and optionally `payment_admin:reconcile` (if hub handles collections)
+
+---
+
+## 4) Frontend pages & path access (current UI)
+
+Paths from `frontend/src/App.tsx`.
+
+Legend:
+- ✅ = allowed (with proper scope where applicable)
+- ❌ = not allowed
+- ⚠️ = allowed **only if the page supports scoped mode** (see “Manager scope UX”)
+
+| Path | Page | Super Admin | Operations | Fleet Manager | Hub Manager |
 |---|---|---:|---:|---:|---:|
 | `/login` | Login | ✅ | ✅ | ✅ | ✅ |
-| `/admin` | Dashboard (AdminHome) | ✅ | ❌* | ❌* | ❌* |
-| `/admin/fleets` | Fleet Management | ✅ | ✅ | ❌ | ❌ |
-| `/admin/fleets/:id` | Fleet Details | ✅ | ✅ | ❌ | ❌ |
-| `/admin/fleets/:id/hubs/create` | Create Hub | ✅ | ✅ | ❌ | ❌ |
-| `/admin/fleets/:id/hubs/:hubId` | Hub Details | ✅ | ✅ | ❌ | ❌ |
-| `/admin/trips` | Trips (admin list) | ✅ | ❌* | ❌* | ❌* |
-| `/admin/trips/:id` | Trip Details (admin) | ✅ | ❌* | ❌* | ❌* |
-| `/admin/vehicles` | Vehicles | ✅ | ✅ | ⚠️** | ❌ |
-| `/admin/drivers` | Drivers | ✅ | ✅ | ⚠️** | ❌ |
-| `/admin/team-management` | Team Management | ✅ | ⚠️*** | ❌ | ❌ |
-| `/admin/driver-checkins` | Driver Check-ins | ✅ | ✅ | ✅ | ❌ |
-| `/admin/driver-checkins/:id` | Driver Check-in detail | ✅ | ✅ | ✅ | ❌ |
-| `/admin/driver-checkouts/:driverId` | Driver checkout history | ✅ | ✅ | ✅ | ❌ |
-| `/admin/payment` | Payment & Pricing (admin) | ✅ | ✅ | ⚠️**** | ❌ |
+| `/admin` | Dashboard (AdminHome) | ✅ | ⚠️* | ⚠️* | ⚠️* |
+| `/admin/fleets` | Fleet list | ✅ | ✅ | ⚠️** | ❌ |
+| `/admin/fleets/:id` | Fleet details | ✅ | ✅ | ✅ (own fleet) | ❌ |
+| `/admin/fleets/:id/hubs/create` | Create hub | ✅ | ✅ | ✅ (own fleet) | ❌ |
+| `/admin/fleets/:id/hubs/:hubId` | Hub details | ✅ | ✅ | ✅ (own fleet) | ✅ (own hub) |
+| `/admin/trips` | Trips (admin list) | ✅ | ⚠️*** | ⚠️*** | ❌ |
+| `/admin/trips/:id` | Trip details | ✅ | ⚠️*** | ⚠️*** | ❌ |
+| `/admin/vehicles` | Vehicles | ✅ | ✅ | ⚠️** | ⚠️** |
+| `/admin/drivers` | Drivers | ✅ | ✅ | ⚠️** | ⚠️** |
+| `/admin/team-management` | User admin | ✅ | ⚠️**** | ❌ | ❌ |
+| `/admin/driver-checkins` | Driver check-ins | ✅ | ✅ | ✅ (scoped) | ✅ (scoped) |
+| `/admin/driver-checkins/:id` | Check-in detail | ✅ | ✅ | ✅ (scoped) | ✅ (scoped) |
+| `/admin/driver-checkouts/:driverId` | Driver checkout history | ✅ | ✅ | ✅ (scoped) | ✅ (scoped) |
+| `/admin/payment` | Payment & pricing | ✅ | ✅ | ⚠️***** | ⚠️***** |
 
 Notes:
-- `*` Trips dashboard/pages currently call **`/admin/trips`**, which is **`SUPER_ADMIN` only** in backend (`backend/src/modules/trips/admin-trip.routes.ts`).
-- `**` Backend allows `MANAGER` to read drivers/vehicles **by fleet/hub**, but the current UI depends on **fleet list + fleet selection**, which `MANAGER` cannot access with current backend routes. So: either hide these pages for `MANAGER`, or implement a “manager scope” (see below).
-- `***` Backend allows `OPERATIONS` to list users, but only `SUPER_ADMIN` can create/deactivate users (`backend/src/modules/users/user.routes.ts`). So Operations can be “view-only” unless UI is split.
-- `****` Backend allows some payment admin endpoints for `MANAGER` (reconciliation + QR view, rental plan list), but the current UI includes admin actions (create plans/penalties/incentives/payouts) that are `SUPER_ADMIN`/`OPERATIONS` only. Consider role-based tabs.
+- `*` Current dashboard uses admin trips endpoints (`/admin/trips`) which in your backend are **SUPER_ADMIN-only** today. Either keep dashboard SA-only, or broaden backend permissions.
+- `**` Current UI depends on “Fleet select bar” + “list fleets” to choose `fleetId`. For Fleet/Hub managers, you need **scoped UX** (auto-select their fleet/hub) instead of fleet browsing.
+- `***` Trips UI calls `/admin/trips` which is SA-only in backend today; to enable others, update backend and then enforce scope.
+- `****` Backend currently allows Operations to list users, but user create/deactivate is SA-only.
+- `*****` Payment page contains a mix of endpoints; in production split into **tabs** gated by permissions (reconcile vs payout vs create plan/penalty/incentive).
 
-## Action-level access (recommended)
+---
 
-### Fleets (`/admin/fleets`, `/admin/fleets/:id`)
-- **View fleets**: `SUPER_ADMIN`, `OPERATIONS`
-- **Create fleet**: `SUPER_ADMIN` only
-- **Deactivate fleet**: `SUPER_ADMIN` only
+## 5) Backend alignment (what you should do next)
 
-### Hubs (Fleet Details → Hubs)
-- **List hubs / hub details / create hub**: `SUPER_ADMIN`, `OPERATIONS`
+Right now your backend roles are `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`, `DRIVER`.
 
-### Trips (`/admin/trips`, `/admin/trips/:id`, dashboard widgets)
-- **View admin trips list**: `SUPER_ADMIN` only (current backend)
-- **Assign/unassign/reassign driver** (admin): `SUPER_ADMIN` only
-- If you want `OPERATIONS` to manage trips, update backend `authorizeRoles(...)` for admin trip routes, then update this doc accordingly.
+To support the new roles cleanly, choose one of these production approaches:
 
-### Vehicles (`/admin/vehicles`)
-- **List vehicles by fleet**: `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
-- **Create/update/deactivate vehicles**: `SUPER_ADMIN`, `OPERATIONS`
+### Option A (recommended): Keep backend roles simple + add manager type + scope
+- Keep backend role as one of: `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+- Add `managerType`: `FLEET_MANAGER` or `HUB_MANAGER`
+- Add scope claims: `fleetIds[]`, `hubIds[]`
+- Enforce:
+  - `authorizeRoles(...)` (existing)
+  - `authorizeScope(...)` (new middleware: checks fleetId/hubId route params/body)
 
-### Drivers (`/admin/drivers`)
-- **List drivers by fleet**: `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
-- **Create driver**: `SUPER_ADMIN`, `OPERATIONS`
-- **Edit driver**:
-  - details: `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
-  - status: `SUPER_ADMIN`, `OPERATIONS`
-  - availability: `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
-- **Assign vehicle to driver** (Assignments module): `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+### Option B: Add roles to enum (explicit roles)
+- Add `FLEET_MANAGER` and `HUB_MANAGER` to Prisma enum and rewire authorization.
+- Still keep scope checks; roles alone are not enough.
 
-### Team Management (`/admin/team-management`)
-- **List users**: `SUPER_ADMIN`, `OPERATIONS`
-- **Create user**: `SUPER_ADMIN` only
-- **Deactivate user**: `SUPER_ADMIN` only
+---
 
-### Driver Check-ins (`/admin/driver-checkins`)
-- **History list**: any authenticated user (backend), but in admin UI show:
-  - **View list/details**: `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
-  - **Approve/Reject**: `SUPER_ADMIN`, `MANAGER`
+## 6) Manager scope UX (required for Fleet/Hub managers)
 
-### Payment & Pricing (`/admin/payment`)
-- **Admin actions** (create plan/penalty/incentive, payout, generate QR): `SUPER_ADMIN`, `OPERATIONS`
-- **Manager allowed subset** (backend supports):
-  - **View rental plans** (`GET /payment/admin/rental-plans/:fleetId`): ✅
-  - **View pending reconciliations** (`GET /payment/admin/reconciliations/pending`): ✅
-  - **Reconcile collection** (`POST /payment/admin/collection/:id/reconcile`): ✅
-  - **View vehicle QR** (`GET /payment/admin/vehicle/:id/qr`): ✅
-  - **Payout + create penalty/incentive + generate QR**: ❌ (admin only)
+To make Fleet/Hub Managers usable in the UI:
+- Add a backend endpoint: `GET /me/scope` → returns `{ fleetIds, hubIds, defaultFleetId?, defaultHubId? }`
+- In frontend:
+  - Auto-set `FleetContext.activeFleetId = defaultFleetId` for Fleet/Hub managers
+  - Hide `/admin/fleets` browsing for Hub Managers (and optionally Fleet Managers)
+  - Filter lists server-side by scope; client-side filtering is not security
 
-## “Manager scope” (recommended improvement)
+---
 
-If you want `MANAGER` users to use the admin UI without seeing all fleets:
-- Put `fleetId` (and optional `hubId`) into the JWT claims at login **or**
-- Add a backend endpoint like `GET /me/scope` that returns `{ fleetId, hubId }`
-- Then update the UI to:
-  - Hide Fleet list for managers
-  - Auto-select their `fleetId` in `FleetContext`
-  - Restrict lists to their fleet/hub
+## 7) Implementation checklist (production)
 
-## Frontend implementation checklist (recommended)
+### Frontend
+- **Route guards**: `RequireAuth` + `RequirePermission(permission)`
+- **Sidebar filtering**: build nav from permissions instead of hardcoding roles
+- **Action gating**: hide/disable buttons based on permissions (create/deactivate/etc.)
+- **Fail-safe**: if API returns 403, show “No access” and log event
 
-1. **Route guard**
-   - Add a `RoleRoute` wrapper (like `PrivateRoute`) that checks `useAuth().role`.
-2. **Sidebar filtering**
-   - Filter `navItems` in `SideBar.tsx` by role.
-3. **Action gating**
-   - Disable/hide buttons (Create Fleet, Add Team Member, etc.) if role can’t perform the API action.
+### Backend
+- Keep `authorizeRoles` as a coarse gate
+- Add scope checks:
+  - `authorizeFleetScope(req.params.fleetId || req.body.fleetId)`
+  - `authorizeHubScope(req.params.hubId || req.body.hubId)`
+- Add audit logs for sensitive actions (user deactivation, payouts, assignments)
 
