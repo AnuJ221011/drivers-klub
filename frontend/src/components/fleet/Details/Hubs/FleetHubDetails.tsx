@@ -3,6 +3,16 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import Button from "../../../ui/Button";
 import { getFleetHubById, parseHubLocation } from "../../../../api/fleetHub.api";
+import { APIProvider, AdvancedMarker, Map, Pin, useMap } from "@vis.gl/react-google-maps";
+
+function GoogleRecenter({ center }: { center: google.maps.LatLngLiteral }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    map.setCenter(center);
+  }, [map, center.lat, center.lng]);
+  return null;
+}
 
 export default function FleetHubDetails() {
   const navigate = useNavigate();
@@ -56,6 +66,16 @@ export default function FleetHubDetails() {
     return t;
   }, [hub?.hubType]);
 
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  const hasGoogleKey = Boolean((apiKey || "").trim());
+
+  const location = hub?.location || { lat: 28.6139, lng: 77.209 };
+  const googleEmbedSrc = useMemo(() => {
+    const q = `${location.lat},${location.lng}`;
+    const z = 13;
+    return `https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`;
+  }, [location.lat, location.lng]);
+
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
@@ -76,9 +96,35 @@ export default function FleetHubDetails() {
         <div><b>Longitude:</b> {hub?.location?.lng ?? "—"}</div>
       </div>
 
-      {/* Map placeholder (for now) */}
-      <div className="rounded-lg border border-dashed border-black/20 bg-yellow-50 p-6 text-sm text-center text-black/60">
-        Map preview will be shown here
+      {/* Map */}
+      <div className="rounded-lg overflow-hidden border border-black/10 h-[420px] bg-white">
+        {hasGoogleKey ? (
+          <APIProvider apiKey={apiKey!}>
+            <Map
+              defaultZoom={13}
+              defaultCenter={location as google.maps.LatLngLiteral}
+            >
+              <GoogleRecenter center={location as google.maps.LatLngLiteral} />
+              <AdvancedMarker position={location as google.maps.LatLngLiteral}>
+                <Pin background="#facc15" />
+              </AdvancedMarker>
+            </Map>
+          </APIProvider>
+        ) : (
+          <div className="h-full w-full">
+            <iframe
+              title="Google Map"
+              src={googleEmbedSrc}
+              className="h-full w-full"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+            <div className="p-2 text-xs text-black/60 border-t bg-white">
+              Google map shown in embed mode (no API key). To enable interactive map features,
+              configure <code>VITE_GOOGLE_MAPS_API_KEY</code>.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
