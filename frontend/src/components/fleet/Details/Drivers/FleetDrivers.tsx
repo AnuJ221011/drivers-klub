@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import toast from "react-hot-toast";
+import { Car } from "lucide-react";
 import Button from "../../../ui/Button";
 import Table from "../../../ui/Table";
 import AddDriversModal from "./AddDriverModal";
@@ -8,6 +9,9 @@ import { getDriversByFleet } from "../../../../api/driver.api";
 import type { Driver } from "../../../../models/driver/driver";
 import { getAssignmentsByFleet } from "../../../../api/assignment.api";
 import { getVehiclesByFleet } from "../../../../api/vehicle.api";
+import type { AssignmentEntity } from "../../../../models/assignment/assignment";
+import type { Vehicle } from "../../../../models/vehicle/vehicle";
+import AssignVehicleToDriverModal from "../../../driver/AssignVehicleToDriverModal";
 
 export default function FleetDrivers() {
   const { id: fleetId } = useParams();
@@ -15,6 +19,10 @@ export default function FleetDrivers() {
   const [rows, setRows] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(false);
   const [assignedVehicleByDriverId, setAssignedVehicleByDriverId] = useState<Record<string, string>>({});
+  const [assignments, setAssignments] = useState<AssignmentEntity[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignDriver, setAssignDriver] = useState<Driver | null>(null);
 
   const refresh = useCallback(async () => {
     if (!fleetId) return;
@@ -27,6 +35,8 @@ export default function FleetDrivers() {
       ]);
 
       setRows(drivers || []);
+      setAssignments(assignments || []);
+      setVehicles(vehicles || []);
 
       const vehicleLabelById = new Map<string, string>();
       for (const v of vehicles || []) {
@@ -103,6 +113,22 @@ export default function FleetDrivers() {
                 </span>
               ),
             },
+            {
+              key: "actions",
+              label: "Actions",
+              render: (d) => (
+                <button
+                  onClick={() => {
+                    setAssignDriver(d);
+                    setAssignOpen(true);
+                  }}
+                  className="p-2 hover:bg-yellow-100 rounded"
+                  title="Assign vehicle"
+                >
+                  <Car size={16} />
+                </button>
+              ),
+            },
           ]}
           data={rows}
         />
@@ -114,6 +140,18 @@ export default function FleetDrivers() {
           onClose={() => setOpen(false)}
           fleetId={fleetId}
           onAdded={() => void refresh()}
+        />
+      )}
+
+      {fleetId && assignDriver && (
+        <AssignVehicleToDriverModal
+          open={assignOpen}
+          onClose={() => setAssignOpen(false)}
+          fleetId={fleetId}
+          driver={assignDriver}
+          vehicles={vehicles}
+          assignments={assignments}
+          onAssigned={() => void refresh()}
         />
       )}
     </div>

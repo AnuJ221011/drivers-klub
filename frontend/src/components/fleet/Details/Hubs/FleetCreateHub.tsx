@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import {
   APIProvider,
   Map,
@@ -11,6 +12,7 @@ import {
 import Input from "../../../ui/Input";
 import Select from "../../../ui/Select";
 import Button from "../../../ui/Button";
+import { createFleetHub } from "../../../../api/fleetHub.api";
 
 /* ---------------- Geofence Circle ---------------- */
 function GeofenceCircle({
@@ -51,12 +53,14 @@ function GeofenceCircle({
 
 /* ---------------- Main Component ---------------- */
 export default function FleetCreateHub() {
-  const { fleetId } = useParams();
+  // Route uses `/admin/fleets/:id/...` across the app
+  const { id: fleetId } = useParams();
   const navigate = useNavigate();
 
   const [hubName, setHubName] = useState("");
   const [hubType, setHubType] = useState("");
   const [radius, setRadius] = useState(500);
+  const [saving, setSaving] = useState(false);
 
   const [location, setLocation] = useState<google.maps.LatLngLiteral>({
     lat: 28.6139,
@@ -88,21 +92,37 @@ export default function FleetCreateHub() {
   };
 
   /* ---------- Save Hub ---------- */
-  const handleSave = () => {
-    const payload = {
-      fleetId,
-      name: hubName,
-      type: hubType,
-      location,
-      address,
-      radius,
+  const handleSave = async () => {
+    if (!fleetId) {
+      toast.error("Missing fleetId in URL. Please open this page from a fleet.");
+      return;
+    }
+
+    const input = {
+      // Backend expects: address (string), hubType (string), location {lat,lng}
+      address: (address || hubName).trim(),
+      hubType: hubType.trim(),
+      location: { lat: location.lat, lng: location.lng },
     };
 
-    console.log("HUB PAYLOAD:", payload);
+    console.log("HUB PAYLOAD:", { fleetId, ...input, radius, name: hubName });
 
-    // TODO: API call later
-
-    navigate(`/admin/fleets/${fleetId}?tab=HUBS`);
+    try {
+      setSaving(true);
+      await createFleetHub(fleetId, input);
+      toast.success("Hub created");
+      navigate(`/admin/fleets/${fleetId}?tab=HUBS`);
+    } catch (err: unknown) {
+      const maybeAny = err as { response?: { data?: unknown } };
+      const data = maybeAny.response?.data;
+      const msg =
+        data && typeof data === "object" && "message" in data
+          ? String((data as Record<string, unknown>).message)
+          : "Failed to create hub";
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -210,9 +230,9 @@ export default function FleetCreateHub() {
           <Button
             className="w-full"
             onClick={handleSave}
-            disabled={!hubName || !hubType}
+            disabled={!hubName || !hubType || saving}
           >
-            Save Hub
+            {saving ? "Saving…" : "Save Hub"}
           </Button>
         </div>
       </div>

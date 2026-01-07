@@ -19,6 +19,7 @@ export default function FleetManagers() {
     try {
       const data = await getFleetManagersByFleet(fleetId);
       setRows(data || []);
+      console.log("Fleet Managers Rows:", rows);
     } catch (err: unknown) {
       const maybeAny = err as { response?: { data?: unknown } };
       const data = maybeAny.response?.data;
@@ -31,6 +32,7 @@ export default function FleetManagers() {
       setLoading(false);
     }
   }, [fleetId]);
+
 
   useEffect(() => {
     void refresh();
