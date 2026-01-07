@@ -3,7 +3,7 @@ import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
 import type { TeamMember } from "../../models/user/team";
-import { getPhoneDigitsRemainingHint } from "../../utils/phoneHint";
+import PhoneInput from "../ui/PhoneInput";
 
 type Props = {
   member: TeamMember | null;
@@ -42,15 +42,10 @@ export default function TeamDrawer({ member, onSave }: Props) {
         }
       />
 
-      <Input
+      <PhoneInput
         label="Phone Number"
         value={form.phone}
-        onChange={(e) =>
-          handleChange("phone", e.target.value.replace(/\D/g, ""))
-        }
-        inputMode="numeric"
-        maxLength={10}
-        helperText={getPhoneDigitsRemainingHint(form.phone)}
+        onChange={(digits) => handleChange("phone", digits)}
       />
 
       <Input

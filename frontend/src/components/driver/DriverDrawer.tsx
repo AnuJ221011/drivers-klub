@@ -5,7 +5,7 @@ import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
 import { updateDriverAvailability, updateDriverDetails, updateDriverStatus } from '../../api/driver.api';
-import { getPhoneDigitsRemainingHint } from '../../utils/phoneHint';
+import PhoneInput from "../ui/PhoneInput";
 
 type Props = {
   driver: Driver | null;
@@ -15,7 +15,7 @@ type Props = {
 
 export default function DriverDrawer({ driver, onClose, onUpdated }: Props) {
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(''); // digits only
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
   const [availability, setAvailability] = useState<'Available' | 'Unavailable'>('Unavailable');
   const [saving, setSaving] = useState(false);
@@ -32,9 +32,11 @@ export default function DriverDrawer({ driver, onClose, onUpdated }: Props) {
     if (!driver) return;
     // capture the non-null id to avoid nullability issues in closures
     const driverId = driver.id;
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length !== 10) return toast.error('Phone number must be 10 digits');
     setSaving(true);
     try {
-      await updateDriverDetails(driverId, { name: name.trim(), phone: phone.trim() });
+      await updateDriverDetails(driverId, { name: name.trim(), phone: digits.slice(0, 10) });
       await updateDriverStatus(driverId, status === 'Active');
       await updateDriverAvailability(driverId, availability === 'Available');
       toast.success('Driver updated');
@@ -64,13 +66,10 @@ export default function DriverDrawer({ driver, onClose, onUpdated }: Props) {
         disabled={saving}
       />
 
-      <Input
+      <PhoneInput
         label="Phone Number"
         value={phone}
-        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-        inputMode="numeric"
-        maxLength={10}
-        helperText={getPhoneDigitsRemainingHint(phone)}
+        onChange={setPhone}
         disabled={saving}
       />
 

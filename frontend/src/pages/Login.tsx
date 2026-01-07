@@ -2,19 +2,15 @@ import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
+import PhoneInput from '../components/ui/PhoneInput';
 import Input from '../components/LoginInput';
 import Button from '../components/ui/Button';
 import { sendOtp, verifyOtp } from '../api/auth.api';
 import { setLoggedIn } from '../utils/auth';
 import { useAuth } from '../context/AuthContext';
-import { getPhoneDigitsRemainingHint } from '../utils/phoneHint';
 
-function normalizePhone(value: string): string {
-  // Keep digits and leading + only
-  const trimmed = (value || '').trim();
-  if (!trimmed) return '';
-  if (trimmed.startsWith('+')) return `+${trimmed.slice(1).replace(/\D/g, '')}`;
-  return trimmed.replace(/\D/g, '');
+function normalizePhoneDigits(value: string): string {
+  return (value || "").replace(/\D/g, "");
 }
 
 type Step = 'send' | 'verify';
@@ -35,19 +31,20 @@ export default function LoginPage() {
   const { setTokens } = useAuth();
 
   const [step, setStep] = useState<Step>('send');
-  const [phone, setPhone] = useState<string>('');
+  const [phone, setPhone] = useState<string>(''); // digits only
   const [otp, setOtp] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
   const otpRef = useRef<HTMLInputElement | null>(null);
 
-  const canSend = useMemo(() => normalizePhone(phone).length >= 10, [phone]);
+  const canSend = useMemo(() => normalizePhoneDigits(phone).length === 10, [phone]);
   const canVerify = useMemo(() => otp.trim().length >= 4, [otp]);
 
   async function handleSendOtp(e?: FormEvent) {
     e?.preventDefault?.();
-    const normalized = normalizePhone(phone);
+    const normalized = normalizePhoneDigits(phone);
     if (!normalized) return toast.error('Please enter phone number');
+    if (normalized.length !== 10) return toast.error('Phone number must be 10 digits');
 
     setLoading(true);
     try {
@@ -65,7 +62,7 @@ export default function LoginPage() {
 
   async function handleVerifyOtp(e?: FormEvent) {
     e?.preventDefault?.();
-    const normalized = normalizePhone(phone);
+    const normalized = normalizePhoneDigits(phone);
     if (!normalized) return toast.error('Phone number missing');
     if (!otp.trim()) return toast.error('Please enter OTP');
 
@@ -100,16 +97,18 @@ export default function LoginPage() {
 
           {step === 'send' ? (
             <form onSubmit={handleSendOtp} className="space-y-4">
-              <Input
+              <PhoneInput
                 id="phone"
                 label="Phone number"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+91 9876543210"
-                inputMode="tel"
-                autoComplete="tel"
-                helperText={getPhoneDigitsRemainingHint(phone)}
+                onChange={setPhone}
                 disabled={loading}
+                // match login styling
+                wrapperClassName=""
+                labelClassName="mb-1 text-sm font-medium text-gray-700"
+                prefixClassName="px-3 py-2 text-sm text-gray-700 bg-gray-50 border border-gray-300 rounded-l-lg"
+                inputClassName="rounded-r-lg border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-0 focus:border-black"
+                helperClassName="mt-1 text-xs"
               />
 
               <Button type="submit" loading={loading} disabled={!canSend} className="w-full">
@@ -118,7 +117,18 @@ export default function LoginPage() {
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <Input id="phone_readonly" label="Phone number" value={normalizePhone(phone)} disabled />
+              <PhoneInput
+                id="phone_readonly"
+                label="Phone number"
+                value={phone}
+                onChange={() => {}}
+                disabled
+                wrapperClassName=""
+                labelClassName="mb-1 text-sm font-medium text-gray-700"
+                prefixClassName="px-3 py-2 text-sm text-gray-700 bg-gray-50 border border-gray-300 rounded-l-lg"
+                inputClassName="rounded-r-lg border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-0 focus:border-black"
+                helperClassName="mt-1 text-xs"
+              />
 
               <Input
                 ref={otpRef}

@@ -3,9 +3,9 @@ import toast from "react-hot-toast";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
+import PhoneInput from "../ui/PhoneInput";
 import { createUser } from "../../api/user.api";
 import type { UserRole } from "../../models/user/user";
-import { getPhoneDigitsRemainingHint } from "../../utils/phoneHint";
 
 type Props = {
   onClose: () => void;
@@ -38,7 +38,7 @@ function getErrorMessage(err: unknown, fallback: string): string {
 
 export default function AddTeamMember({ onClose, onCreated }: Props) {
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(""); // digits only
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("operations_manager");
   const [status, setStatus] = useState("active");
@@ -51,12 +51,14 @@ export default function AddTeamMember({ onClose, onCreated }: Props) {
         e.preventDefault();
         if (!name.trim()) return toast.error("Please enter full name");
         if (!phone.trim()) return toast.error("Please enter phone number");
+        const digits = phone.replace(/\D/g, "");
+        if (digits.length !== 10) return toast.error("Phone number must be 10 digits");
 
         setSaving(true);
         try {
           await createUser({
             name: name.trim(),
-            phone: phone.trim(),
+            phone: digits.slice(0, 10),
             role: mapRole(role),
             isActive: status === "active",
           });
@@ -78,15 +80,10 @@ export default function AddTeamMember({ onClose, onCreated }: Props) {
         disabled={saving}
       />
 
-      <Input
+      <PhoneInput
         label="Phone Number"
-        placeholder="9876543210"
-        type="tel"
         value={phone}
-        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-        inputMode="numeric"
-        maxLength={10}
-        helperText={getPhoneDigitsRemainingHint(phone)}
+        onChange={setPhone}
         disabled={saving}
       />
 
