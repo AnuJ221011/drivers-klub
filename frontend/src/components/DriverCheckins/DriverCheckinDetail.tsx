@@ -4,7 +4,6 @@ import toast from "react-hot-toast";
 import Button from "../ui/Button";
 import MediaGallery from "./MediaGallary";
 import AuditTrail from "./AuditTrail";
-import AssignVehicleModal from "./AssignVehicleModal";
 import { approveAttendance, attendanceEntityToDriverCheckin, getAttendanceById, rejectAttendance } from "../../api/attendance.api";
 import { useAuth } from "../../context/AuthContext";
 
@@ -13,14 +12,6 @@ export default function DriverCheckinDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { userId } = useAuth();
-
-  // Vehicle assignment in this UI is currently front-end-only (demo flow).
-  // The modal uses mocked vehicles and calls `onAssign()` with the selection.
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [assignedVehicle, setAssignedVehicle] = useState<{
-    number: string;
-    model: string;
-  } | null>(null);
 
   const [loading, setLoading] = useState(false);
 
@@ -57,6 +48,15 @@ export default function DriverCheckinDetail() {
   // Convert the raw attendance entity into the UI-friendly `DriverCheckin` model.
   const ui = useMemo(() => (attendance ? attendanceEntityToDriverCheckin(attendance) : null), [attendance]);
 
+  const assignedVehicle = useMemo(() => {
+    const v = attendance?.driver?.assignments?.[0]?.vehicle;
+    if (!v) return null;
+    return {
+      number: v.vehicleNumber,
+      model: v.vehicleModel || v.vehicleName || "",
+    };
+  }, [attendance]);
+
   const checkinTimeLabel = useMemo(() => {
     const raw = attendance?.checkInTime;
     if (!raw) return "-";
@@ -85,12 +85,16 @@ export default function DriverCheckinDetail() {
 
   // "Can act" means we have the route id and a logged-in admin user.
   const canAct = Boolean(id && userId);
+  const status = attendance?.status;
+  const isActionLocked = status !== "PENDING";
 
   const onApprove = async () => {
     if (!id || !userId) return;
     try {
-      const updated = await approveAttendance({ id, adminId: userId });
-      setAttendance(updated);
+      await approveAttendance({ id, adminId: userId });
+      // Approve API returns a minimal entity; reload full detail with relations.
+      const refreshed = await getAttendanceById(id);
+      setAttendance(refreshed);
       toast.success("Check-in approved");
     } catch {
       toast.error("Failed to approve");
@@ -100,8 +104,10 @@ export default function DriverCheckinDetail() {
   const onReject = async () => {
     if (!id || !userId) return;
     try {
-      const updated = await rejectAttendance({ id, adminId: userId });
-      setAttendance(updated);
+      await rejectAttendance({ id, adminId: userId });
+      // Reject API returns a minimal entity; reload full detail with relations.
+      const refreshed = await getAttendanceById(id);
+      setAttendance(refreshed);
       toast.success("Check-in rejected");
     } catch {
       toast.error("Failed to reject");
@@ -176,36 +182,22 @@ export default function DriverCheckinDetail() {
       {/* Actions */}
       <div className="flex gap-3">
         <Button
-          variant="secondary"
-          onClick={() => setAssignOpen(true)}
-        >
-          Assign Vehicle
-        </Button>
-
-        <Button
           className="bg-green-500 hover:bg-green-600"
-          disabled={!assignedVehicle || !canAct}
+          disabled={!canAct || isActionLocked}
           onClick={() => void onApprove()}
         >
-          Approve
+          {status === "APPROVED" ? "Approved" : "Approve"}
         </Button>
 
         <Button
           variant="secondary"
           className="text-red-600"
-          disabled={!canAct}
+          disabled={!canAct || isActionLocked}
           onClick={() => void onReject()}
         >
-          Reject
+          {status === "REJECTED" ? "Rejected" : "Reject"}
         </Button>
       </div>
-
-      {/* Assign Vehicle Modal */}
-      <AssignVehicleModal
-        open={assignOpen}
-        onClose={() => setAssignOpen(false)}
-        onAssign={setAssignedVehicle}
-      />
 
       {/* Audit Trail */}
       <AuditTrail logs={auditLogs} />

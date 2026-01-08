@@ -293,7 +293,18 @@ export class AttendanceController {
           skip,
           take: limit,
           orderBy: { createdAt: "desc" },
-          include: { driver: true },
+          include: {
+            driver: {
+              include: {
+                fleet: true,
+                assignments: {
+                  where: { status: "ACTIVE" },
+                  include: { vehicle: true },
+                  orderBy: { createdAt: "desc" },
+                },
+              },
+            },
+          },
         }),
         prisma.attendance.count({ where }),
       ]);
