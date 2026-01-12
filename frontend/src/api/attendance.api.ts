@@ -42,7 +42,7 @@ type AttendanceHistoryEnvelope = {
 function toCheckinStatus(status: AttendanceStatus): CheckinStatus {
   if (status === 'APPROVED') return 'APPROVED';
   if (status === 'REJECTED') return 'REJECTED';
-  // Treat CHECKED_OUT as approved-ish for the admin UI badge.
+  if (status === 'CHECKED_OUT') return 'CHECKED_OUT';
   return 'PENDING';
 }
 
@@ -53,16 +53,32 @@ function toUiCheckin(entity: AttendanceEntity): DriverCheckin {
   const fleetName = driver?.fleet?.name || '-';
   const activeVehicleNumber = driver?.assignments?.[0]?.vehicle?.vehicleNumber || '-';
 
+  const odometerStart = typeof entity.odometerStart === 'number' ? entity.odometerStart : undefined;
+  const odometerEnd = typeof entity.odometerEnd === 'number' ? entity.odometerEnd : undefined;
+  const totalKm =
+    typeof odometerStart === 'number' &&
+    typeof odometerEnd === 'number' &&
+    Number.isFinite(odometerStart) &&
+    Number.isFinite(odometerEnd) &&
+    odometerEnd >= odometerStart
+      ? odometerEnd - odometerStart
+      : undefined;
+
   return {
     id: entity.id,
+    driverId: entity.driverId,
     driverName: name,
     driverPhone: phone,
     vehicleNumber: activeVehicleNumber,
     fleetName,
     checkinTime: entity.checkInTime,
+    checkOutTime: entity.checkOutTime || undefined,
     status: toCheckinStatus(entity.status),
     selfieUrl: entity.selfieUrl || undefined,
     remarks: entity.adminRemarks || undefined,
+    odometerStart,
+    odometerEnd,
+    totalKm,
   };
 }
 

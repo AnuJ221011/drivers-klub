@@ -1,4 +1,4 @@
-export type CheckinStatus = "PENDING" | "APPROVED" | "REJECTED";
+export type CheckinStatus = "PENDING" | "APPROVED" | "REJECTED" | "CHECKED_OUT";
 
 export type DriverCheckin = {
   id: string;
