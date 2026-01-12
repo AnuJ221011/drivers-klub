@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../../utils/prisma.js";
 import { ApiResponse } from "../../utils/apiResponse.js";
-import { AttendanceStatus } from "@prisma/client";
+import { AttendanceStatus, DriverStatus } from "@prisma/client";
 import { checkGeoLocation } from "./attendance.service.js";
 
 export class AttendanceController {
@@ -111,13 +111,24 @@ export class AttendanceController {
         return res.status(404).json({ message: "No active check-in found" });
       }
 
-      const updated = await prisma.attendance.update({
-        where: { id: active.id },
-        data: {
-          checkOutTime: new Date(),
-          status: AttendanceStatus.CHECKED_OUT,
-          odometerEnd: odometer,
-        },
+      const updated = await prisma.$transaction(async (tx) => {
+        const attendance = await tx.attendance.update({
+          where: { id: active.id },
+          data: {
+            checkOutTime: new Date(),
+            status: AttendanceStatus.CHECKED_OUT,
+            odometerEnd: odometer,
+          },
+        });
+
+        // Business rule:
+        // - Driver should be NOT ACTIVE (offline) after check-out.
+        await tx.driver.update({
+          where: { id: driverId },
+          data: { status: DriverStatus.INACTIVE, isAvailable: false },
+        });
+
+        return attendance;
       });
 
       return ApiResponse.send(res, 200, updated, "Check-out successful");
@@ -235,13 +246,24 @@ export class AttendanceController {
       const { id } = req.params;
       const { adminId, remarks } = req.body; // In real app, adminId from req.user
 
-      const updated = await prisma.attendance.update({
-        where: { id },
-        data: {
-          status: AttendanceStatus.APPROVED,
-          approvedBy: adminId,
-          adminRemarks: remarks,
-        },
+      const updated = await prisma.$transaction(async (tx) => {
+        const attendance = await tx.attendance.update({
+          where: { id },
+          data: {
+            status: AttendanceStatus.APPROVED,
+            approvedBy: adminId,
+            adminRemarks: remarks,
+          },
+        });
+
+        // Business rule:
+        // - Driver becomes ACTIVE again once their check-in is approved.
+        await tx.driver.update({
+          where: { id: attendance.driverId },
+          data: { status: DriverStatus.ACTIVE, isAvailable: true },
+        });
+
+        return attendance;
       });
 
       return ApiResponse.send(res, 200, updated, "Attendance approved");
