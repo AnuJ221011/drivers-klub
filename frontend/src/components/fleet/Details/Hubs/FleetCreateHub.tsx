@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -13,6 +13,8 @@ import Input from "../../../ui/Input";
 import Select from "../../../ui/Select";
 import Button from "../../../ui/Button";
 import { createFleetHub } from "../../../../api/fleetHub.api";
+
+type LatLng = { lat: number; lng: number };
 
 /* ---------------- Geofence Circle ---------------- */
 function GeofenceCircle({
@@ -51,6 +53,15 @@ function GeofenceCircle({
   return null;
 }
 
+function GoogleRecenter({ center }: { center: google.maps.LatLngLiteral }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    map.setCenter(center);
+  }, [map, center.lat, center.lng]);
+  return null;
+}
+
 /* ---------------- Main Component ---------------- */
 export default function FleetCreateHub() {
   // Route uses `/admin/fleets/:id/...` across the app
@@ -62,14 +73,20 @@ export default function FleetCreateHub() {
   const [radius, setRadius] = useState(500);
   const [saving, setSaving] = useState(false);
 
-  const [location, setLocation] = useState<google.maps.LatLngLiteral>({
+  const [location, setLocation] = useState<LatLng>({
     lat: 28.6139,
     lng: 77.209,
   });
 
   const [address, setAddress] = useState("");
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-  const hasMaps = Boolean((apiKey || "").trim());
+  const hasGoogleKey = Boolean((apiKey || "").trim());
+
+  const googleEmbedSrc = useMemo(() => {
+    const q = `${location.lat},${location.lng}`;
+    const z = 13;
+    return `https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`;
+  }, [location.lat, location.lng]);
 
   /* ---------- Reverse Geocoding ---------- */
   const fetchAddress = async (lat: number, lng: number) => {
@@ -138,26 +155,33 @@ export default function FleetCreateHub() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ---------- Map ---------- */}
         <div className="lg:col-span-2 h-[520px] rounded-lg overflow-hidden border">
-          {hasMaps ? (
+          {hasGoogleKey ? (
             <APIProvider apiKey={apiKey!}>
               <Map
                 defaultZoom={13}
-                defaultCenter={location}
+                defaultCenter={location as google.maps.LatLngLiteral}
                 onClick={handleMapClick}
               >
-                <AdvancedMarker position={location}>
+                <GoogleRecenter center={location as google.maps.LatLngLiteral} />
+                <AdvancedMarker position={location as google.maps.LatLngLiteral}>
                   <Pin background="#facc15" />
                 </AdvancedMarker>
 
-                <GeofenceCircle center={location} radius={radius} />
+                <GeofenceCircle center={location as google.maps.LatLngLiteral} radius={radius} />
               </Map>
             </APIProvider>
           ) : (
-            <div className="h-full w-full p-4 bg-yellow-50 text-yellow-900">
-              <div className="font-semibold">Map not configured</div>
-              <div className="text-sm mt-1">
-                Set <code>VITE_GOOGLE_MAPS_API_KEY</code> to enable map picking. You can still
-                create a hub using manual latitude/longitude inputs.
+            <div className="h-full w-full">
+              <iframe
+                title="Google Map"
+                src={googleEmbedSrc}
+                className="h-full w-full"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+              <div className="p-2 text-xs text-black/60 border-t bg-white">
+                Google map is shown in embed mode (no API key). To enable map clicks + geofence drawing,
+                configure <code>VITE_GOOGLE_MAPS_API_KEY</code>.
               </div>
             </div>
           )}
@@ -222,7 +246,7 @@ export default function FleetCreateHub() {
 
           <Input
             label="Address"
-            placeholder={hasMaps ? "Auto-filled from map click (optional)" : "Enter address (optional)"}
+            placeholder={hasGoogleKey ? "Auto-filled from map click (optional)" : "Enter address (optional)"}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
           />

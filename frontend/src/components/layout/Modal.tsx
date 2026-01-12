@@ -5,6 +5,7 @@ type ModalProps = {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg';
 };
 
 export default function Modal({
@@ -12,8 +13,12 @@ export default function Modal({
   onClose,
   title,
   children,
+  size = 'lg',
 }: ModalProps) {
   if (!open) return null;
+
+  const maxWidth =
+    size === 'sm' ? 'max-w-sm' : size === 'md' ? 'max-w-md' : 'max-w-lg';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -24,7 +29,7 @@ export default function Modal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg bg-white rounded-lg shadow-lg animate-scaleIn">
+      <div className={`relative w-full ${maxWidth} bg-white rounded-lg shadow-lg animate-scaleIn`}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h2 className="font-semibold">{title}</h2>

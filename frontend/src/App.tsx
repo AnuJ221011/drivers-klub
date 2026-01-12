@@ -19,6 +19,7 @@ import DriverCheckins from './pages/DriverCheckins';
 import DriverCheckinDetail from './components/DriverCheckins/DriverCheckinDetail';
 import PaymentPricing from './pages/PaymentPricing';
 import DriverCheckoutHistory from './pages/DriverCheckoutHistory';
+import DriverPreferencesPage from './pages/DriverPreferences';
 
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -129,6 +130,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <PaymentPricing />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="driver-preferences"
+            element={
+              <PrivateRoute>
+                <DriverPreferencesPage />
               </PrivateRoute>
             }
           />

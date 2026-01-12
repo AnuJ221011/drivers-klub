@@ -1031,11 +1031,33 @@ export default function PaymentPricing() {
             {qrToView ? (
               <div className="space-y-3">
                 <div className="flex items-start gap-4">
-                  {qrToView.qrCodeBase64 ? (
-                    <img src={qrToView.qrCodeBase64} alt="Vehicle QR" className="h-40 w-40 border rounded-md" />
-                  ) : (
-                    <div className="h-40 w-40 border rounded-md flex items-center justify-center text-sm text-black/60">No QR image</div>
-                  )}
+                  {(() => {
+                    const raw = (qrToView.qrCodeBase64 || "").trim();
+                    const url = (qrToView.qrCodeUrl || "").trim();
+
+                    // Prefer direct URL if backend provides it.
+                    let src: string | null = null;
+                    if (url) src = url;
+                    else if (raw) {
+                      // If backend already returns data URL, use it.
+                      if (raw.startsWith("data:image/")) src = raw;
+                      // If backend returns raw base64 bytes, convert to data URL.
+                      else if (raw.length >= 80) src = `data:image/png;base64,${raw}`;
+                      // Otherwise it’s probably a placeholder like "mock_qr_base64_string".
+                      else src = null;
+                    }
+
+                    return src ? (
+                      <img src={src} alt="Vehicle QR" className="h-40 w-40 border rounded-md" />
+                    ) : (
+                      <div className="h-40 w-40 border rounded-md flex items-center justify-center text-sm text-black/60 text-center px-2">
+                        QR image not available.
+                        <div className="text-xs text-black/40 mt-1">
+                          Backend must return a real QR image (data URL, URL, or base64 PNG).
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div className="text-sm">
                     <div>
                       <span className="text-black/60">UPI ID:</span> <span className="font-medium">{qrToView.upiId || '—'}</span>

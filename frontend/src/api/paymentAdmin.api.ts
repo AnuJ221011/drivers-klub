@@ -95,6 +95,7 @@ export type VehicleQr = {
   virtualAccountId?: string | null;
   virtualAccountNumber?: string | null;
   ifscCode?: string | null;
+  qrCodeUrl?: string | null;
   qrCodeBase64?: string | null;
   upiId?: string | null;
   isActive: boolean;

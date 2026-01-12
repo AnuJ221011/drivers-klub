@@ -25,7 +25,7 @@ export default function Drawer({
 
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full w-[420px] bg-white z-50
+        className={`fixed top-0 right-0 h-full w-[520px] max-w-[92vw] bg-white z-50
         transform transition-transform duration-300
         ${open ? "translate-x-0" : "translate-x-full"}`}
       >

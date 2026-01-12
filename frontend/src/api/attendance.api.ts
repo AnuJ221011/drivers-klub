@@ -55,6 +55,7 @@ function toUiCheckin(entity: AttendanceEntity): DriverCheckin {
 
   return {
     id: entity.id,
+    driverId: entity.driverId,
     driverName: name,
     driverPhone: phone,
     vehicleNumber: activeVehicleNumber,

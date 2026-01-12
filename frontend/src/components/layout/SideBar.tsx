@@ -1,4 +1,4 @@
-import { Home, Car, Users, UserCircle, ArrowRightCircle, X, LogOut, Building2, ClipboardCheck, CreditCard } from "lucide-react";
+import { Home, Car, Users, UserCircle, ArrowRightCircle, X, LogOut, Building2, ClipboardCheck, CreditCard, SlidersHorizontal } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
@@ -14,6 +14,7 @@ const navItems = [
   { name: "Trips", icon: ArrowRightCircle, path: "/admin/trips" },
   { name: "Vehicles", icon: Car, path: "/admin/vehicles" },
   { name: "Drivers", icon: UserCircle, path: "/admin/drivers" },
+  { name: "Driver Preferences", icon: SlidersHorizontal, path: "/admin/driver-preferences" },
   { name: "Team Management", icon: Users, path: "/admin/team-management" },
   { name: "Driver Check-ins", icon: ClipboardCheck,path: "/admin/driver-checkins",},
   { name: "Payment & Pricing", icon: CreditCard, path: "/admin/payment" },

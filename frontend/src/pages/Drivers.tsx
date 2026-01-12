@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Car, Filter, Pencil } from 'lucide-react';
+import { Car, Filter, MoreVertical, Pencil, SlidersHorizontal } from 'lucide-react';
 
 import Drawer from '../components/layout/Drawer';
 import Table from '../components/ui/Table';
@@ -20,6 +20,7 @@ import { getVehiclesByFleet } from '../api/vehicle.api';
 import type { Vehicle } from '../models/vehicle/vehicle';
 import type { AssignmentEntity } from '../models/assignment/assignment';
 import AssignVehicleToDriverModal from '../components/driver/AssignVehicleToDriverModal';
+import DriverPreferencesDrawer from '../components/driver/DriverPreferencesDrawer';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -46,6 +47,31 @@ export default function DriverManagement() {
   const { effectiveFleetId } = useFleet();
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignDriver, setAssignDriver] = useState<Driver | null>(null);
+  const [prefOpen, setPrefOpen] = useState(false);
+  const [prefDriver, setPrefDriver] = useState<Driver | null>(null);
+  const [actionMenuDriverId, setActionMenuDriverId] = useState<string | null>(null);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!actionMenuDriverId) return;
+
+    const onDocMouseDown = (e: MouseEvent) => {
+      const el = actionMenuRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) setActionMenuDriverId(null);
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActionMenuDriverId(null);
+    };
+
+    document.addEventListener('mousedown', onDocMouseDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [actionMenuDriverId]);
 
   const refreshDrivers = useCallback(async () => {
     if (!effectiveFleetId) {
@@ -156,24 +182,68 @@ export default function DriverManagement() {
       key: "actions",
       label: "Actions",
       render: (d) => (
-        <div className="flex items-center gap-2">
+        <div
+          className="relative inline-flex"
+          ref={d.id === actionMenuDriverId ? actionMenuRef : undefined}
+        >
           <button
+            type="button"
+            className="p-2 hover:bg-yellow-100 rounded"
+            title="Actions"
+            aria-haspopup="menu"
+            aria-expanded={d.id === actionMenuDriverId}
             onClick={() => {
-              setAssignDriver(d);
-              setAssignOpen(true);
+              setActionMenuDriverId((prev) => (prev === d.id ? null : d.id));
             }}
-            className="p-2 hover:bg-yellow-100 rounded"
-            title="Assign vehicle"
           >
-            <Car size={16} />
+            <MoreVertical size={16} />
           </button>
-          <button
-            onClick={() => setSelectedDriver(d)}
-            className="p-2 hover:bg-yellow-100 rounded"
-            title="Edit driver"
-          >
-            <Pencil size={16} />
-          </button>
+
+          {d.id === actionMenuDriverId ? (
+            <div
+              className="absolute right-0 mt-2 w-52 rounded-md border border-black/10 bg-white shadow-lg overflow-hidden z-10"
+              role="menu"
+            >
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-yellow-50"
+                role="menuitem"
+                onClick={() => {
+                  setActionMenuDriverId(null);
+                  setPrefDriver(d);
+                  setPrefOpen(true);
+                }}
+              >
+                <SlidersHorizontal size={16} />
+                <span>Preferences</span>
+              </button>
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-yellow-50"
+                role="menuitem"
+                onClick={() => {
+                  setActionMenuDriverId(null);
+                  setAssignDriver(d);
+                  setAssignOpen(true);
+                }}
+              >
+                <Car size={16} />
+                <span>Assign vehicle</span>
+              </button>
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-yellow-50"
+                role="menuitem"
+                onClick={() => {
+                  setActionMenuDriverId(null);
+                  setSelectedDriver(d);
+                }}
+              >
+                <Pencil size={16} />
+                <span>Edit driver</span>
+              </button>
+            </div>
+          ) : null}
         </div>
       ),
     },
@@ -253,6 +323,17 @@ export default function DriverManagement() {
           onClose={() => setSelectedDriver(null)}
           onUpdated={() => void refreshDrivers()}
         />
+      </Drawer>
+
+      <Drawer
+        open={prefOpen && !!prefDriver}
+        onClose={() => {
+          setPrefOpen(false);
+          setPrefDriver(null);
+        }}
+        title="Driver Preferences"
+      >
+        {prefDriver ? <DriverPreferencesDrawer driverId={prefDriver.id} /> : null}
       </Drawer>
 
       {effectiveFleetId && assignDriver && (
