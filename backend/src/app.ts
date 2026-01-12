@@ -19,6 +19,7 @@ import mmtRoutes from "./modules/partner/mmt/mmt.routes.js";
 import attendanceRoutes from "./modules/attendance/attendance.routes.js";
 import webhookRoutes from "./modules/webhooks/webhook.routes.js";
 import paymentRoutes from "./modules/payment/payment.routes.js";
+import rapidoRoutes from "./modules/partner/rapido/rapido.routes.js";
 
 
 const app: Application = express();
@@ -99,6 +100,7 @@ app.use("/attendance", attendanceRoutes);
 app.use("/partner/mmt", mmtRoutes);
 app.use("/webhooks", webhookRoutes);
 app.use("/payment", paymentRoutes);
+app.use("/partner/rapido", rapidoRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

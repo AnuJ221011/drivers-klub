@@ -1,8 +1,8 @@
-# Driver's Klub API Reference
+# 📚 Complete API Reference (Canonical)
 
-**Version:** 1.0.0  
+**Version:** 3.1.0  
 **Base URL:** `http://localhost:5000` (Development) | `https://driversklub-backend.onrender.com/` (Production)
-**Last Updated:** December 30, 2025
+**Last Updated:** January 9, 2026
 
 ---
 
@@ -22,12 +22,14 @@
   - [Trips](#trips)
   - [Admin Trips](#admin-trips)
   - [Pricing](#pricing)
-  - [Payment System](#payment-system)
 - [Partner Integrations](#partner-integrations)
   - [MakeMyTrip (MMT)](#makemytrip-mmt)
 - [Webhooks](#webhooks)
 - [Error Handling](#error-handling)
 - [Rate Limiting](#rate-limiting)
+- [Support](#support)
+  - [Payment System](#payment-system)
+- [Rapido (Fleet)](#rapido-fleet)
 
 ---
 
@@ -1009,6 +1011,119 @@ Deactivate a fleet manager.
 
 ---
 
+#### GET `/drivers/:id/preference`
+
+Get current driver preferences.
+
+**Authentication:** Required
+**Roles:** `DRIVER`
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "preferences": {
+      "smokingAllowed": false,
+      "musicPreference": "Rock",
+      "acPreferred": true
+    }
+  }
+}
+```
+
+---
+
+#### POST `/drivers/:id/preference/update`
+
+Request a change in driver preferences.
+
+**Authentication:** Required
+**Roles:** `DRIVER`
+
+**Request Body:**
+
+```json
+{
+  "requestedPreference": {
+    "smokingAllowed": true
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "status": "PENDING",
+    "requestedPreference": { "smokingAllowed": true }
+  },
+  "message": "Preference change request submitted successfully"
+}
+```
+
+---
+
+#### GET `/drivers/preference/pending-requests`
+
+Get all pending preference change requests.
+
+**Authentication:** Required
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "driverId": "uuid",
+      "driverName": "Rajesh Kumar",
+      "currentPreference": { "smokingAllowed": false },
+      "requestedPreference": { "smokingAllowed": true },
+      "status": "PENDING",
+      "requestAt": "2026-01-08T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+#### POST `/drivers/preference/update-status`
+
+Approve or reject a preference change request.
+
+**Authentication:** Required
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "requestId": "uuid",
+  "status": "APPROVED",
+  "rejectionReason": "Optional reason if rejected"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Preference request status updated successfully"
+}
+```
+
+---
+
 ### Vehicles
 
 All vehicle endpoints require authentication.
@@ -1183,6 +1298,141 @@ Update vehicle details.
 
 ---
 
+#### GET `/drivers/:id/preference`
+
+Get driver preferences.
+
+**Authentication:** Required  
+**Roles:** `DRIVER`
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Driver preferences retrieved successfully",
+  "data": [
+    {
+      "key": "prefer_airport_rides",
+      "displayName": "Prefer airport rides",
+      "description": "Prioritize airport pickup and drop trips",
+      "category": "TRIP",
+      "approvalRequired": true,
+      "value": true
+    }
+  ]
+}
+```
+
+---
+
+#### POST `/drivers/:id/preference/update`
+
+Request preference change.
+
+**Authentication:** Required  
+**Roles:** `DRIVER`
+
+**Request Body:**
+
+```json
+{
+  "prefer_airport_rides": true,
+  "accept_rentals": true,
+  "auto_assign_rides": true
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Preference change request submitted successfully"
+}
+```
+
+---
+
+#### GET `/drivers/preference/pending-requests`
+
+Get pending preference requests.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Pending preference requests retrieved successfully",
+  "data": [
+    {
+      "id": "bd3c2df9-d58d-4b5a-8d20-2ecd8db1b63e",
+      "driverId": "ad8324ca-2dea-4618-ba5e-3095fa123d06",
+      "currentPreference": {
+        "accept_rentals": false,
+        "prefer_airport_rides": false
+      },
+      "requestedPreference": {
+        "accept_rentals": true,
+        "prefer_airport_rides": true
+      },
+      "status": "PENDING",
+      "requestAt": "2026-01-08T04:38:38.415Z"
+    }
+  ]
+}
+```
+
+---
+
+#### POST `/drivers/preference/update-status`
+
+Update preference request status.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body (Approve):**
+
+```json
+{
+  "id": "bd3c2df9-d58d-4b5a-8d20-2ecd8db1b63e",
+  "status": "APPROVED"
+}
+```
+
+**Request Body (Reject):**
+
+```json
+{
+  "id": "bd3c2df9-d58d-4b5a-8d20-2ecd8db1b63e",
+  "status": "REJECTED",
+  "rejection_reason": "demo test"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Preference change request updated successfully",
+  "data": {
+    "id": "bd3c2df9-d58d-4b5a-8d20-2ecd8db1b63e",
+    "status": "REJECTED",
+    "rejectionReason": "demo test"
+  }
+}
+```
+
+---
+
 #### PATCH `/vehicles/:id/docs`
 
 Update vehicle documents.
@@ -1199,6 +1449,7 @@ Update vehicle documents.
   "permitImage": "https://example.com/permit.jpg",
   "permitExpiry": "2034-12-31"
 }
+
 ```
 
 **Response:**
@@ -1500,6 +1751,8 @@ Driver check-out.
     "latitude": 28.4595,
     "longitude": 77.0266
   },
+  "odometer": 10500,
+  "cashDeposited": 500,
   "timestamp": "2025-12-26T18:00:00.000Z"
 }
 ```
@@ -2225,7 +2478,7 @@ Partner integration endpoints for MakeMyTrip.
 
 Search for available vehicles (MMT → Driver's Klub).
 
-**Authentication:** None (Partner API)
+**Authentication:** Basic Auth (Username/Password)
 
 **Request Body:**
 
@@ -2262,7 +2515,7 @@ Search for available vehicles (MMT → Driver's Klub).
 
 Block a vehicle for booking (MMT → Driver's Klub).
 
-**Authentication:** None (Partner API)
+**Authentication:** Basic Auth (Username/Password)
 
 **Request Body:**
 
@@ -2294,7 +2547,7 @@ Block a vehicle for booking (MMT → Driver's Klub).
 
 Confirm booking payment (MMT → Driver's Klub).
 
-**Authentication:** None (Partner API)
+**Authentication:** Basic Auth (Username/Password)
 
 **Request Body:**
 
@@ -2383,7 +2636,7 @@ Get booking details (MMT → Driver's Klub).
 
 Validate logic for reschedule request (MMT → Driver's Klub).
 
-**Authentication:** Key/Token based (as per MMT config)
+**Authentication:** Basic Auth (Username/Password)
 
 **Request Body:**
 
@@ -2419,7 +2672,7 @@ Validate logic for reschedule request (MMT → Driver's Klub).
 
 Confirm reschedule request (MMT → Driver's Klub).
 
-**Authentication:** Key/Token based (as per MMT config)
+**Authentication:** Basic Auth (Username/Password)
 
 **Request Body:**
 
@@ -2633,6 +2886,33 @@ Get driver balance & rental status.
     "daysRemaining": 3,
     "isExpired": false
   }
+}
+```
+
+---
+
+##### GET `/payment/rental/plans`
+
+Get available rental plans for the driver's fleet.
+
+**Authentication:** Required  
+**Roles:** `DRIVER`
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Weekly Plan",
+      "rentalAmount": 3000,
+      "depositAmount": 5000,
+      "validityDays": 7,
+      "isActive": true
+    }
+  ]
 }
 ```
 
@@ -3009,21 +3289,38 @@ Reconcile daily collection.
 ---
 
 ##### POST `/payment/admin/collection/:id/payout`
+>
+> **DEPRECATED**: Use Bulk Payout instead.
 
-Process daily payout.
+Process daily payout (Legacy).
 
-**Authentication:** Required  
+**Authentication:** Required
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+---
+
+##### POST `/payment/admin/bulk-payout`
+
+Upload CSV for automated bulk payouts.
+
+**Authentication:** Required
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request:** `multipart/form-data`
+
+- `file`: CSV File (`phone,amount` or `accountNumber,amount`)
 
 **Response:**
 
 ```json
 {
-  "success": true,
-  "txnId": "TXN_1735123456_PAY456",
-  "status": "SUCCESS",
-  "utr": "UTR987654321",
-  "amount": 3800
+  "total": 10,
+  "success": 9,
+  "failed": 1,
+  "amountDisbursed": 45000,
+  "details": [
+    { "phone": "9876543210", "status": "SUCCESS", "amount": 5000, "utr": "UTR..." }
+  ]
 }
 ```
 
@@ -3077,5 +3374,170 @@ Get vehicle QR code.
 
 **Authentication:** Required  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+---
+
+---
+
+### InstaCollect Orders (Dynamic QR)
+
+These endpoints manage ad-hoc payment orders where a customer can pay via a dynamic QR code, supporting partial payments.
+
+#### POST `/payment/orders`
+
+Create a new payment order. This generates a unique virtual account and QR code.
+
+**Authentication:** Required
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Request Body:**
+
+```json
+{
+  "customerName": "John Doe",
+  "customerPhone": "9876543210",
+  "customerEmail": "john@example.com",
+  "description": "Invoice #1234",
+  "amount": 5000
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": "uuid",
+  "totalAmount": 5000,
+  "collectedAmount": 0,
+  "remainingAmount": 5000,
+  "status": "PENDING",
+  "virtualAccountId": "VA123456",
+  "virtualAccountNumber": "1234567890",
+  "ifscCode": "HDFC0000001",
+  "qrCodeBase64": "data:image/png;base64,...",
+  "upiId": "driversklub.va123456@easebuzz",
+  "paymentLink": "https://testpay.easebuzz.in/pay/..."
+}
+```
+
+---
+
+#### GET `/payment/orders`
+
+List payment orders.
+
+**Authentication:** Required
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Query Parameters:**
+
+- `status` (string, optional): `PENDING`, `PARTIAL`, `COMPLETED`, `FAILED`
+- `search` (string, optional): Search by customer name or phone
+
+**Response:**
+
+```json
+{
+  "orders": [
+    {
+      "id": "uuid",
+      "customerName": "John Doe",
+      "totalAmount": 5000,
+      "collectedAmount": 2000,
+      "remainingAmount": 3000,
+      "status": "PARTIAL",
+      "createdAt": "2025-12-30T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+#### GET `/payment/orders/:id`
+
+Get detailed order information including transaction history.
+
+**Authentication:** Required
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Response:**
+
+```json
+{
+  "id": "uuid",
+  "customerName": "John Doe",
+  "totalAmount": 5000,
+  "collectedAmount": 2000,
+  "remainingAmount": 3000,
+  "status": "PARTIAL",
+  "transactions": [
+    {
+      "id": "tx_1",
+      "amount": 2000,
+      "status": "SUCCESS",
+      "createdAt": "2025-12-30T10:05:00Z",
+      "easebuzzTxnId": "TXN123"
+    }
+  ]
+}
+```
+
+### Rapido (Fleet)
+
+Webhook callbacks from Rapido Fleet API.
+
+#### POST `/rapido/webhook/order-status`
+
+Callback for Rapido order status updates.
+
+**Authentication:** None (Public/Webhook)
+
+**Request Body:**
+
+```json
+{
+  "orderId": "rapido_order_123",
+  "status": "started",
+  "captainId": "cap_123",
+  "timestamp": "2025-12-30T10:00:00Z"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Order status updated"
+}
+```
+
+---
+
+#### POST `/rapido/webhook/captain-status`
+
+Callback for Captain login/availability status.
+
+**Authentication:** None (Public/Webhook)
+
+**Request Body:**
+
+```json
+{
+  "captainId": "cap_123",
+  "status": "online",
+  "location": { "lat": 28.5, "lng": 77.1 }
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Captain status updated"
+}
+```
 
 ---

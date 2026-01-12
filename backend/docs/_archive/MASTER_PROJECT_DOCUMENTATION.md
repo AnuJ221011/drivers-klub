@@ -27,7 +27,8 @@
 - ✅ Input validation implemented
 - ✅ Health check enhanced with DB connectivity
 - ✅ OTP security hardened (one-time use, deleted after verification)
-- ✅ **Payment system implemented** (Easebuzz integration, rental & payout models)
+- ✅ **Payment System Finalized** (Easebuzz, Rental Model, & Manual Payout with Bulk CSV)
+- ✅ **Rapido Integration** (Automated Status Sync, Fleet API)
 
 ---
 
@@ -65,6 +66,27 @@ graph TD
 - **Auth**: JWT (1h Access / 30d Refresh) + Custom OTP (Exotel Integration)
 - **Logging**: Winston (File + Console)
 - **Testing**: `tsx` scripts (E2E Flow)
+
+---
+
+### 1.3 Payment & Financial Architecture
+
+The platform implements a comprehensive financial ledger system:
+
+- **Rental Model**:
+  - **Plans**: Created by Fleet Managers (e.g., Weekly, Daily).
+  - **Subscription**: Drivers purchase plans using Easebuzz PG.
+  - **Validation**: System checks fleet affinity before allowing purchase.
+- **InstaCollect (Ad-Hoc)**:
+  - **Orders**: Dynamic QR generation for specific amounts (Partial payments supported).
+  - **Settlement**: Real-time webhook reconciliation.
+- **Payout Model**:
+  - **Collection**: Tracks Cash vs Online trip payments.
+  - **Reconciliation**: Admins verify daily collections.
+  - **Disbursement**: Bulk CSV upload triggers IMPS wire transfers via Easebuzz.
+- **Ledger**:
+  - Tracks all credits (Incentives, Trip Fares) and debits (Rentals, Penalties).
+  - Real-time wallet balance calculation.
 
 ---
 
@@ -302,7 +324,7 @@ All payment transactions (deposits, rentals, penalties, payouts).
 | :--- | :--- | :--- |
 | `id` | UUID | Primary Key |
 | `driverId` | UUID | Foreign Key to Driver |
-| `type` | Enum | `DEPOSIT`, `RENTAL`, `PENALTY`, `INCENTIVE`, `PAYOUT` |
+| `type` | Enum | `DEPOSIT`, `RENTAL`, `PENALTY`, `INCENTIVE`, `PAYOUT`, `ORDER_PAYMENT` |
 | `amount` | Float | Transaction amount |
 | `status` | Enum | `PENDING`, `SUCCESS`, `FAILED` |
 | `paymentMethod` | Enum | `PG_UPI`, `PG_CARD`, `CASH`, `BANK_TRANSFER` |
@@ -349,7 +371,7 @@ Daily collection tracking for payout model drivers.
 | `cashCollectionAmount` | Float | Cash collections |
 | `totalCollection` | Float | Total daily collection |
 | `revShareAmount` | Float | Revenue share amount |
-| `netPayout` | Float | Net payout after incentives/penalties |
+| `netPayout` | Float | Net payout (Manually calculated/paid via Bulk CSV) |
 | `isReconciled` | Boolean | Reconciliation status |
 | `isPaid` | Boolean | Payout status |
 
@@ -367,7 +389,20 @@ Vehicle-specific virtual QR codes for payment collection.
 | `upiId` | String | UPI ID for payments |
 | `isActive` | Boolean | QR code status |
 
-...
+#### PaymentOrder
+
+Ad-hoc orders for dynamic QR collection.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `id` | UUID | Primary Key |
+| `userId` | UUID? | Creator (Admin/Manager) |
+| `virtualAccountId` | String | Easebuzz VA ID |
+| `totalAmount` | Float | Expected amount |
+| `collectedAmount` | Float | Received so far |
+| `remainingAmount` | Float | Outstanding |
+| `status` | Enum | `PENDING`, `PARTIAL`, `COMPLETED` |
+| `customerName` | String | Customer Name |
 
 ### 4.4 Strict Trip Logic (Industrial Standard)
 
@@ -396,31 +431,57 @@ We act as a **Vendor** for MakeMyTrip.
 ### 5.1 Inbound API (MMT calls Us)
 
 - **Search**: `POST /partner/mmt/partnersearchendpoint`
-  - Checks city coverage and vehicle availability.
-
 - **Block**: `POST /partner/mmt/partnerblockendpoint`
-  - Creates a `BLOCKED` trip to hold inventory.
 - **Confirm**: `POST /partner/mmt/partnerpaidendpoint`
-  - Converts `BLOCKED` to `CREATED`.
+- **Cancel**: `POST /partner/mmt/partnercancelendpoint`
+- **Reschedule (Check)**: `POST /partner/mmt/partnerrescheduleblockendpoint`
+- **Reschedule (Confirm)**: `POST /partner/mmt/partnerrescheduleconfirmendpoint`
+- **Details**: `GET /partner/mmt/booking/details`
 
 ### 5.2 Outbound Webhooks (We call MMT)
 
 We push status updates to MMT's webhook URL:
 
-- `/driver-assigned`: When Admin assigns a driver.
-- `/start`: When Driver slides "Start".
-- `/arrived`: When Driver reaches pickup.
-- `/pickup`: When Passenger boards (OTP).
-- `/alight`: When Trip completes.
-- `/detach-trip`: When Admin unassigns/cancels.
-- `/update-location`: When Driver app pushes live GPS updates.
-- `/reassign-chauffeur`: When Admin reassigns a driver.
+- `/driver-assigned`
+- `/arrived` (Driver at pickup)
+- `/start` (Trip Started)
+- `/pickup` (Passenger Onboard)
+- `/alight` (Trip Completed)
+- `/not_boarded` (No Show)
+- `/update-location` (Live Tracking)
+- `/reassign-chauffeur` (Driver Reassigned)
+- `/detach-trip` (Trip Cancelled/Unassigned)
 
 ### 5.3 Reschedule Logic
 
 - **Endpoint:** `POST /partner/mmt/partnerrescheduleendpoint`
 - **Logic:** Updates `pickupTime` for an existing confirmed booking.
 - **Constraint:** Cannot reschedule `COMPLETED` or `CANCELLED` trips.
+
+### 5.4 Rapido Fleet Integration (Status Sync)
+
+The system automatically manages driver availability on Rapido to prevent conflicts with internal duties.
+
+| Condition | Rapido Status | Reason |
+| :--- | :--- | :--- |
+| **Logged In & Idle** | **ONLINE** | Available for work. |
+| **On Rapido Trip** | *unchanged* | Already busy on Rapido. |
+| **On Internal Trip** | **OFFLINE** | Busy with internal duty. |
+| **Upcoming Trip** (< 45m) | **OFFLINE** | Reserved for upcoming duty (Buffer Configurable). |
+| **On Break** | **OFFLINE** | Driver unavailable. |
+| **Not Checked In** | **OFFLINE** | Strict Policy: No attendance = Offline. |
+
+- **Buffer Config**: `RAPIDO_PRE_TRIP_BUFFER_MINUTES` (Default: 45) in `.env`.
+- **Buffer Config**: `RAPIDO_PRE_TRIP_BUFFER_MINUTES` (Default: 45) in `.env`.
+- **Worker**: A background job runs every 5 minutes to enforcement this logic preemptively.
+
+### 5.5 Edge Case Mitigation 🆕
+
+To ensure reliability, we implemented:
+
+1. **Multi-Provider Conflict**: Drivers are forced **OFFLINE** on Rapido if they have an active trip on *any* other provider (MMT, MojoBoxx, Internal).
+2. **Manual Override Control**: If a driver manually forced themselves **ONLINE** implies a policy violation, the system immediately forces them back **OFFLINE** via Webhook listeners.
+3. **Retry Queue**: Failed API status updates (due to network issues) are queued in `providerMetadata` and retried automatically by the background worker (Max 5 attempts).
 
 ---
 
@@ -444,77 +505,60 @@ npm run dev
 
 Create a `.env` file based on [`.env.example`](file:///d:/drivers-klub/driversklub-backend/.env.example):
 
-```ini
-# ========================================
-# Database Configuration
-# ========================================
-DATABASE_URL="postgresql://user:pass@localhost:5432/driversklub"
+```bash
+# Database
+DATABASE_URL="postgresql://user:pass@localhost:5432/driversklub?schema=public"
 
-# ========================================
-# Server Configuration
-# ========================================
+# App Config
 PORT=5000
-NODE_ENV="development"  # development | production
+NODE_ENV=development
 
-# ========================================
 # CORS Configuration
-# ========================================
-# Comma-separated list of allowed origins (production only)
-# In development, CORS allows all origins (*)
-ALLOWED_ORIGINS="https://admin.driversklub.com,https://app.driversklub.com"
+ALLOWED_ORIGINS="http://localhost:3000,http://localhost:3001"
 
-# ========================================
-# JWT Authentication
-# ========================================
-JWT_SECRET="your-super-secret-jwt-key-change-in-production"
+# Authentication (JWT)
+JWT_ACCESS_SECRET="changeme_access_secret"
+JWT_REFRESH_SECRET="changeme_refresh_secret"
 JWT_ACCESS_EXPIRES_IN="15m"
 JWT_REFRESH_EXPIRES_IN="7d"
 
-# ========================================
 # OTP Service (Exotel)
-# ========================================
-EXOTEL_API_KEY="your-exotel-api-key"
-EXOTEL_API_TOKEN="your-exotel-api-token"
-EXOTEL_SID="your-exotel-sid"
-EXOTEL_FROM_NUMBER="+911234567890"
+EXOTEL_ACCOUNT_SID="your_exotel_sid"
+EXOTEL_API_KEY="your_exotel_api_key"
+EXOTEL_API_TOKEN="your_exotel_api_token"
+EXOTEL_SENDER_ID="your_sender_id"
+OTP_EXPIRY_MINUTES=5
+OTP_MAX_ATTEMPTS=3
+OTP_BYPASS_KEY="dev_bypass_key"
 
-# ========================================
-# Partner Integration (MakeMyTrip)
-# ========================================
-MMT_WEBHOOK_URL="https://mmt-staging-api.com/v1/webhook"
-MMT_API_KEY="your-mmt-api-key"
-MMT_PARTNER_ID="your-partner-id"
+# External Providers (MojoBoxx)
+MOJOBOXX_BASE_URL="https://api.mojoboxx.com"
+MOJOBOXX_USERNAME="your_username"
+MOJOBOXX_PASSWORD="your_password"
 
-# ========================================
+# External Providers (MMT)
+MMT_BASE_URL="https://api.mmt.com"
+MMT_AUTH_URL="https://api-cert.makemytrip.com/v1/auth"
+MMT_CLIENT_ID="your_mmt_client_id"
+MMT_CLIENT_SECRET="your_mmt_client_secret"
+
+# Timezone Configuration
+TZ=Asia/Kolkata
+APP_TIMEZONE=Asia/Kolkata
+
 # Background Worker (Provider Status Sync)
-# ========================================
-WORKER_SYNC_INTERVAL_MS="300000"  # 5 minutes (300000ms)
-WORKER_ENABLED="true"  # Set to false to disable background worker
+WORKER_SYNC_INTERVAL_MS=300000  # 5 minutes
+WORKER_ENABLED=true
+RAPIDO_PRE_TRIP_BUFFER_MINUTES=45
 
-# ========================================
 # Payment Gateway (Easebuzz)
-# ========================================
 EASEBUZZ_MERCHANT_KEY="your_easebuzz_merchant_key"
 EASEBUZZ_SALT_KEY="your_easebuzz_salt_key"
 EASEBUZZ_ENV="test"  # test or production
-EASEBUZZ_BASE_URL="https://testpay.easebuzz.in"  # Use https://pay.easebuzz.in for production
 
-# Payment System Configuration
-DEFAULT_REV_SHARE_PERCENTAGE=70  # Driver gets 70%, platform gets 30%
+# Payment Defaults
 PAYMENT_SUCCESS_URL="http://localhost:3000/payment/success"
 PAYMENT_FAILURE_URL="http://localhost:3000/payment/failure"
-
-# ========================================
-# Testing
-# ========================================
-TEST_BASE_URL="http://localhost:5000"
-
-# ========================================
-# Optional: Logging & Rate Limiting
-# ========================================
-LOG_LEVEL="info"  # error | warn | info | debug
-RATE_LIMIT_WINDOW_MS="900000"  # 15 minutes
-RATE_LIMIT_MAX_REQUESTS="100"  # Max requests per window
 ```
 
 ### 6.3 Verification (Comprehensive Test Suite)

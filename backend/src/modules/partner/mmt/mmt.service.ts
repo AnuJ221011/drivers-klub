@@ -172,25 +172,55 @@ export class MMTService {
             throw new ApiError(400, "Cannot reschedule a completed or cancelled ride");
         }
 
-        // Persist pending reschedule time
+        // Generate new OTP for the rescheduled ride
+        const verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+        // Persist pending reschedule time and new OTP in providerMeta
+        const currentMeta = (trip.providerMeta as Record<string, any>) || {};
         await prisma.ride.update({
             where: { id: bookingId },
-            data: { pendingRescheduleTime: newPickupTime }
+            data: {
+                pendingRescheduleTime: newPickupTime,
+                providerMeta: {
+                    ...currentMeta,
+                    rescheduleOtp: verificationCode
+                }
+            }
         });
 
-        // Mock response data as per Official Spec
+        // Fetch assigned driver details if any
+        // Assignments use AssignmentStatus enum: ASSIGNED, ACTIVE (on-going)
+        const activeAssignment = await prisma.tripAssignment.findFirst({
+            where: {
+                tripId: bookingId,
+                status: { in: ['ASSIGNED', 'ACTIVE'] }
+            },
+            include: {
+                driver: {
+                    include: { user: true }
+                }
+            }
+        });
+
+        let driverDetails = null;
+        if (activeAssignment?.driver) {
+            driverDetails = {
+                name: `${activeAssignment.driver.firstName} ${activeAssignment.driver.lastName || ''}`.trim(),
+                mobile: activeAssignment.driver.mobile,
+                lat: 0, // Placeholder
+                lng: 0
+            };
+        }
+
         return {
             response: {
                 success: true,
-                verification_code: "1234", // Mock or retrieve from trip
+                verification_code: verificationCode,
                 fare_details: {
-                    total_amount: trip.price, // Using existing price
-                    payable_amount: trip.price
+                    total_amount: trip.price,
+                    payable_amount: trip.price // Assuming no price change for reschedule logic V1
                 },
-                driver_details: {
-                    name: "Test Driver",
-                    mobile: "9999999999"
-                }
+                driver_details: driverDetails
             }
         };
     }

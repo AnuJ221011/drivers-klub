@@ -32,7 +32,7 @@ export function generatePaymentHash(params: HashGenerationParams): string {
         salt,
     } = params;
 
-    const hashString = `${key}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|${udf1}|${udf2}|${udf3}|${udf4}|${udf5}|||||||||${salt}`;
+    const hashString = `${key}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|${udf1}|${udf2}|${udf3}|${udf4}|${udf5}||||||${salt}`;
 
     return crypto.createHash('sha512').update(hashString).digest('hex');
 }

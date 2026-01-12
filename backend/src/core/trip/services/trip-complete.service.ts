@@ -1,5 +1,8 @@
 import { prisma } from "@/utils/prisma.js";
 import { AssignmentStatus } from "@/shared/enums/assignment-status.enum.js";
+import { RapidoService } from "@/modules/partner/rapido/rapido.service.js";
+
+const rapidoService = new RapidoService();
 
 export class TripCompleteService {
     static async completeTrip(tripId: string) {
@@ -27,6 +30,9 @@ export class TripCompleteService {
                     where: { id: assignment.driverId },
                     data: { isAvailable: true },
                 });
+
+                // Sync Rapido Status (Trip Completed -> potentially ONLINE)
+                rapidoService.validateAndSyncRapidoStatus(assignment.driverId, "TRIP_COMPLETED").catch(console.error);
             }
         });
     }

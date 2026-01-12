@@ -36,52 +36,73 @@ export const getBalance = async (req: Request, res: Response) => {
  * GET /payment/transactions
  */
 export const getTransactions = async (req: Request, res: Response) => {
-    const { id: userId } = req.user as any;
-    const { page = 1, limit = 20, type, status, startDate, endDate } = req.query;
+    try {
+        const { id: userId } = req.user as any;
+        const { page = 1, limit = 20, type, status, startDate, endDate } = req.query;
 
-    const driver = await prisma.driver.findFirst({
-        where: { userId },
-    });
+        const driver = await prisma.driver.findFirst({
+            where: { userId },
+        });
 
-    if (!driver) {
-        return res.status(404).json({ message: 'Driver not found' });
-    }
+        if (!driver) {
+            return res.status(404).json({ message: 'Driver not found' });
+        }
 
-    const skip = (Number(page) - 1) * Number(limit);
+        const pageNum = Math.max(1, Number(page));
+        const limitNum = Math.max(1, Number(limit));
+        const skip = (pageNum - 1) * limitNum;
 
-    const where: any = { driverId: driver.id };
-    if (type) where.type = type;
-    if (status) where.status = status;
-    if (startDate || endDate) {
-        where.createdAt = {};
-        if (startDate) where.createdAt.gte = new Date(startDate as string);
-        if (endDate) where.createdAt.lte = new Date(endDate as string);
-    }
+        const where: any = { driverId: driver.id };
+        if (type) where.type = type;
+        if (status) where.status = status;
 
-    const [transactions, total] = await Promise.all([
-        prisma.transaction.findMany({
-            where,
-            skip,
-            take: Number(limit),
-            orderBy: { createdAt: 'desc' },
-        }),
-        prisma.transaction.count({ where }),
-    ]);
+        if (startDate || endDate) {
+            where.createdAt = {};
+            if (startDate) {
+                const start = new Date(startDate as string);
+                if (!isNaN(start.getTime())) {
+                    where.createdAt.gte = start;
+                }
+            }
+            if (endDate) {
+                const end = new Date(endDate as string);
+                if (!isNaN(end.getTime())) {
+                    where.createdAt.lte = end;
+                }
+            }
+        }
 
-    ApiResponse.send(
-        res,
-        200,
-        {
-            transactions,
-            pagination: {
-                page: Number(page),
-                limit: Number(limit),
-                total,
-                totalPages: Math.ceil(total / Number(limit)),
+        const [transactions, total] = await Promise.all([
+            prisma.transaction.findMany({
+                where,
+                skip,
+                take: limitNum,
+                orderBy: { createdAt: 'desc' },
+            }),
+            prisma.transaction.count({ where }),
+        ]);
+
+        ApiResponse.send(
+            res,
+            200,
+            {
+                transactions,
+                pagination: {
+                    page: pageNum,
+                    limit: limitNum,
+                    total,
+                    totalPages: Math.ceil(total / limitNum),
+                },
             },
-        },
-        'Transactions retrieved successfully'
-    );
+            'Transactions retrieved successfully'
+        );
+    } catch (error: any) {
+        console.error('Get Transactions Error:', error);
+        res.status(500).json({
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
 };
 
 /**
@@ -225,6 +246,26 @@ export const initiateRental = async (req: Request, res: Response) => {
     ApiResponse.send(res, 200, payment, 'Rental payment initiated');
 };
 
+/**
+ * Get available rental plans for driver
+ * GET /payment/rental/plans
+ */
+export const getDriverRentalPlans = async (req: Request, res: Response) => {
+    const { id: userId } = req.user as any;
+
+    const driver = await prisma.driver.findFirst({
+        where: { userId },
+    });
+
+    if (!driver) {
+        return res.status(404).json({ message: 'Driver not found' });
+    }
+
+    const plans = await rentalService.getRentalPlans(driver.fleetId, true);
+
+    ApiResponse.send(res, 200, plans, 'Rental plans retrieved successfully');
+};
+
 // ============================================
 // ADMIN ENDPOINTS
 // ============================================
@@ -234,7 +275,33 @@ export const initiateRental = async (req: Request, res: Response) => {
  * POST /admin/payment/rental-plans
  */
 export const createRentalPlan = async (req: Request, res: Response) => {
-    const { fleetId, name, rentalAmount, depositAmount, validityDays } = req.body;
+    const { id: userId, role } = req.user as any;
+    let { fleetId, name, rentalAmount, depositAmount, validityDays } = req.body;
+
+    // Secure fleetId for Managers
+    if (role === 'MANAGER') {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const fleetManager = await prisma.fleetManager.findFirst({
+            where: { mobile: user.phone },
+        });
+
+        if (!fleetManager) {
+            return res.status(403).json({ message: 'Fleet Manager profile not found' });
+        }
+
+        fleetId = fleetManager.fleetId;
+    }
+
+    if (!fleetId) {
+        return res.status(400).json({ message: 'Fleet ID is required' });
+    }
 
     const plan = await rentalService.createRentalPlan({
         fleetId,
@@ -412,4 +479,24 @@ export const getVehicleQR = async (_req: Request, res: Response) => {
     }
 
     ApiResponse.send(res, 200, qr, 'Virtual QR retrieved successfully');
+};
+
+/**
+ * Upload bulk payout file
+ * POST /admin/payment/bulk-payout
+ */
+export const uploadBulkPayout = async (req: Request, res: Response) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    try {
+        const result = await payoutService.processBulkPayout(req.file.buffer);
+        ApiResponse.send(res, 200, result, 'Bulk payout processed successfully');
+    } catch (error: any) {
+        return res.status(500).json({
+            message: 'Error processing bulk payout',
+            error: error.message
+        });
+    }
 };

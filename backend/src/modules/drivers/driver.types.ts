@@ -1,4 +1,4 @@
-import type { Driver, DriverStatus, KycStatus } from "@prisma/client";
+import type { Driver, DriverStatus, KycStatus, DriverPreference, DriverPreferenceRequest, PreferenceDefination} from "@prisma/client";
 
 export type CreateDriverInput = {
   userId: string;
@@ -31,8 +31,16 @@ export type UpdateDriverStatusInput = {
   status: DriverStatus;
 };
 
+
 export type UpdateDriverAvailabilityInput = {
   isAvailable: boolean;
 };
 
 export type DriverEntity = Driver;
+export type DriverPreferenceEntity = DriverPreference;
+export type DriverPreferenceRequestEntity = DriverPreferenceRequest;
+export type DriverPreferenceDefinationEnitity = PreferenceDefination;
+
+export type UpdateDriverPreferenceInput = {
+  requestedPreference: JSON;
+}

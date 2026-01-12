@@ -178,6 +178,17 @@ components:
         netPayout: { type: number }
         isReconciled: { type: boolean }
 
+    PaymentOrder:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        virtualAccountId: { type: string }
+        customerName: { type: string }
+        totalAmount: { type: number }
+        collectedAmount: { type: number }
+        remainingAmount: { type: number }
+        status: { type: string, enum: [PENDING, PARTIAL, COMPLETED] }
+
 security:
   - bearerAuth: []
 
@@ -301,6 +312,42 @@ paths:
       responses:
         200:
           description: Payouts Initiated
+
+  /payment/orders:
+    post:
+      tags: [Payment Admin]
+      summary: Create InstaCollect Order
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customerName, customerPhone, amount]
+              properties:
+                customerName: { type: string }
+                customerPhone: { type: string }
+                amount: { type: number }
+                description: { type: string }
+      responses:
+        201:
+          description: Order Created
+    get:
+      tags: [Payment Admin]
+      summary: List Orders
+      responses:
+        200: { description: List of Orders }
+
+  /payment/orders/{id}:
+    get:
+      tags: [Payment Admin]
+      summary: Get Order Details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200: { description: Order Details }
 
   # ================= WEBHOOKS =================
   /webhooks/easebuzz:
@@ -472,3 +519,50 @@ paths:
           schema: { type: string }
       responses:
         200: { description: OK }
+
+  # ================= RAPIDO PARTNER ENDPOINTS =================
+  /rapido/webhook/order-status:
+    post:
+      summary: Rapido Order Status Callback
+      description: Webhook for Rapido order status updates
+      tags:
+        - Rapido
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId:
+                  type: string
+                status:
+                  type: string
+                captainId:
+                  type: string
+                timestamp:
+                  type: string
+      responses:
+        "200":
+          description: Status updated successfully
+
+  /rapido/webhook/captain-status:
+    post:
+      summary: Rapido Captain Status Callback
+      description: Webhook for Captain availability updates
+      tags:
+        - Rapido
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                captainId:
+                  type: string
+                status:
+                  type: string
+                location:
+                  type: object
+      responses:
+        "200":
+          description: Status updated successfully

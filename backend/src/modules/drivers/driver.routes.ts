@@ -7,20 +7,21 @@ import {
   updateDriver,
   updateDriverAvailability,
   updateDriverStatus,
-  getDriversByHub
+  getDriversByHub,
+  getDriverPreferences,
+  createDriverPreferencesChangeRequest,
+  getAllPreferenceChangePendingRequests,
+  updatePreferenceChangeRequestStatus,
 } from "./driver.controller.js";
 import { authenticate } from "../../middlewares/authenticate.js";
 import { authorizeRoles } from "../../middlewares/authorize.js";
 
 const router = Router();
 
+
 router.use(authenticate);
 
-router.post(
-  "/",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
-  createDriver
-);
+router.post("/", authorizeRoles("SUPER_ADMIN", "OPERATIONS"), createDriver);
 
 router.get(
   "/fleet/:fleetId",
@@ -34,11 +35,7 @@ router.get(
   getDriversByHub
 );
 
-router.get(
-  "/me",
-  authorizeRoles("DRIVER"),
-  getMyProfile
-);
+router.get("/me", authorizeRoles("DRIVER"), getMyProfile);
 
 router.get(
   "/:id",
@@ -62,6 +59,30 @@ router.patch(
   "/:id/availability",
   authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER"),
   updateDriverAvailability
+);
+
+router.get("/:id/preference",
+  authorizeRoles("SUPER_ADMIN","DRIVER"),
+  getDriverPreferences
+);
+
+
+router.post(
+  "/:id/preference/update",
+  authorizeRoles("SUPER_ADMIN", "DRIVER"),
+  createDriverPreferencesChangeRequest
+);
+
+router.get(
+  "/preference/pending-requests",
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  getAllPreferenceChangePendingRequests
+);
+
+router.post(
+  "/preference/update-status",
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  updatePreferenceChangeRequestStatus
 );
 
 export default router;

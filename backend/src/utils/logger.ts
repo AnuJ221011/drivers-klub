@@ -1,14 +1,23 @@
-import winston from "winston";
+import winston from 'winston';
 
-const { combine, timestamp, json, errors, colorize, simple } =
-    winston.format;
-
-const isProd = process.env.NODE_ENV === "production";
+const isProduction = process.env.NODE_ENV === 'production';
 
 export const logger = winston.createLogger({
-    level: isProd ? "info" : "debug",
-    format: isProd
-        ? combine(timestamp(), errors({ stack: true }), json())
-        : combine(colorize(), timestamp(), simple()),
-    transports: [new winston.transports.Console()]
+    level: process.env.LOG_LEVEL || 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
+        winston.format.json()
+    ),
+    defaultMeta: { service: 'driversklub-backend' },
+    transports: [
+        new winston.transports.Console({
+            format: isProduction
+                ? winston.format.json()
+                : winston.format.combine(
+                    winston.format.colorize(),
+                    winston.format.simple()
+                )
+        })
+    ]
 });

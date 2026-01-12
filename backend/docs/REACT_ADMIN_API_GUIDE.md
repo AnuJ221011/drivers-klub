@@ -5,7 +5,7 @@
 **Base URL (Development):** `http://localhost:5000`  
 **Auth:** Requires `Authorization: Bearer <TOKEN>` with Role `SUPER_ADMIN` or `OPERATIONS`  
 **Version:** 3.1.0  
-**Last Updated:** December 30, 2025
+**Last Updated:** January 9, 2026
 
 ---
 
@@ -17,7 +17,9 @@
 4. [Operations & Assignments](#4-operations--assignments)
 5. [User Management](#5-user-management)
 6. [Pricing Calculator](#6-pricing-calculator)
-7. [Frontend Implementation Notes](#7-frontend-implementation-notes)
+7. [Payment & Financial Management](#7-payment--financial-management)
+8. [Frontend Implementation Notes](#8-frontend-implementation-notes)
+9. [Rapido Operational Monitoring](#9-rapido-operational-monitoring)
 
 ---
 
@@ -123,7 +125,12 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
         "pickupTime": "2025-12-25T10:00:00Z",
         "status": "CREATED",
         "price": 1200,
-        "driver": null
+        "driver": null,
+        "customerPhone": "9876543210",
+        "providerMapping": {
+          "providerType": "MMT",
+          "externalBookingId": "MMT-123"
+        }
       }
     ],
     "total": 150,
@@ -232,6 +239,9 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ### 3.1 Fleets (Operators)
 
+> [!TIP]
+> **Rapido Integration:** Rapido Captains are managed as a Fleet. Their status is synced automatically.
+
 #### Create Fleet
 
 **Endpoint:** `POST /fleets`  
@@ -286,13 +296,35 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 #### Get Fleet Details
 
-**Endpoint:** `GET /fleets/:id`  
-**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+---
 
-#### Deactivate Fleet
+## 3. Fleet Management
 
-**Endpoint:** `PATCH /fleets/:id/deactivate`  
+### 3.1 Fleets & Hubs
+
+#### Create Fleet
+
+**Endpoint:** `POST /fleets`
 **Role:** `SUPER_ADMIN`
+
+#### Manage Hubs
+
+**Create Hub:** `POST /fleets/:id/hubs`
+**List Hubs:** `GET /fleets/:id/hubs`
+**Get Hub Details:** `GET /fleets/hubs/:id`
+
+#### Manage Hub Managers
+
+**Create Manager:** `POST /fleets/:id/hub-managers`
+**List Managers:** `GET /fleets/:id/hub-managers`
+**Assign Manager:** `POST /fleets/hubs/:hubId/assign-manager`
+
+#### Fleet Resources (Hub Context)
+
+**Add Vehicle to Hub:** `POST /fleets/hubs/:id/add-vehicle`
+**Remove Vehicle from Hub:** `POST /fleets/hubs/:id/remove-vehicle`
+**Add Driver to Hub:** `POST /fleets/hubs/:id/add-driver`
+**Remove Driver from Hub:** `POST /fleets/hubs/:id/remove-driver`
 
 ---
 
@@ -456,11 +488,44 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ## 4. Operations & Assignments
 
-### 4.1 Approve Attendance
+### 3.4 Update Driver Status & Availability
 
-**Endpoint:** `POST /attendance/:id/approve`  
-**Roles:** `SUPER_ADMIN`, `MANAGER`  
-**Description:** Admins review selfies and odometer readings before approving the shift
+#### Update Status
+
+**Endpoint:** `PATCH /drivers/:id/status`
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body:**
+
+```json
+{
+  "status": "SUSPENDED"
+}
+```
+
+#### Update Availability
+
+**Endpoint:** `PATCH /drivers/:id/availability`
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Request Body:**
+
+```json
+{
+  "isAvailable": false
+}
+```
+
+---
+
+## 4. Operations & Assignments
+
+### 4.1 Attendance Management
+
+#### Approve Attendance
+
+**Endpoint:** `POST /attendance/:id/approve`
+**Roles:** `SUPER_ADMIN`, `MANAGER`
 
 **Request Body:**
 
@@ -470,16 +535,17 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 }
 ```
 
-**Response (200):**
+#### Reject Attendance
 
-```json
-{
-  "success": true,
-  "message": "Attendance approved"
-}
-```
+**Endpoint:** `POST /attendance/:id/reject`
+**Roles:** `SUPER_ADMIN`, `MANAGER`
 
-**Action:** Validates Driver's selfie time/location. Rejection is also possible via `/attendance/:id/reject`.
+#### Get Attendance Details
+
+**Endpoint:** `GET /attendance/:id`
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+---
 
 ---
 
@@ -550,6 +616,65 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 **Endpoint:** `PATCH /assignments/:id/end`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+---
+
+### 4.5 Driver Preference Management
+
+#### Get Pending Requests
+
+**Endpoint:** `GET /drivers/preference/pending-requests`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Pending preference requests retrieved successfully",
+  "data": [
+    {
+      "id": "bd3c2df9-d58d-4b5a-8d20-2ecd8db1b63e",
+      "driverId": "ad8324ca-2dea-4618-ba5e-3095fa123d06",
+      "currentPreference": {
+        "accept_rentals": false,
+        "prefer_airport_rides": false
+      },
+      "requestedPreference": {
+        "accept_rentals": true,
+        "prefer_airport_rides": true
+      },
+      "status": "PENDING",
+      "requestAt": "2026-01-08T04:38:38.415Z"
+    }
+  ]
+}
+```
+
+#### Update Request Status
+
+**Endpoint:** `POST /drivers/preference/update-status`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request Body (Approve):**
+
+```json
+{
+  "id": "bd3c2df9-d58d-4b5a-8d20-2ecd8db1b63e",
+  "status": "APPROVED"
+}
+```
+
+**Request Body (Reject):**
+
+```json
+{
+  "id": "bd3c2df9-d58d-4b5a-8d20-2ecd8db1b63e",
+  "status": "REJECTED",
+  "rejection_reason": "demo test"
+}
+```
 
 ---
 
@@ -626,131 +751,11 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ---
 
-## 7. Frontend Implementation Notes
-
-### 7.1 CORS
-
-- **Current:** Configured to allow all origins (`*`)
-- **Production:** Whitelist specific domains
-
-### 7.2 Date Handling
-
-- Use `date-fns` or `moment` to parse UTC ISO strings from API
-- **Always display in User's Local Time**
-- Store in UTC, display in local
-
-```javascript
-import { format, parseISO } from 'date-fns';
-
-const displayTime = format(parseISO(trip.pickupTime), 'PPpp');
-// Output: "Dec 25, 2025, 10:00 AM"
-```
-
-### 7.3 State Management
-
-**Recommendations:**
-
-- Cache `Fleets` and `Drivers` lists (TanStack Query recommended) as they change infrequently
-- Poll `Trips` list (every 30s) or use a "Refresh" button for operations
-- Handle `401 Unauthorized` by redirecting to Login
-- Implement optimistic updates for better UX
-
-**Example with TanStack Query:**
-
-```javascript
-const { data: trips } = useQuery({
-  queryKey: ['trips', { status, page }],
-  queryFn: () => fetchTrips({ status, page }),
-  refetchInterval: 30000, // 30 seconds
-});
-```
-
-### 7.4 Error Handling
-
-```javascript
-try {
-  await assignDriver(tripId, driverId);
-  toast.success('Driver assigned successfully');
-} catch (error) {
-  if (error.response?.status === 401) {
-    // Redirect to login
-    router.push('/login');
-  } else {
-    toast.error(error.response?.data?.message || 'Failed to assign driver');
-  }
-}
-```
-
-### 7.5 Role-Based UI
-
-```javascript
-const canCreateTrip = ['SUPER_ADMIN', 'OPERATIONS'].includes(user.role);
-const canApproveAttendance = ['SUPER_ADMIN', 'MANAGER'].includes(user.role);
-
-{canCreateTrip && <Button onClick={openCreateTripModal}>Create Trip</Button>}
-```
-
-### 7.6 Pagination Component
-
-```javascript
-<Pagination
-  currentPage={page}
-  totalPages={Math.ceil(total / limit)}
-  onPageChange={setPage}
-/>
-```
-
-### 7.7 Status Badge Component
-
-```javascript
-const getStatusColor = (status) => {
-  switch (status) {
-    case 'CREATED': return 'gray';
-    case 'DRIVER_ASSIGNED': return 'blue';
-    case 'STARTED': return 'yellow';
-    case 'COMPLETED': return 'green';
-    case 'CANCELLED': return 'red';
-    default: return 'gray';
-  }
-};
-
-<Badge color={getStatusColor(trip.status)}>{trip.status}</Badge>
-```
-
-### 7.8 Real-time Updates (Optional)
-
-Consider implementing WebSocket connection for real-time trip status updates:
-
-```javascript
-const socket = io('wss://driversklub-backend.onrender.com');
-
-socket.on('trip:updated', (trip) => {
-  queryClient.setQueryData(['trip', trip.id], trip);
-});
-```
-
 ---
 
-## 📝 Checklist for Production
+## 7. Payment & Financial Management
 
-- [ ] Implement token refresh logic
-- [ ] Add role-based access control to UI
-- [ ] Implement pagination for all list views
-- [ ] Add loading states for all API calls
-- [ ] Add error handling with user-friendly messages
-- [ ] Implement date/time formatting (UTC → Local)
-- [ ] Add confirmation dialogs for destructive actions
-- [ ] Implement search/filter functionality
-- [ ] Add export to CSV functionality
-- [ ] Test all edge cases (empty states, errors, etc.)
-
----
-
----
-
-## 8. Payment System (Admin)
-
-### 8.1 Create Rental Plan
+### 7.1 Create Rental Plan
 
 **Endpoint:** `POST /payment/admin/rental-plans`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
@@ -781,9 +786,13 @@ socket.on('trip:updated', (trip) => {
 }
 ```
 
+**Use Case:**
+
+- **Onboarding**: Create standard plans (e.g., "Weekly Gold") for new drivers to choose from during registration.
+
 ---
 
-### 8.2 Get Rental Plans
+### 7.2 Get Rental Plans
 
 **Endpoint:** `GET /payment/admin/rental-plans/:fleetId`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
@@ -794,7 +803,7 @@ socket.on('trip:updated', (trip) => {
 
 ---
 
-### 8.3 Create Penalty
+### 7.3 Create Penalty
 
 **Endpoint:** `POST /payment/admin/penalty`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
@@ -832,9 +841,14 @@ socket.on('trip:updated', (trip) => {
 }
 ```
 
+**Use Case:**
+
+- **Quality Control**: Penalize drivers for "No Shows" or poor behavior reported by customers.
+- **Deterrence**: Deduct from deposit immediately to enforce compliance.
+
 ---
 
-### 8.4 Waive Penalty
+### 7.4 Waive Penalty
 
 **Endpoint:** `POST /payment/admin/penalty/:id/waive`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
@@ -861,9 +875,13 @@ socket.on('trip:updated', (trip) => {
 - Refunds deposit if already deducted
 - Reverses suspension/blacklist status
 
+**Use Case:**
+
+- **Dispute Resolution**: If a driver provides valid proof (e.g., car breakdown), Ops can waive the penalty.
+
 ---
 
-### 8.5 Create Incentive
+### 7.5 Create Incentive
 
 **Endpoint:** `POST /payment/admin/incentive`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
@@ -893,7 +911,7 @@ socket.on('trip:updated', (trip) => {
 
 ---
 
-### 8.6 Process Incentive Payout
+### 7.6 Process Incentive Payout
 
 **Endpoint:** `POST /payment/admin/incentive/:id/payout`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
@@ -911,9 +929,13 @@ socket.on('trip:updated', (trip) => {
 
 **Note:** Sends money to driver's bank account via Easebuzz
 
+**Use Case:**
+
+- **Reward Distribution**: Operation team processes the approved incentive to credit the driver's bank account.
+
 ---
 
-### 8.7 Reconcile Daily Collection
+### 7.7 Reconcile Daily Collection
 
 **Endpoint:** `POST /payment/admin/collection/:id/reconcile`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
@@ -942,30 +964,48 @@ socket.on('trip:updated', (trip) => {
 - Applies incentives and penalties
 - Prepares for payout
 
+**Use Case:**
+
+- **End-of-Day Ops**: Manager verifies the physical cash collected matches the system's `expectedRevenue` before closing the shift.
+
 ---
 
-### 8.8 Process Daily Payout
+### 7.8 Process Daily Payout
 
-**Endpoint:** `POST /payment/admin/collection/:id/payout`  
+##### POST `/payment/admin/collection/:id/payout`
+>
+> **DEPRECATED**: Use Bulk Payout instead.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
-**Response (200):**
+---
+
+### 7.9 Bulk Payout (Manual)
+
+**Endpoint:** `POST /payment/admin/bulk-payout`
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+
+**Request:** `multipart/form-data`
+
+- `file`: CSV File (`phone,amount` or `accountNumber,amount`)
+
+**Response:**
 
 ```json
 {
-  "success": true,
-  "txnId": "TXN_1735123456_PAY456",
-  "status": "SUCCESS",
-  "utr": "UTR987654321",
-  "amount": 3800
+  "total": 10,
+  "success": 9,
+  "failed": 1,
+  "amountDisbursed": 45000
 }
 ```
 
-**Note:** Sends payout to driver's bank account
+**Use Case:**
+
+- **Weekly Settlements**: Accountant uploads a CSV of all driver payouts on Monday morning to process them in one batch.
 
 ---
 
-### 8.9 Get Pending Reconciliations
+### 7.10 Get Pending Reconciliations
 
 **Endpoint:** `GET /payment/admin/reconciliations/pending`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
@@ -989,9 +1029,13 @@ socket.on('trip:updated', (trip) => {
 }
 ```
 
+**Use Case:**
+
+- **Manager Dashboard**: Show a list of drivers whose collections are yet to be verified for the previous day.
+
 ---
 
-### 8.10 Get Pending Payouts
+### 7.11 Get Pending Payouts
 
 **Endpoint:** `GET /payment/admin/payouts/pending`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
@@ -1016,9 +1060,13 @@ socket.on('trip:updated', (trip) => {
 }
 ```
 
+**Use Case:**
+
+- **Finance Review**: Finance team reviews all verified collections that are ready for payout before initiating the bank transfer.
+
 ---
 
-### 8.11 Generate Vehicle QR Code
+### 7.12 Generate Vehicle QR Code
 
 **Endpoint:** `POST /payment/admin/vehicle/:id/qr`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
@@ -1038,11 +1086,13 @@ socket.on('trip:updated', (trip) => {
 }
 ```
 
-**Use Case:** Generate QR code for vehicle to accept payments
+**Use Case:**
+
+- **New Car Setup**: Generate a unique QR code sticker for a new vehicle so passengers can pay via UPI directly to the vehicle's virtual account.
 
 ---
 
-### 8.12 Get Vehicle QR Code
+### 7.13 Get Vehicle QR Code
 
 **Endpoint:** `GET /payment/admin/vehicle/:id/qr`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
@@ -1059,4 +1109,266 @@ socket.on('trip:updated', (trip) => {
 }
 ```
 
+**Use Case:**
+
+- **Reprinting**: Manager retrieves the existing QR code if the physical sticker is damaged or lost.
+
 ---
+
+### 7.14 InstaCollect Orders (Dynamic QR)
+
+#### Create Order (Generate Dynamic QR)
+
+**Endpoint:** `POST /payment/orders`
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Request Body:**
+
+```json
+{
+  "customerName": "John Doe",
+  "customerPhone": "9876543210",
+  "amount": 2500,
+  "description": "Advance Payment for Trip #123"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid-order-id",
+    "totalAmount": 2500,
+    "collectedAmount": 0,
+    "remainingAmount": 2500,
+    "status": "PENDING",
+    "virtualAccountId": "VA_ORDER_123",
+    "qrCodeBase64": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "upiId": "driversklub.order123@easebuzz"
+  }
+}
+```
+
+**Use Case:**
+
+- **Ad-Hoc Payments**: Driver or Admin enters an amount on the app/dashboard to generate a **one-time QR code** for a passenger to scan and pay instantly.
+
+#### Get Order Details
+
+**Endpoint:** `GET /payment/orders/:id`
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid-order-id",
+    "customerName": "John Doe",
+    "customerPhone": "9876543210",
+    "description": "Advance Payment",
+    "totalAmount": 2500,
+    "collectedAmount": 1000,
+    "remainingAmount": 1500,
+    "status": "PARTIAL",
+    "virtualAccountId": "VA_ORDER_123",
+    "qrCodeBase64": "data:image/png;base64...",
+    "transactions": [
+      {
+        "id": "txn-uuid",
+        "amount": 1000,
+        "status": "SUCCESS",
+        "date": "2025-12-25T10:00:00Z"
+      }
+    ],
+    "createdAt": "2025-12-25T09:00:00Z"
+  }
+}
+```
+
+#### List Orders
+
+**Endpoint:** `GET /payment/orders`
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Query Params:**
+
+- `page` (default: 1)
+- `limit` (default: 10)
+- `status` (optional): `PENDING`, `PARTIAL`, `COMPLETED`
+- `search` (optional): Filter by Customer Name or Phone
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid-order-1",
+      "customerName": "Alice Smith",
+      "totalAmount": 5000,
+      "collectedAmount": 5000,
+      "status": "COMPLETED",
+      "createdAt": "2025-12-24T10:00:00Z"
+    },
+    {
+      "id": "uuid-order-2",
+      "customerName": "Bob Jones",
+      "totalAmount": 2000,
+      "collectedAmount": 0,
+      "status": "PENDING",
+      "createdAt": "2025-12-25T11:00:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 50,
+    "totalPages": 5
+  }
+}
+```
+
+---
+
+## 8. Frontend Implementation Notes
+
+### 8.1 CORS
+
+- **Current:** Configured to allow all origins (`*`)
+- **Production:** Whitelist specific domains
+
+### 8.2 Date Handling
+
+- Use `date-fns` or `moment` to parse UTC ISO strings from API
+- **Always display in User's Local Time**
+- Store in UTC, display in local
+
+```javascript
+import { format, parseISO } from 'date-fns';
+
+const displayTime = format(parseISO(trip.pickupTime), 'PPpp');
+// Output: "Dec 25, 2025, 10:00 AM"
+```
+
+### 8.3 State Management
+
+**Recommendations:**
+
+- Cache `Fleets` and `Drivers` lists (TanStack Query recommended) as they change infrequently
+- Poll `Trips` list (every 30s) or use a "Refresh" button for operations
+- Handle `401 Unauthorized` by redirecting to Login
+- Implement optimistic updates for better UX
+
+**Example with TanStack Query:**
+
+```javascript
+const { data: trips } = useQuery({
+  queryKey: ['trips', { status, page }],
+  queryFn: () => fetchTrips({ status, page }),
+  refetchInterval: 30000, // 30 seconds
+});
+```
+
+### 8.4 Error Handling
+
+```javascript
+try {
+  await assignDriver(tripId, driverId);
+  toast.success('Driver assigned successfully');
+} catch (error) {
+  if (error.response?.status === 401) {
+    // Redirect to login
+    router.push('/login');
+  } else {
+    toast.error(error.response?.data?.message || 'Failed to assign driver');
+  }
+}
+```
+
+### 8.5 Role-Based UI
+
+```javascript
+const canCreateTrip = ['SUPER_ADMIN', 'OPERATIONS'].includes(user.role);
+const canApproveAttendance = ['SUPER_ADMIN', 'MANAGER'].includes(user.role);
+
+{canCreateTrip && <Button onClick={openCreateTripModal}>Create Trip</Button>}
+```
+
+### 8.6 Pagination Component
+
+```javascript
+<Pagination
+  currentPage={page}
+  totalPages={Math.ceil(total / limit)}
+  onPageChange={setPage}
+/>
+```
+
+### 8.7 Status Badge Component
+
+```javascript
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'CREATED': return 'gray';
+    case 'DRIVER_ASSIGNED': return 'blue';
+    case 'STARTED': return 'yellow';
+    case 'COMPLETED': return 'green';
+    case 'CANCELLED': return 'red';
+    default: return 'gray';
+  }
+};
+
+<Badge color={getStatusColor(trip.status)}>{trip.status}</Badge>
+```
+
+### 8.8 Real-time Updates (Optional)
+
+Consider implementing WebSocket connection for real-time trip status updates:
+
+```javascript
+const socket = io('wss://driversklub-backend.onrender.com');
+
+socket.on('trip:updated', (trip) => {
+  queryClient.setQueryData(['trip', trip.id], trip);
+});
+```
+
+---
+
+## 📝 Checklist for Production
+
+- [ ] Implement token refresh logic
+- [ ] Add role-based access control to UI
+- [ ] Implement pagination for all list views
+- [ ] Add loading states for all API calls
+- [ ] Add error handling with user-friendly messages
+- [ ] Implement date/time formatting (UTC → Local)
+- [ ] Add confirmation dialogs for destructive actions
+- [ ] Implement search/filter functionality
+- [ ] Add export to CSV functionality
+- [ ] Test all edge cases (empty states, errors, etc.)
+
+---
+
+## 9. Rapido Operational Monitoring
+
+### 9.1 Conflict Resolution Logic
+
+The dashboard does not have a manual "Sync Rapido Status" button because the process is fully automated.
+
+- **Logic**: The backend runs a worker every 5 minutes.
+- **Conflicts**: If a driver is found ONLINE on Rapido but BUSY internally, the system auto-corrects this.
+- **Logs**: All auto-corrections are logged in the backend logs (viewable via server logs).
+
+### 9.2 Manual Override Alert
+
+If a driver manually forces themselves ONLINE in the Rapido app:
+
+1. System detects `status: online` webhook.
+2. System checks assignments.
+3. If conflict exists, system forces OFFLINE immediately.

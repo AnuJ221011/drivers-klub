@@ -20,11 +20,17 @@ All Inbound APIs are hosted at:
 
 ### Authentication
 >
-> [!WARNING]
-> **Current Status**: Open / No Auth
-> The partner endpoints are currently open for V1 integration testing.
+> [!IMPORTANT]
+> **Authentication Required**
+> All Inbound APIs are secured using **HTTP Basic Authentication**.
 >
-> - **Future State**: Will require `x-api-key` or `Authorization: Bearer <token>` header.
+> **Credentials**:
+>
+> - **Username**: (Provided by Drivers Klub Ops)
+> - **Password**: (Provided by Drivers Klub Ops)
+>
+> You must send the `Authorization` header with every request:
+> `Authorization: Basic <base64_encoded_credentials>`
 
 ### Constraints & Hardcoded Values (V1)
 >
@@ -171,17 +177,19 @@ Commits the reschedule. **Note**: Does not require time in body; uses the time v
 
 ---
 
-## 3. Outbound APIs (Drivers Klub → MMT)
-
 We will call your webhook endpoints to update trip status.
 
-- `POST /driver-assigned`: Driver & Vehicle details.
-- `POST /arrived`: Driver at pickup.
-- `POST /start`: GPS Trip started.
-- `POST /pickup`: Customer onboarded.
-- `POST /alight`: Trip completed.
-- `POST /not_boarded`: No-show.
-- `POST /update-location`: Live GPS coordinates.
+| Endpoint | Purpose | Trigger Event |
+| :--- | :--- | :--- |
+| `POST /driver-assigned` | Push assigned driver and vehicle details. | Driver accepts trip or Ops assigns manualy. |
+| `POST /arrived` | Notify that driver has arrived at pickup location. | Driver marks 'Arrived' in app. |
+| `POST /start` | Trip started (GPS latch / ignition start). | Driver starts trip. |
+| `POST /pickup` | Passenger onboard confirmation (OTP verified). | Driver enters OTP. |
+| `POST /alight` | Trip completed and billing finalized. | Driver ends trip. |
+| `POST /not_boarded` | Customer marked as No-Show. | Driver/Ops marks 'No Show'. |
+| `POST /update-location` | Push live driver GPS location updates. | Periodic interval (e.g. 30s) during ongoing trip. |
+| `POST /reassign-chauffeur` | Notify driver reassignment. | Ops changes driver for an active booking. |
+| `POST /detach-trip` | Driver unassigned or trip cancelled by Ops. | Cancellation initiated by Partner side. |
 
 ---
 

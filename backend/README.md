@@ -10,7 +10,12 @@ Production-ready Backend for Driver's Klub Mobility Platform.
 - ✅ **Performance Optimized** - Database indexes, query optimization
 - ✅ **Fully Tested** - 16/16 tests passing (100% coverage)
 - ✅ **Comprehensively Documented** - API docs, guides, walkthroughs
-- ✅ **Payment System Complete** - Easebuzz integration, rental & payout models
+- ✅ **Payment System Complete** - Rental Plans, Collections, & Payouts (Easebuzz Integration)
+- ✅ **Automated Bulk Payouts** - Admin CSV upload for instant funds disbursement
+- ✅ **Manual Payout Logic** - Exact accounting via "Manual Calculation, Automated Execution" model
+- ✅ **Virtual Accounts** - Dynamic QR generation with Test Mode Mocking
+- ✅ **InstaCollect Orders** - Ad-hoc payment links / QR with partial payment support
+- ✅ **Rapido Status Sync** - Automated Online/Offline management with **Retry Queue & Resilience**.
 
 ---
 
@@ -18,19 +23,20 @@ Production-ready Backend for Driver's Klub Mobility Platform.
 
 All documentation is now organized in the [`docs/`](./docs/) folder.
 
+> 📥 **[Download All Documentation as PDFs](./docs/pdf/)**
+
 ### Core Documentation
 
-- **[Master System Docs](./docs/MASTER_PROJECT_DOCUMENTATION.md)** - Architecture, Schema, Setup
-- **[Complete API Reference](./docs/API_REFERENCE.md)** - All endpoints documented
-- **[Payment System Docs](./docs/PAYMENT_SYSTEM_DOCUMENTATION.md)** - Payment & Payout system specification
-- **[MMT Integration Guide](./docs/MMT_INTEGRATION_GUIDE.md)** - Partner integration details (Inbound/Outbound)
+- **[Master Project Details](./docs/PROJECT_DETAILS.md)** - System Architecture, Schema & Specs
+- **[Complete API Reference](./docs/API_REFERENCE.md)** - All Endpoints Dictionary
 
 ### Team-Specific Guides
 
-- **[Flutter Driver API Guide](./docs/FLUTTER_DRIVER_API_GUIDE.md)** - For Mobile Team
-- **[React Admin API Guide](./docs/REACT_ADMIN_API_GUIDE.md)** - For Dashboard Team
+- **[Flutter Driver App Guide](./docs/FLUTTER_DRIVER_API_GUIDE.md)** - Mobile Team
+- **[React Admin Dashboard Guide](./docs/REACT_ADMIN_API_GUIDE.md)** - Web Team
+- **[Payment System Docs](./docs/PAYMENT_SYSTEM_DOCUMENTATION.md)** - Payment Logic & Workflows
 
-**📖 [View All Documentation](./docs/README.md)**
+> 🗄️ *Old/Legacy documentation has been moved to [`docs/_archive/`](./docs/_archive/)*
 
 ---
 
@@ -123,19 +129,58 @@ Create a `.env` file based on `.env.example`:
 
 ```bash
 # Database
-DATABASE_URL="postgresql://user:password@localhost:5432/driversklub"
+DATABASE_URL="postgresql://user:pass@localhost:5432/driversklub?schema=public"
 
-# JWT
-JWT_SECRET="your-secret-key"
+# App Config
+PORT=5000
+NODE_ENV=development
+
+# CORS Configuration
+ALLOWED_ORIGINS="http://localhost:3000,http://localhost:3001"
+
+# Authentication (JWT)
+JWT_ACCESS_SECRET="changeme_access_secret"
+JWT_REFRESH_SECRET="changeme_refresh_secret"
 JWT_ACCESS_EXPIRES_IN="15m"
 JWT_REFRESH_EXPIRES_IN="7d"
 
-# CORS (Production)
-NODE_ENV="production"
-ALLOWED_ORIGINS="https://admin.driversklub.com,https://app.driversklub.com"
+# OTP Service (Exotel)
+EXOTEL_ACCOUNT_SID="your_exotel_sid"
+EXOTEL_API_KEY="your_exotel_api_key"
+EXOTEL_API_TOKEN="your_exotel_api_token"
+EXOTEL_SENDER_ID="your_sender_id"
+OTP_EXPIRY_MINUTES=5
+OTP_MAX_ATTEMPTS=3
+OTP_BYPASS_KEY="dev_bypass_key"
 
-# Development
-TEST_BASE_URL="http://localhost:5000"
+# External Providers (MojoBoxx)
+MOJOBOXX_BASE_URL="https://api.mojoboxx.com"
+MOJOBOXX_USERNAME="your_username"
+MOJOBOXX_PASSWORD="your_password"
+
+# External Providers (MMT)
+MMT_BASE_URL="https://api.mmt.com"
+MMT_AUTH_URL="https://api-cert.makemytrip.com/v1/auth"
+MMT_CLIENT_ID="your_mmt_client_id"
+MMT_CLIENT_SECRET="your_mmt_client_secret"
+
+# Timezone Configuration
+TZ=Asia/Kolkata
+APP_TIMEZONE=Asia/Kolkata
+
+# Background Worker (Provider Status Sync)
+WORKER_SYNC_INTERVAL_MS=300000  # 5 minutes
+WORKER_ENABLED=true
+RAPIDO_PRE_TRIP_BUFFER_MINUTES=45
+
+# Payment Gateway (Easebuzz)
+EASEBUZZ_MERCHANT_KEY="your_easebuzz_merchant_key"
+EASEBUZZ_SALT_KEY="your_easebuzz_salt_key"
+EASEBUZZ_ENV="test"  # test or production
+
+# Payment Defaults
+PAYMENT_SUCCESS_URL="http://localhost:3000/payment/success"
+PAYMENT_FAILURE_URL="http://localhost:3000/payment/failure"
 ```
 
 ---
@@ -231,6 +276,8 @@ POST   /drivers                 # Create driver (SUPER_ADMIN, OPERATIONS)
 PATCH  /drivers/:id             # Update driver
 PATCH  /drivers/:id/status      # Update driver status
 PATCH  /drivers/:id/availability # Update availability
+GET    /drivers/:id/preference  # Get driver preferences
+POST   /drivers/:id/preference/update # Request preference change
 ```
 
 ### Vehicle Management
@@ -292,6 +339,23 @@ PATCH  /assignments/:id/end         # End assignment
 
 ```http
 POST   /pricing/preview          # Calculate trip price estimate
+```
+
+### Payment Management
+
+```http
+GET    /payment/balance          # Get driver balance
+GET    /payment/transactions     # Get transaction history
+GET    /payment/rental/plans     # Get available rental plans
+POST   /payment/rental           # Purchase rental plan
+POST   /payment/deposit          # Add security deposit
+POST   /admin/rental-plans       # Create rental plan (Manager/Admin)
+POST   /bulk-payout              # Process bulk payouts (Admin)
+
+### InstaCollect Orders
+POST   /payment/orders           # Create payment order (Admin)
+GET    /payment/orders           # List payment orders
+GET    /payment/orders/:id       # Get order details
 ```
 
 ### Partner Integration (MakeMyTrip)
@@ -400,4 +464,4 @@ Proprietary - Driver's Klub
 
 ---
 
-**Status:** ✅ **PRODUCTION-READY** | **Last Updated:** 2025-12-26 | **Version:** 1.0.0
+**Status:** ✅ **PRODUCTION-READY** | **Last Updated:** January 7, 2026 | **Version:** 3.1.0

@@ -119,7 +119,7 @@ export interface CreateVirtualAccountRequest {
     customer_mobile: string;
     customer_email: string;
     udf1?: string;                 // Custom field (e.g., vehicleId)
-    udf2?: string;
+    udf2?: 'VEHICLE' | 'ORDER';    // Virtual Account Type
     hash: string;
 }
 

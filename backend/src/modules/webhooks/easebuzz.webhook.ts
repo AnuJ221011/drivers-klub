@@ -6,6 +6,9 @@ import type {
 } from '../../adapters/easebuzz/easebuzz.types.js';
 import { prisma } from '../../utils/prisma.js';
 import { TransactionStatus, PaymentMethod } from '@prisma/client';
+import { rentalService } from '../../core/payment/rental.service.js';
+import { orderService } from '../../core/payment/order.service.js';
+import { logger } from '../../utils/logger.js';
 
 /**
  * Handle Easebuzz Payment Gateway webhook
@@ -18,7 +21,7 @@ export const handlePaymentWebhook = async (req: Request, res: Response) => {
         // Verify webhook authenticity
         const isValid = easebuzzAdapter.verifyPaymentWebhook(webhookData);
         if (!isValid) {
-            console.error('Invalid payment webhook signature');
+            logger.error('Invalid payment webhook signature');
             return res.status(400).json({ error: 'Invalid signature' });
         }
 
@@ -29,7 +32,7 @@ export const handlePaymentWebhook = async (req: Request, res: Response) => {
             easepayid,
         } = webhookData;
 
-        console.log(`Payment webhook received: ${txnid}, status: ${status}`);
+        logger.info(`Payment webhook received: ${txnid}, status: ${status}`);
 
         // Map Easebuzz status to our TransactionStatus
         let transactionStatus: TransactionStatus;
@@ -62,15 +65,15 @@ export const handlePaymentWebhook = async (req: Request, res: Response) => {
                 await handleSuccessfulPayment(transaction, parseFloat(amount));
             }
 
-            console.log(`Transaction ${txnid} updated to ${transactionStatus}`);
+            logger.info(`Transaction ${txnid} updated to ${transactionStatus}`);
         } else {
-            console.warn(`Transaction not found for txnid: ${txnid}`);
+            logger.warn(`Transaction not found for txnid: ${txnid}`);
         }
 
         // Always respond with 200 to acknowledge webhook
         res.status(200).json({ status: 'ok' });
     } catch (error: any) {
-        console.error('Payment webhook error:', error);
+        logger.error('Payment webhook error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
@@ -86,7 +89,7 @@ export const handleVirtualAccountWebhook = async (req: Request, res: Response) =
         // Verify webhook authenticity
         const isValid = easebuzzAdapter.verifyVirtualAccountWebhook(webhookData);
         if (!isValid) {
-            console.error('Invalid virtual account webhook signature');
+            logger.error('Invalid virtual account webhook signature');
             return res.status(400).json({ error: 'Invalid signature' });
         }
 
@@ -97,11 +100,23 @@ export const handleVirtualAccountWebhook = async (req: Request, res: Response) =
             payment_mode,
             utr,
             txn_date,
-            udf1: vehicleId,
+            udf2: type // 'VEHICLE' or 'ORDER'
         } = webhookData;
 
-        console.log(`Virtual account payment: ${txn_id}, amount: ${amount}, vehicle: ${vehicleId}`);
+        logger.info(`Virtual account payment: ${txn_id}, amount: ${amount}, type: ${type || 'VEHICLE'}`);
 
+        // HANDLE INSTACOLLECT ORDER PAYMENT
+        if (type === 'ORDER') {
+            await orderService.recordPayment(virtual_account_id, parseFloat(amount), {
+                easebuzzTxnId: txn_id,
+                easebuzzPaymentId: utr,
+                paymentMode: payment_mode,
+                txnDate: txn_date,
+            });
+            return res.status(200).json({ status: 'ok' });
+        }
+
+        // HANDLE VEHICLE QR PAYMENT (Default)
         // Find the virtual QR record
         const virtualQR = await prisma.virtualQR.findFirst({
             where: { virtualAccountId: virtual_account_id },
@@ -109,11 +124,11 @@ export const handleVirtualAccountWebhook = async (req: Request, res: Response) =
         });
 
         if (!virtualQR) {
-            console.error(`Virtual QR not found for account: ${virtual_account_id}`);
+            logger.error(`Virtual QR not found for account: ${virtual_account_id}`);
             return res.status(404).json({ error: 'Virtual account not found' });
         }
 
-        // Find active driver assignment for this vehicle
+        // ... existing logic for vehicle ...
         const activeAssignment = await prisma.assignment.findFirst({
             where: {
                 vehicleId: virtualQR.vehicleId,
@@ -124,7 +139,7 @@ export const handleVirtualAccountWebhook = async (req: Request, res: Response) =
         });
 
         if (!activeAssignment) {
-            console.warn(`No active assignment for vehicle: ${virtualQR.vehicleId}`);
+            logger.warn(`No active assignment for vehicle: ${virtualQR.vehicleId}`);
             // Store payment but don't attribute to driver yet
             return res.status(200).json({ status: 'ok', message: 'No active assignment' });
         }
@@ -169,6 +184,7 @@ export const handleVirtualAccountWebhook = async (req: Request, res: Response) =
                 type: 'DAILY_COLLECTION',
                 amount: paymentAmount,
                 status: TransactionStatus.SUCCESS,
+                // @ts-ignore
                 paymentMethod: PaymentMethod.VIRTUAL_QR,
                 easebuzzTxnId: txn_id,
                 easebuzzStatus: 'success',
@@ -183,11 +199,11 @@ export const handleVirtualAccountWebhook = async (req: Request, res: Response) =
             },
         });
 
-        console.log(`QR payment recorded for driver ${driverId}: ₹${paymentAmount}`);
+        logger.info(`QR payment recorded for driver ${driverId}: ₹${paymentAmount}`);
 
         res.status(200).json({ status: 'ok' });
     } catch (error: any) {
-        console.error('Virtual account webhook error:', error);
+        logger.error('Virtual account webhook error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
@@ -212,12 +228,21 @@ async function handleSuccessfulPayment(
                     },
                 },
             });
-            console.log(`Deposit added for driver ${driverId}: ₹${amount}`);
+            logger.info(`Deposit added for driver ${driverId}: ₹${amount}`);
             break;
 
         case 'RENTAL':
-            // Activate rental plan (handled in rental service)
-            console.log(`Rental payment received for driver ${driverId}: ₹${amount}`);
+            // Activate rental plan
+            if (transaction.metadata && typeof transaction.metadata === 'object' && 'rentalPlanId' in transaction.metadata) {
+                await rentalService.activateRentalPlan({
+                    driverId,
+                    rentalPlanId: (transaction.metadata as any).rentalPlanId,
+                    transactionId: transaction.id,
+                });
+                logger.info(`Rental plan activated for driver ${driverId}: ₹${amount}`);
+            } else {
+                logger.error(`Failed to activate rental: Missing rentalPlanId in metadata for txn ${transaction.id}`);
+            }
             break;
 
         case 'PENALTY':
@@ -231,11 +256,11 @@ async function handleSuccessfulPayment(
                         transactionId: transaction.id,
                     },
                 });
-                console.log(`Penalty paid for driver ${driverId}: ₹${amount}`);
+                logger.info(`Penalty paid for driver ${driverId}: ₹${amount}`);
             }
             break;
 
         default:
-            console.log(`Payment successful for ${type}: ₹${amount}`);
+            logger.info(`Payment successful for ${type}: ₹${amount}`);
     }
 }

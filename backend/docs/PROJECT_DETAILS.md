@@ -1,7 +1,7 @@
 # 📘 Driver's Klub Backend - Production Documentation
 
-**Version:** 2.0.0
-**Date:** December 30, 2025
+**Version:** 3.1.0
+**Date:** January 9, 2026
 **Authors:** Driver's Klub Engineering Team
 **Status:** **LIVE / PRODUCTION**
 
@@ -17,6 +17,7 @@
 6. [Core Business Flows](#6-core-business-flows)
 7. [API Reference (Canonical)](#7-api-reference-canonical)
 8. [Setup, Testing & Operations](#8-setup-testing--operations)
+9. [Production Readiness & Validation](#9-production-readiness--validation-dec-2025)
 
 ---
 
@@ -34,12 +35,14 @@ The system is engineered for **high availability**, **strict consistency** (ACID
 ### Key Capabilities
 
 * **Hybrid Fulfillment**: Automatically routes bookings to internal drivers or external providers (MojoBoxx) based on availability.
+* **Rapido Integration**: Automated status synchronization to manage driver availability across platforms.
 * **Compliance-First**: Enforces strict constraints (T-1 Booking, KYC validation, Vehicle Fitness).
 * **Authentication**: Secure **OTP-based login** (No passwords) for all user roles.
 * **Dynamic Pricing**: Rule-based pricing engine supporting multipliers for Airport/Rental/Outstation trips.
 * **Granular RBAC**: Role-Based Access Control for Super Admins, Ops, Managers, and Drivers.
 * **Regional Enforcement**: Strict `Origin City` validation (e.g., DELHI NCR).
 * **Payment System**: Complete payment & payout system with Easebuzz integration, supporting rental and payout models.
+* **Cash Management**: Drivers declare cash/UPI collections daily during check-out for reconciliation.
 
 ---
 
@@ -175,7 +178,7 @@ The schema (`prisma/schema.prisma`) revolves around the **Ride** (Unified Trip) 
     * Tracks `bookingAttempted` and `status` (`ASSIGNED`, `COMPLETED`).
 10. **Assignment**: Daily driver-vehicle assignments (roster).
 11. **Attendance**: Tracks Driver Check-In/Check-Out and Duty Status.
-    * Fields: `checkInTime`, `checkOutTime`, `status`, `selfieUrl`, `odometerStart`, `odometerEnd`
+    * Fields: `checkInTime`, `checkOutTime`, `status`, `selfieUrl`, `odometerStart`, `odometerEnd`, `cashDeposited`
     * Statuses: `PENDING`, `APPROVED`, `REJECTED`, `CHECKED_OUT`
 12. **Break**: Tracks driver breaks during active attendance.
     * Fields: `id`, `attendanceId`, `startTime`, `endTime`
@@ -183,6 +186,12 @@ The schema (`prisma/schema.prisma`) revolves around the **Ride** (Unified Trip) 
 13. **RideProviderMapping**: Links internal rides with external provider bookings.
 14. **Otp**: OTP verification records.
 15. **RefreshToken**: JWT refresh tokens.
+16. **DriverPreference**: Stores active, admin-approved preferences.
+    * Fields: `id`, `driverId`, `preferences` (Json), `approvedBy`, `approvedAt`, `createdAt`, `updatedAt`
+17. **DriverPreferenceRequest**: Tracks all preference change requests (Approval Workflow).
+    * Fields: `id`, `driverId`, `currentPreference` (Json), `requestedPreference` (Json), `status` (PENDING/APPROVED/REJECTED), `rejectionReason`
+18. **PreferenceDefination**: Config-driven definition table for system-wide preferences.
+    * Fields: `key` (PK), `displayName`, `description`, `category` (TRIP/PAYOUT/SHIFT), `approvalRequired`, `defaultValue`, `isActive`
 
 ---
 
@@ -207,15 +216,76 @@ The schema (`prisma/schema.prisma`) revolves around the **Ride** (Unified Trip) 
 3. **Confirm**: MMT confirms payment (`CREATED` status).
 4. **Webhooks**: Backend pushes status updates (Driver Assigned, Started, Completed) to MMT automatically.
 
+### C. Rental Model Flow (Financial)
+
+1. **Plan Creation**: Fleet Manager creates `RentalPlan` (e.g., Weekly, ₹3000).
+2. **Plan View**: Driver views available plans via `GET /payment/rental/plans`.
+3. **Subscription**: Driver initiates payment (`POST /payment/rental`).
+4. **Payment**: Driver pays via Easebuzz PG.
+5. **Activation**:
+    * System validates payment.
+    * System activates `DriverRental` record.
+    * Driver status updates to `RENTAL`.
+
+### D. Payout Model Flow (Financial)
+
+1. **Collection**: Driver collects cash/QR payments daily.
+2. **Reconciliation**: Admin reconciles `DailyCollection` (Cash vs QR).
+3. **Calculation**: External Excel sheet calculation for net earnings.
+4. **Disbursement**: Admin uploads CSV (`POST /bulk-payout`).
+5. **Execution**: System triggers Easebuzz Wire Transfer (IMPS) to driver's bank account.
+
+### E. InstaCollect Orders (Ad-Hoc Payments)
+
+1. **Order Creation**: Admin creates a `PaymentOrder` (e.g., for ad-hoc invoices or bulk payments).
+2. **QR Generation**: System generates a unique Dynamic QR (Easebuzz Virtual Account) for the order.
+3. **Payment**: Customer scans and pays (supports partial payments).
+4. **Reconciliation**:
+    * Webhook differentiates payment type ('ORDER' vs 'VEHICLE').
+    * System updates `collectedAmount` and `remainingAmount`.
+    * Status transitions: `PENDING` -> `PARTIAL` -> `COMPLETED`.
+5. **Ledger**: All payments are recorded as `Transaction` records linked to the `PaymentOrder`.
+
+### F. Attendance & Duty Management
+
+1. **Check-In ("On Duty")**:
+    * Driver captures **Selfie** and **Odometer Start**.
+    * Status: `PENDING` (Manager Approval Required).
+    * Validation: Cannot check in if already checked in or on duplicate device.
+2. **Duty Operations**:
+    * Driver accepts/completes trips.
+    * Can take **Breaks** (stops receiving trips).
+3. **Check-Out ("Off Duty")**:
+    * Driver enters **Odometer End**.
+    * **Cash Declaration**: Driver explicitly declares **`cashDeposited`** (Total Cash + Personal UPI collection).
+    * Status: `CHECKED_OUT`.
+    * System Link: Automatically marks driver OFFLINE on Rapido.
+
+### G. Rapido Status Synchronization
+
+1. **Trigger**: Occurs on Login, Trip Completion, internal Break Start/End, and every 5 minutes (Worker).
+2. **Logic Check**:
+    * **Go Offline**: If on Internal Trip, on Break, or upcoming assignment in < 45 mins.
+    * **Go Offline**: If **NOT Checked In** (Strict Policy).
+    * **Go Online**: If Idle and no upcoming conflicts.
+3. **Execution**: System sends status change request to Rapido API.
+4. **Edge Case Handling**:
+    * **External Conflicts**: Drivers active on MMT/Internal are forced OFFLINE on Rapido.
+    * **Manual Override**: Webhooks detect if a driver manually forces ONLINE and reverts it if rules are violated.
+    * **Retry Queue**: API failures are queued in DB and retried by a background worker.
+
 ---
 
 ## 7. API Reference (Canonical)
 
-The **Single Source of Truth** for all API endpoints, request/response schemas, and error codes is the **Frontend API Contract**.
+The **Single Source of Truth** for all API endpoints, request/response schemas, and error codes is the **[API_REFERENCE.md](./API_REFERENCE.md)** file.
 
-### 🔗 [FRONTEND_API_CONTRACT.md](./FRONTEND_API_CONTRACT.md)
+### 🔗 [Complete API Reference](./API_REFERENCE.md)
 
-### 🔗 [DRIVER_APP_API_SPEC.md](./DRIVER_APP_API_SPEC.md) (Mobile Team Specific)
+### Team Specific Guides
+
+* **[Flutter Driver App Guide](./FLUTTER_DRIVER_API_GUIDE.md)**
+* **[React Admin Dashboard Guide](./REACT_ADMIN_API_GUIDE.md)**
 
 **Scope of Contract:**
 
@@ -223,8 +293,6 @@ The **Single Source of Truth** for all API endpoints, request/response schemas, 
 2. **Trip Module**: Driver App interactions.
 3. **Admin Ops**: Fleet/Vehicle management.
 4. **Partner**: MMT Integration specs.
-
-**Note:** Do not rely on inline code comments or outdated Markdown files. The contract file linked above is generated from the live production code.
 
 ---
 
@@ -247,6 +315,16 @@ The **Single Source of Truth** for all API endpoints, request/response schemas, 
 * **Build**: `npm run build` -> `dist/`
 * **Process Manager**: PM2 or Docker Container.
 
+### 8.4 Environment Configuration
+
+Key variables for production:
+
+```bash
+RAPIDO_PRE_TRIP_BUFFER_MINUTES=45
+WORKER_ENABLED=true
+WORKER_SYNC_INTERVAL_MS=300000
+```
+
 ---
 
 # 9. Production Readiness & Validation (Dec 2025)
@@ -268,7 +346,7 @@ The system has passed the **Full Flow Test Protocol** (`npm run test:full`):
 
 ### ✅ Partner Integration (MMT)
 
-* **Inbound**: Fully mapped to `MMTController` (Search, Block, Confirm, Cancel, **Reschedule Block/Confirm**).
+* **Inbound**: Fully mapped to `MMTController` (Search, Block, Confirm, Cancel, **Reschedule Block/Confirm**). **Secured via Basic Auth**.
 * **Outbound**: All hooks (Assignment, Start, Arrive, Complete, Cancel, **Location Update**) implemented.
 
 ---

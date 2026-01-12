@@ -5,7 +5,7 @@
 **Base URL (Development):** `http://localhost:5000`  
 **Auth Header:** `Authorization: Bearer <ACCESS_TOKEN>`  
 **Version:** 3.1.0  
-**Last Updated:** December 30, 2025
+**Last Updated:** January 9, 2026
 
 ---
 
@@ -16,7 +16,8 @@
 3. [Trip Management](#3-trip-management)
 4. [Driver Profile](#4-driver-profile)
 5. [Error Handling](#5-error-handling)
-6. [Implementation Notes](#6-implementation-notes)
+6. [Payment & Wallet](#6-payment--wallet)
+7. [Rapido Status Management](#7-rapido-status-management)
 
 ---
 
@@ -173,6 +174,10 @@
 }
 ```
 
+**Side Effects:**
+
+- **Rapido Status**: Driver is automatically marked **ONLINE** on Rapido (if no other conflicts exist).
+
 ---
 
 ### 2.2 Check Out (End Shift)
@@ -186,9 +191,12 @@
 ```json
 {
   "driverId": "uuid-driver-id",
-  "odometer": 10650
+  "odometer": 10650,
+  "cashDeposited": 5000
 }
 ```
+
+**Note:** `cashDeposited` is the Amount the driver declares they are submitting (Cash + UPI collection) at day end.
 
 **Response (200):**
 
@@ -202,6 +210,15 @@
   }
 }
 ```
+
+**Error Responses (400):**
+
+- **Invalid Odometer:** `message: "Odometer reading cannot be less than start reading (10500)"`
+- **Invalid Cash:** `message: "Invalid cash deposit amount"`
+
+**Side Effects:**
+
+- **Rapido Status**: Driver is forced **OFFLINE** on Rapido immediately.
 
 ---
 
@@ -371,7 +388,9 @@
     "pickupTime": "2025-12-25T10:00:00Z",
     "status": "DRIVER_ASSIGNED",
     "price": 1200,
-    "customerPhone": "9999999999"
+    "customerPhone": "9876543210",
+    "customerName": "John Doe",
+    "provider": "MMT"
   }
 }
 ```
@@ -630,6 +649,103 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 ---
 
+### 4.2 Get Driver Profile by ID
+
+ **Endpoint:** `GET /drivers/:id`
+ **Auth Required:** Yes
+ **Role:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+ **Response (200):**
+
+ ```json
+ {
+   "success": true,
+   "data": {
+     "id": "uuid",
+     "firstName": "Raj",
+     "lastName": "Kumar",
+     // ... other fields
+   }
+ }
+ ```
+
+ ---
+
+### 4.3 Update Driver Profile
+
+ **Endpoint:** `PATCH /drivers/:id`
+ **Auth Required:** Yes
+ **Role:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+ **Request Body:**
+
+ ```json
+ {
+   "firstName": "Rajesh",
+   "email": "rajesh@example.com"
+ }
+ ```
+
+ ---
+
+### 4.4 Driver Preferences
+
+#### Get My Preferences
+
+**Endpoint:** `GET /drivers/me/preference`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+> [!NOTE]
+> **Rapido Status Sync:** Driver availability (`isAvailable`) is managed automatically by the backend based on Login, Trip Status, and Breaks. Manual toggling may be overridden.
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Driver preferences retrieved successfully",
+  "data": [
+    {
+      "key": "prefer_airport_rides",
+      "displayName": "Prefer airport rides",
+      "description": "Prioritize airport pickup and drop trips",
+      "category": "TRIP",
+      "approvalRequired": true,
+      "value": true
+    }
+  ]
+}
+```
+
+#### Request Preference Change
+
+**Endpoint:** `POST /drivers/:id/preference/update`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Request Body:**
+
+```json
+{
+  "prefer_airport_rides": true,
+  "accept_rentals": true,
+  "auto_assign_rides": true
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "success": true,
+  "message": "Preference change request submitted successfully"
+}
+```
+
+---
+
 ## 5. Error Handling
 
 ### 5.1 HTTP Status Codes
@@ -661,7 +777,112 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 ---
 
-## 6. Implementation Notes
+## 6. Payment & Wallet
+
+### 6.1 Get Wallet Balance
+
+ **Endpoint:** `GET /payment/balance`
+ **Auth Required:** Yes
+ **Role:** DRIVER
+
+ **Response (200):**
+
+ ```json
+ {
+   "success": true,
+   "data": {
+     "driverId": "uuid",
+     "currentBalance": 1500.50,
+     "currency": "INR",
+     "paymentModel": "RENTAL",
+     "depositBalance": 5000,
+     "pendingDues": 0
+   }
+ }
+ ```
+
+ **Use Case:**
+
+- **Dashboard Display**: Show `currentBalance` at the top of the home screen.
+- **Rental Check**: Warn driver if `currentBalance` is negative (RENTAL model).
+
+ ---
+
+### 6.2 Get Transaction History
+
+ **Endpoint:** `GET /payment/transactions`
+ **Auth Required:** Yes
+
+ **Query Params:**
+
+- `page` (default: 1)
+- `limit` (default: 20)
+- `type` (optional: `TRIP_PAYMENT`, `INCENTIVE`, `PENALTY`, `DEPOSIT`)
+
+ **Response (200):**
+
+ ```json
+ {
+   "success": true,
+   "data": {
+     "transactions": [
+       {
+         "id": "uuid",
+         "amount": 450,
+         "type": "TRIP_PAYMENT",
+         "status": "SUCCESS",
+         "createdAt": "2025-12-25T14:30:00Z",
+         "description": "Trip payment for Ride #123"
+       }
+     ],
+     "current_page": 1,
+     "total_pages": 5
+   }
+ }
+ ```
+
+ **Use Case:**
+
+- **Earnings Report**: Driver checks "Yesterday's Earnings" by filtering transactions.
+- **Transparency**: Verify deductions (Penalties) or additions (Incentives).
+
+ ---
+
+### 6.3 Get Incentives
+
+ **Endpoint:** `GET /payment/incentives`
+ **Auth Required:** Yes
+
+ **Response (200):**
+
+ ```json
+ {
+   "success": true,
+   "data": {
+     "incentives": [
+       {
+         "id": "uuid",
+         "amount": 500,
+         "reason": "Completed 50 Trips",
+         "isPaid": false
+       }
+     ],
+     "summary": {
+       "totalEarned": 2500,
+       "paid": 2000,
+       "pending": 500
+     }
+   }
+ }
+ ```
+
+ **Use Case:**
+
+- **Motivation**: Show "Progress to Goal" or "Pending Payouts" to encourage more trips.
+
+ ---
+
+## 7. Implementation Notes
 
 ### 6.1 Background Location Tracking
 
@@ -795,7 +1016,35 @@ if (diff.inHours > 2.5) {
 
 ---
 
-### 5.2 Get Transaction History
+---
+
+### 5.2 Get Available Rental Plans
+
+**Endpoint:** `GET /payment/rental/plans`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Weekly Plan",
+      "rentalAmount": 3000,
+      "depositAmount": 5000,
+      "validityDays": 7,
+      "isActive": true
+    }
+  ]
+}
+```
+
+---
+
+### 5.3 Get Transaction History
 
 **Endpoint:** `GET /payment/transactions?page=1&limit=20`  
 **Auth Required:** Yes  
@@ -840,7 +1089,7 @@ if (diff.inHours > 2.5) {
 
 ---
 
-### 5.3 Get Incentives
+### 5.4 Get Incentives
 
 **Endpoint:** `GET /payment/incentives`  
 **Auth Required:** Yes  
@@ -879,7 +1128,7 @@ if (diff.inHours > 2.5) {
 
 ---
 
-### 5.4 Get Penalties
+### 5.5 Get Penalties
 
 **Endpoint:** `GET /payment/penalties`  
 **Auth Required:** Yes  
@@ -920,7 +1169,7 @@ if (diff.inHours > 2.5) {
 
 ---
 
-### 5.5 Initiate Deposit Payment
+### 5.6 Initiate Deposit Payment
 
 **Endpoint:** `POST /payment/deposit`  
 **Auth Required:** Yes  
@@ -952,7 +1201,7 @@ if (diff.inHours > 2.5) {
 
 ---
 
-### 5.6 Initiate Rental Payment
+### 5.7 Initiate Rental Payment
 
 **Endpoint:** `POST /payment/rental`  
 **Auth Required:** Yes  
@@ -1006,21 +1255,36 @@ if (diff.inHours > 2.5) {
       "qrCollectionAmount": 3000,
       "cashCollectionAmount": 2000,
       "totalCollection": 5000,
-      "revShareAmount": 3500,
-      "netPayout": 3800,
-      "isPaid": false
+      "qrCollectionAmount": 3000,
+      "cashCollectionAmount": 2000,
+      "totalCollection": 5000,
+      "isPaid": false // Status tracked via Manual Payouts
     }
   ],
   "summary": {
     "totalDays": 30,
-    "totalCollections": 150000,
-    "totalPayout": 108000,
-    "paidAmount": 75000,
-    "unpaidAmount": 33000
+    "totalCollections": 150000, // Gross Earnings
+    "totalPayout": 108000,      // Actual Paid (via CSV)
+    "deductions": 42000,        // Commission/Platform Fee (Derived)
+    "balance": 0                // No pending dues
   }
 }
 ```
 
 **Note:** Only visible for drivers on PAYOUT model
+
+---
+
+## 7. Rapido Status Management 🛵
+
+> [!IMPORTANT]
+> **Automatic Availability Control**:
+>
+> The backend **automatically manages** the driver's Rapido availability based on their internal schedule.
+>
+> 1. **Busy**: When on an internal trip, break, or upcoming assignment (< 45m).
+> 2. **Available**: When idle.
+>
+> **Do NOT implement** a manual "Go Online/Offline" toggle for Rapido status in the driver app. If a driver manually overrides this in the Rapido app, the backend will **force them back** to the correct state immediately.
 
 ---

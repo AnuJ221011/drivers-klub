@@ -9,8 +9,11 @@ import {
 } from "./token.service.js";
 import { prisma } from "../../utils/prisma.js";
 import { verifyAccessToken, verifyRefreshToken } from "./jwt.util.js";
+import { logger } from "../../utils/logger.js";
 
 const otpService = new OtpService();
+import { RapidoService } from "../partner/rapido/rapido.service.js";
+const rapidoService = new RapidoService();
 
 export const sendOtp = async (req: Request, res: Response) => {
     const { phone } = req.body;
@@ -26,10 +29,9 @@ export const sendOtp = async (req: Request, res: Response) => {
 };
 
 export const verifyOtp = async (req: Request, res: Response) => {
-    console.log("Verifying OTP with request body:", req.body);
     const body = req.body;
     if (!body || typeof body !== "object") {
-        console.warn("Invalid request body for verify-otp", body);
+        logger.warn("Invalid request body for verify-otp", body);
         return res.status(400).json({ message: "Invalid request body" });
     }
 
@@ -40,9 +42,11 @@ export const verifyOtp = async (req: Request, res: Response) => {
     };
 
     if (!phone || !otp) {
-        console.warn("Missing phone or otp in verify-otp request", { phone, otp });
+        logger.warn("Missing phone or otp in verify-otp request", { phone }); // Don't log OTP
         return res.status(400).json({ message: "phone and otp are required" });
     }
+
+    logger.info(`Verifying OTP for phone: ${phone}`);
 
     await otpService.verifyOtp(phone, otp, verifiedKey);
 
@@ -52,6 +56,16 @@ export const verifyOtp = async (req: Request, res: Response) => {
     }
 
     const tokens = await issueTokens(user.id);
+
+    // Sync Rapido Status on Login
+    if (user.role === 'DRIVER') {
+        const driver = await prisma.driver.findUnique({ where: { userId: user.id } });
+        if (driver) {
+            rapidoService.validateAndSyncRapidoStatus(driver.id, "LOGIN")
+                .catch(err => logger.error("Rapido sync failed during login", err));
+        }
+    }
+
     ApiResponse.send(res, 200, { ...tokens, user }, "OTP verified successfully");
 };
 

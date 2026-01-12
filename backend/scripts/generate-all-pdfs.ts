@@ -3,41 +3,54 @@ import { join, basename } from 'path';
 import { mdToPdf } from 'md-to-pdf';
 
 async function generatePDFs() {
-    console.log('📄 Generating PDFs for all documentation...\n');
+  console.log('📄 Generating PDFs for all documentation...\n');
 
-    const docsDir = join(process.cwd(), 'docs');
-    const pdfDir = join(docsDir, 'pdf');
+  const docsDir = join(process.cwd(), 'docs');
+  const pdfDir = join(docsDir, 'pdf');
 
-    // Get all markdown files in docs directory
-    const mdFiles = readdirSync(docsDir)
-        .filter(file => file.endsWith('.md'))
-        .map(file => join(docsDir, file));
+  // Ensure output directory exists
+  try {
+    // @ts-ignore
+    const fs = await import('fs');
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+  } catch (err) {
+    console.warn('Could not create directory, hoping it exists or md-to-pdf handles it.', err);
+  }
 
-    let successCount = 0;
-    let failCount = 0;
+  // Get all markdown files in docs directory
+  const mdFiles = readdirSync(docsDir)
+    .filter(file => file.endsWith('.md'))
+    .map(file => join(docsDir, file));
 
-    for (const mdFile of mdFiles) {
-        const fileName = basename(mdFile, '.md');
-        const pdfPath = join(pdfDir, `${fileName}.pdf`);
+  let successCount = 0;
+  let failCount = 0;
 
-        try {
-            console.log(`Converting: ${fileName}.md...`);
+  for (const mdFile of mdFiles) {
+    const fileName = basename(mdFile, '.md');
+    const pdfPath = join(pdfDir, `${fileName}.pdf`);
 
-            const pdf = await mdToPdf(
-                { path: mdFile },
-                {
-                    dest: pdfPath,
-                    pdf_options: {
-                        format: 'A4',
-                        margin: {
-                            top: '20mm',
-                            right: '20mm',
-                            bottom: '20mm',
-                            left: '20mm'
-                        },
-                        printBackground: true
-                    },
-                    stylesheet: `
+    try {
+      console.log(`Converting: ${fileName}.md...`);
+
+      const content = readFileSync(mdFile, 'utf-8');
+      const pdf = await mdToPdf(
+        { content },
+        {
+          basedir: docsDir,
+          dest: pdfPath,
+          pdf_options: {
+            format: 'A4',
+            margin: {
+              top: '20mm',
+              right: '20mm',
+              bottom: '20mm',
+              left: '20mm'
+            },
+            printBackground: true
+          },
+          css: `
             body {
               font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
               line-height: 1.6;
@@ -95,27 +108,27 @@ async function generatePDFs() {
               color: #555;
             }
           `
-                }
-            );
-
-            console.log(`✅ Generated: ${fileName}.pdf\n`);
-            successCount++;
-        } catch (error: any) {
-            console.error(`❌ Failed: ${fileName}.md - ${error.message}\n`);
-            failCount++;
         }
-    }
+      );
 
-    console.log('\n==========================================');
-    console.log('📊 PDF Generation Summary');
-    console.log('==========================================');
-    console.log(`✅ Success: ${successCount}`);
-    console.log(`❌ Failed: ${failCount}`);
-    console.log(`📁 Output Directory: ${pdfDir}`);
-    console.log('\n🎉 PDF generation complete!');
+      console.log(`✅ Generated: ${fileName}.pdf\n`);
+      successCount++;
+    } catch (error: any) {
+      console.error(`❌ Failed: ${fileName}.md - ${error.message}\n`);
+      failCount++;
+    }
+  }
+
+  console.log('\n==========================================');
+  console.log('📊 PDF Generation Summary');
+  console.log('==========================================');
+  console.log(`✅ Success: ${successCount}`);
+  console.log(`❌ Failed: ${failCount}`);
+  console.log(`📁 Output Directory: ${pdfDir}`);
+  console.log('\n🎉 PDF generation complete!');
 }
 
 generatePDFs().catch(error => {
-    console.error('Error:', error);
-    process.exit(1);
+  console.error('Error:', error);
+  process.exit(1);
 });

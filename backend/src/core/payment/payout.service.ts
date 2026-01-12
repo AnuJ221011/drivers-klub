@@ -60,66 +60,8 @@ export class PayoutService {
     /**
      * Calculate revenue share for a daily collection
      */
-    async calculateRevShare(collectionId: string) {
-        const collection = await prisma.dailyCollection.findUnique({
-            where: { id: collectionId },
-            include: { driver: true },
-        });
-
-        if (!collection) {
-            throw new Error('Collection not found');
-        }
-
-        const driver = collection.driver;
-        const revSharePercentage = driver.revSharePercentage || parseFloat(process.env.DEFAULT_REV_SHARE_PERCENTAGE || '70');
-
-        // Calculate revenue share
-        const revShareAmount = (collection.totalCollection * revSharePercentage) / 100;
-
-        // Get incentives for the day
-        const incentives = await prisma.incentive.findMany({
-            where: {
-                driverId: driver.id,
-                isPaid: false,
-                createdAt: {
-                    gte: new Date(collection.date.setHours(0, 0, 0, 0)),
-                    lt: new Date(collection.date.setHours(23, 59, 59, 999)),
-                },
-            },
-        });
-        const incentiveAmount = incentives.reduce((sum, i) => sum + i.amount, 0);
-
-        // Get penalties for the day
-        const penalties = await prisma.penalty.findMany({
-            where: {
-                driverId: driver.id,
-                isPaid: false,
-                isWaived: false,
-                createdAt: {
-                    gte: new Date(collection.date.setHours(0, 0, 0, 0)),
-                    lt: new Date(collection.date.setHours(23, 59, 59, 999)),
-                },
-            },
-        });
-        const penaltyAmount = penalties.reduce((sum, p) => sum + p.amount, 0);
-
-        // Calculate net payout
-        const netPayout = revShareAmount + incentiveAmount - penaltyAmount;
-
-        // Update collection
-        const updatedCollection = await prisma.dailyCollection.update({
-            where: { id: collectionId },
-            data: {
-                revSharePercentage,
-                revShareAmount,
-                incentiveAmount,
-                penaltyAmount,
-                netPayout,
-            },
-        });
-
-        return updatedCollection;
-    }
+    // calcRevShare method removed as per 'Manual Payout' requirement.
+    // Payouts are now determined solely via Bulk CSV Upload.
 
     /**
      * Reconcile daily collection
@@ -154,8 +96,8 @@ export class PayoutService {
             },
         });
 
-        // Auto-calculate revenue share after reconciliation
-        await this.calculateRevShare(params.collectionId);
+        // Auto-calculate logic removed. Reconciliation now just certifies the totalCollection.
+        // await this.calculateRevShare(params.collectionId);
 
         return updatedCollection;
     }
@@ -369,31 +311,71 @@ export class PayoutService {
      * Get driver payout summary
      */
     async getDriverPayoutSummary(driverId: string, startDate?: Date, endDate?: Date) {
+        // 1. Get Collections (Gross Earnings)
         const collections = await this.getDriverCollections(driverId, {
             startDate,
             endDate,
         });
 
-        const totalCollections = collections.reduce((sum, c) => sum + c.totalCollection, 0);
-        const totalRevShare = collections.reduce((sum, c) => sum + (c.revShareAmount || 0), 0);
-        const totalIncentives = collections.reduce((sum, c) => sum + c.incentiveAmount, 0);
-        const totalPenalties = collections.reduce((sum, c) => sum + c.penaltyAmount, 0);
-        const totalPayout = collections.reduce((sum, c) => sum + (c.netPayout || 0), 0);
+        // 2. Get Actual Payouts (Real Money Paid)
+        const payouts = await prisma.transaction.findMany({
+            where: {
+                driverId,
+                type: TransactionType.PAYOUT,
+                status: TransactionStatus.SUCCESS,
+                ...(startDate || endDate ? {
+                    createdAt: {
+                        ...(startDate && { gte: startDate }),
+                        ...(endDate && { lte: endDate })
+                    }
+                } : {})
+            }
+        });
 
-        const paidCollections = collections.filter((c) => c.isPaid);
-        const unpaidCollections = collections.filter((c) => !c.isPaid);
+        // 3. Get Incentives & Penalties (For strict equation balance)
+        const dateFilter = startDate || endDate ? {
+            createdAt: {
+                ...(startDate && { gte: startDate }),
+                ...(endDate && { lte: endDate })
+            }
+        } : {};
+
+        const incentives = await prisma.incentive.findMany({
+            where: { driverId, ...dateFilter }
+        });
+
+        const penalties = await prisma.penalty.findMany({
+            where: { driverId, ...dateFilter }
+        });
+
+        // 4. Calculate Summary adhering to User Equation:
+        // Equation: Earnings - Penalties + Incentives - Deductions = Payout
+        // Therefore: Deductions = Earnings - Penalties + Incentives - Payout
+
+        const totalCollections = collections.reduce((sum, c) => sum + c.totalCollection, 0);
+        const totalIncentives = incentives.reduce((sum, i) => sum + i.amount, 0);
+        const totalPenalties = penalties.reduce((sum, p) => sum + p.amount, 0);
+        const totalPayout = payouts.reduce((sum, t) => sum + t.amount, 0);
+
+        const netEarnings = totalCollections + totalIncentives - totalPenalties;
+        // If Payout > NetEarnings (Advance Payment), Deductions is negative (meaning platform paid extra?)
+        // Usually NetEarnings > Payout, so Deductions is positive (Platform Commission).
+        const deductions = netEarnings - totalPayout;
 
         return {
             totalDays: collections.length,
-            totalCollections,
-            totalRevShare,
-            totalIncentives,
-            totalPenalties,
-            totalPayout,
-            paidDays: paidCollections.length,
-            unpaidDays: unpaidCollections.length,
-            paidAmount: paidCollections.reduce((sum, c) => sum + (c.netPayout || 0), 0),
-            unpaidAmount: unpaidCollections.reduce((sum, c) => sum + (c.netPayout || 0), 0),
+            totalCollections, // Gross Earnings
+            totalIncentives,  // Added
+            totalPenalties,   // Deducted
+            totalPayout,     // Actual Paid
+            deductions,      // Derived Commission
+            balance: 0,      // Explicitly 0
+            // Compatibility
+            totalRevShare: 0,
+            paidDays: 0,
+            unpaidDays: collections.length,
+            paidAmount: totalPayout,
+            unpaidAmount: 0
         };
     }
 
@@ -413,6 +395,203 @@ export class PayoutService {
         }
 
         return results;
+    }
+
+    /**
+     * Process bulk payout from CSV file
+     */
+    async processBulkPayout(fileBuffer: Buffer) {
+        const Readable = (await import('stream')).Readable;
+        const csv = (await import('csv-parser')).default;
+
+        const results: any[] = [];
+        const processStats = {
+            total: 0,
+            success: 0,
+            failed: 0,
+            skipped: 0,
+            amountDisbursed: 0,
+            details: [] as any[]
+        };
+
+        return new Promise((resolve, reject) => {
+            const stream = Readable.from(fileBuffer);
+
+            stream
+                .pipe(csv())
+                .on('data', (data) => results.push(data))
+                .on('end', async () => {
+                    processStats.total = results.length;
+
+                    for (const row of results) {
+                        const description = row.payoutCycle || 'Bulk Payout Upload';
+                        const amount = parseFloat(row.amount || '0');
+
+                        try {
+                            // 1. Identify Driver
+                            let driver = null;
+                            if (row.phone) {
+                                driver = await prisma.driver.findFirst({
+                                    where: { mobile: row.phone },
+                                    include: { user: true }
+                                });
+                            } else if (row.accountNumber) {
+                                driver = await prisma.driver.findFirst({
+                                    where: { bankAccountNumber: row.accountNumber },
+                                    include: { user: true }
+                                });
+                            }
+
+                            if (!driver) {
+                                throw new Error(`Driver not found for Phone: ${row.phone}`);
+                            }
+
+                            // 2. Validate Bank Details
+                            if (!driver.bankAccountNumber || !driver.bankIfscCode || !driver.bankAccountName) {
+                                throw new Error('Driver Bank Details Missing');
+                            }
+
+                            // 3. Idempotency Check (Prevent Double Pay)
+                            // We check if a payout of same amount & description exists for this driver today or recently
+                            const duplicate = await prisma.transaction.findFirst({
+                                where: {
+                                    driverId: driver.id,
+                                    type: TransactionType.PAYOUT,
+                                    amount: amount,
+                                    description: description,
+                                    status: { in: [TransactionStatus.SUCCESS, TransactionStatus.PENDING] }
+                                }
+                            });
+
+                            if (duplicate) {
+                                processStats.skipped++;
+                                processStats.details.push({
+                                    phone: row.phone,
+                                    status: 'SKIPPED',
+                                    message: 'Duplicate transaction found'
+                                });
+                                continue;
+                            }
+
+                            // 4. Create PENDING Transaction
+                            // This locks the intent to pay
+                            let transaction = null;
+                            if (amount > 0) {
+                                transaction = await prisma.transaction.create({
+                                    data: {
+                                        driverId: driver.id,
+                                        type: TransactionType.PAYOUT,
+                                        amount: amount,
+                                        status: TransactionStatus.PENDING, // <--- Starts as PENDING
+                                        paymentMethod: PaymentMethod.PG_UPI, // or IMPS/BANK_TRANSFER
+                                        description: description,
+                                        metadata: {
+                                            source: 'bulk_upload',
+                                            rawRow: row
+                                        }
+                                    }
+                                });
+
+                                // 5. Execute Payout via Easebuzz
+                                try {
+                                    const payoutResult = await easebuzzAdapter.createPayout({
+                                        amount: amount,
+                                        beneficiaryName: driver.bankAccountName,
+                                        beneficiaryAccount: driver.bankAccountNumber,
+                                        beneficiaryIfsc: driver.bankIfscCode,
+                                        purpose: description,
+                                        transferMode: 'IMPS',
+                                        email: driver.user.phone ? `${driver.user.phone}@driversklub.com` : 'admin@driversklub.com',
+                                        phone: driver.mobile
+                                    });
+
+                                    // 6a. Success: Update Transaction
+                                    await prisma.transaction.update({
+                                        where: { id: transaction.id },
+                                        data: {
+                                            status: TransactionStatus.SUCCESS,
+                                            easebuzzTxnId: payoutResult.txnId,
+                                            easebuzzPaymentId: payoutResult.easebuzzTxnId,
+                                            easebuzzStatus: payoutResult.status,
+                                            metadata: {
+                                                ...((transaction.metadata as object) || {}),
+                                                utr: payoutResult.utr
+                                            }
+                                        }
+                                    });
+
+                                    processStats.amountDisbursed += amount;
+
+                                } catch (payoutError: any) {
+                                    // 6b. Failure: Update Transaction to FAILED
+                                    console.error(`Payout API Failed for ${driver.id}:`, payoutError);
+                                    await prisma.transaction.update({
+                                        where: { id: transaction.id },
+                                        data: {
+                                            status: TransactionStatus.FAILED,
+                                            metadata: {
+                                                ...((transaction.metadata as object) || {}),
+                                                failureReason: payoutError.message
+                                            }
+                                        }
+                                    });
+                                    throw new Error(`Easebuzz Error: ${payoutError.message}`);
+                                }
+                            }
+
+                            // 7. Handle Penalty (Record Tracking Only)
+                            const penalty = parseFloat(row.penalty || '0');
+                            if (penalty > 0) {
+                                await prisma.penalty.create({
+                                    data: {
+                                        driverId: driver.id,
+                                        type: 'MONETARY',
+                                        amount: penalty,
+                                        reason: `Bulk Penalty: ${description}`,
+                                        isPaid: true,
+                                        paidAt: new Date(),
+                                        createdBy: 'SYSTEM_BULK_UPLOAD'
+                                    }
+                                });
+                            }
+
+                            // 8. Handle Incentive (Record Tracking Only)
+                            const incentive = parseFloat(row.incentive || '0');
+                            if (incentive > 0) {
+                                await prisma.incentive.create({
+                                    data: {
+                                        driverId: driver.id,
+                                        amount: incentive,
+                                        reason: `Bulk Incentive: ${description}`,
+                                        isPaid: true,
+                                        paidAt: new Date(),
+                                        createdBy: 'SYSTEM_BULK_UPLOAD'
+                                    }
+                                });
+                            }
+
+                            processStats.success++;
+                            processStats.details.push({
+                                phone: row.phone,
+                                status: 'SUCCESS',
+                                driverId: driver.id,
+                                amount: amount,
+                                utr: transaction?.metadata ? (transaction.metadata as any).utr : 'N/A'
+                            });
+
+                        } catch (error: any) {
+                            processStats.failed++;
+                            processStats.details.push({
+                                phone: row.phone,
+                                status: 'FAILED',
+                                error: error.message
+                            });
+                        }
+                    }
+                    resolve(processStats);
+                })
+                .on('error', (error) => reject(error));
+        });
     }
 }
 

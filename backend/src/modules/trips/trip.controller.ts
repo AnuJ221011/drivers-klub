@@ -26,56 +26,66 @@ export class TripController {
   }
 
   async getTrip(req: Request, res: Response) {
-    const { id } = req.params;
+    try {
+      const { id } = req.params;
 
-    const trip = await prisma.ride.findUnique({
-      where: { id },
-    });
+      const trip = await prisma.ride.findUnique({
+        where: { id },
+      });
 
-    if (!trip) {
-      return res.status(404).json({ message: "Trip not found" });
+      if (!trip) {
+        return res.status(404).json({ message: "Trip not found" });
+      }
+
+      const mapping = await this.mappingRepo.findByRideId(id);
+
+      const mappedTrip = {
+        ...trip,
+        provider: mapping?.providerType,
+      };
+      return ApiResponse.send(res, 200, mappedTrip, "Trip retrieved successfully");
+    } catch (error: any) {
+      console.error("Get Trip Error:", error);
+      return res.status(500).json({ message: "Failed to retrieve trip", error: error.message });
     }
-
-    const mapping = await this.mappingRepo.findByRideId(id);
-
-    const mappedTrip = {
-      ...trip,
-      provider: mapping?.providerType,
-    };
-    return ApiResponse.send(res, 200, mappedTrip, "Trip retrieved successfully");
   }
 
   async assignDriver(req: Request, res: Response) {
-    const { id } = req.params;
-    const { driverId } = req.body;
+    try {
+      const { id } = req.params;
+      const { driverId } = req.body;
 
-    const ride = await prisma.ride.findUnique({ where: { id } });
-    if (!ride) return res.status(404).json({ message: "Trip not found" });
+      const ride = await prisma.ride.findUnique({ where: { id } });
+      if (!ride) return res.status(404).json({ message: "Trip not found" });
 
-    // 1. Create Assignment
-    await prisma.tripAssignment.create({
-      data: {
-        tripId: id,
-        driverId: driverId,
-        status: "ASSIGNED"
+      // 1. Create Assignment
+      await prisma.tripAssignment.create({
+        data: {
+          tripId: id,
+          driverId: driverId,
+          status: "ASSIGNED"
+        }
+      });
+
+      // 2. Update Status
+      const updated = await prisma.ride.update({
+        where: { id },
+        data: { status: "DRIVER_ASSIGNED" }
+      });
+
+      // 3. MMT Hook
+      const driver = await prisma.driver.findUnique({ where: { id: driverId } });
+      const mapping = await this.mappingRepo.findByRideId(id);
+
+      if (mapping && mapping.providerType === "MMT" && driver) {
+        await this.mmtWebhook.pushDriverAssignment(mapping.externalBookingId, driver);
       }
-    });
 
-    // 2. Update Status
-    const updated = await prisma.ride.update({
-      where: { id },
-      data: { status: "DRIVER_ASSIGNED" }
-    });
-
-    // 3. MMT Hook
-    const driver = await prisma.driver.findUnique({ where: { id: driverId } });
-    const mapping = await this.mappingRepo.findByRideId(id);
-
-    if (mapping && mapping.providerType === "MMT" && driver) {
-      await this.mmtWebhook.pushDriverAssignment(mapping.externalBookingId, driver);
+      return ApiResponse.send(res, 200, updated, "Driver assigned successfully");
+    } catch (error: any) {
+      console.error("Assign Driver Error:", error);
+      return res.status(500).json({ message: "Failed to assign driver", error: error.message });
     }
-
-    return ApiResponse.send(res, 200, updated, "Driver assigned successfully");
   }
 
   async startTrip(req: Request, res: Response) {

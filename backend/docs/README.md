@@ -9,6 +9,9 @@ This directory contains all project documentation for the Driver's Klub backend 
 - **[MASTER_PROJECT_DOCUMENTATION.md](./MASTER_PROJECT_DOCUMENTATION.md)** - Complete system architecture, data models, and setup guide
 - **[API_REFERENCE.md](./API_REFERENCE.md)** - Comprehensive API endpoint documentation
 - **[PROJECT_DETAILS.md](./PROJECT_DETAILS.md)** - Detailed technical specifications
+- **[MMT_INTEGRATION_GUIDE.md](./MMT_INTEGRATION_GUIDE.md)** - Partner integration specs (MakeMyTrip)
+
+> 📥 **[Download All Documentation as PDFs](./pdf/)**
 
 ### Team-Specific Guides
 
@@ -18,7 +21,7 @@ This directory contains all project documentation for the Driver's Klub backend 
 ### Payment System Documentation
 
 - **[PAYMENT_SYSTEM_DOCUMENTATION.md](./PAYMENT_SYSTEM_DOCUMENTATION.md)** - Complete payment & payout system specification
-- **[PAYMENT_SYSTEM_DOCUMENTATION.pdf](./PAYMENT_SYSTEM_DOCUMENTATION.pdf)** - PDF version
+- **[POSTMAN_EASEBUZZ_GUIDE.md](./POSTMAN_EASEBUZZ_GUIDE.md)** - Step-by-step testing guide for Payments
 
 > **Note:** Payment API endpoints are documented in [API_REFERENCE.md](./API_REFERENCE.md)
 
@@ -66,7 +69,7 @@ Start with [REACT_ADMIN_API_GUIDE.md](./REACT_ADMIN_API_GUIDE.md) - Contains:
 ### Regenerate Payment System PDF
 
 ```bash
-node scripts/convert-to-pdf.js
+npx tsx scripts/generate-all-pdfs.ts
 ```
 
 ### Documentation Standards
@@ -95,6 +98,11 @@ node scripts/convert-to-pdf.js
 ---
 
 ## 🆕 Latest Updates
+
+### January 7, 2026
+
+- ✅ **Documentation Suite Finalized** - Added PDFs, Postman Guides, and Architectural Specs.
+- ✅ **Rental Model Documented** - Full coverage of Driver Rental Plans.
 
 ### December 30, 2025
 

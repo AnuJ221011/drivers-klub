@@ -155,6 +155,11 @@ export class RentalService {
             throw new Error('Rental plan not found or inactive');
         }
 
+        // Check if plan matches driver's fleet
+        if (rentalPlan.fleetId !== driver.fleetId) {
+            throw new Error('This rental plan does not belong to your fleet');
+        }
+
         // Check if driver has sufficient deposit
         if (driver.depositBalance < rentalPlan.depositAmount) {
             throw new Error(

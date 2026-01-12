@@ -42,11 +42,82 @@ export const updateDriver = async (req: Request, res: Response) => {
 };
 
 export const updateDriverStatus = async (req: Request, res: Response) => {
-  const driver = await driverService.updateDriverStatus(req.params.id, req.body);
+  const driver = await driverService.updateDriverStatus(
+    req.params.id,
+    req.body
+  );
   ApiResponse.send(res, 200, driver, "Driver status updated successfully");
 };
 
 export const updateDriverAvailability = async (req: Request, res: Response) => {
-  const driver = await driverService.updateDriverAvailability(req.params.id, req.body);
-  ApiResponse.send(res, 200, driver, "Driver availability updated successfully");
+  const driver = await driverService.updateDriverAvailability(
+    req.params.id,
+    req.body
+  );
+  ApiResponse.send(
+    res,
+    200,
+    driver,
+    "Driver availability updated successfully"
+  );
+};
+
+export const getDriverPreferences = async (req: Request, res: Response) => {
+  const driverPreference = await driverService.getDriverPreferences(
+    req.params.id
+  );
+  ApiResponse.send(
+    res,
+    200,
+    driverPreference,
+    "Driver preferences retrieved successfully"
+  );
+};
+
+export const createDriverPreferencesChangeRequest = async (
+  req: Request,
+  res: Response
+) => {
+  const driverPreferenceChangeRequest =
+    await driverService.driverPreferencesChangeRequest(req.params.id, req.body);
+  ApiResponse.send(
+    res,
+    200,
+    driverPreferenceChangeRequest,
+    "Driver preferences update request sent successfully"
+  );
+};
+
+export const getAllPreferenceChangePendingRequests = async (
+  _req: Request,
+  res: Response
+) => {
+  const pendingPreferenceChangeRequests =
+    await driverService.getPendingPreferenceChangeRequests();
+
+  ApiResponse.send(
+    res,
+    200,
+    pendingPreferenceChangeRequests,
+    "Pending preference requests retrieved successfully"
+  );
+};
+
+export const updatePreferenceChangeRequestStatus = async (
+  req: Request,
+  res: Response
+) => {
+  const reviewedBy = req.user?.id;
+  const updatedPreferenceChangeRequest =
+    await driverService.updatePendingPreferenceChangeRequest(
+      req.body,
+      reviewedBy
+    );
+
+  ApiResponse.send(
+    res,
+    200,
+    updatedPreferenceChangeRequest,
+    "Preference change request updated successfully"
+  );
 };

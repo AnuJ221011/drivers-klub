@@ -3,9 +3,12 @@ import { prisma } from "../../utils/prisma.js";
 import { ApiResponse } from "../../utils/apiResponse.js";
 import { AttendanceStatus } from "@prisma/client";
 import { checkGeoLocation } from "./attendance.service.js";
+import { RapidoService } from "../partner/rapido/rapido.service.js";
+
+const rapidoService = new RapidoService();
 
 export class AttendanceController {
-  
+
   async checkIn(req: Request, res: Response) {
     try {
       const { driverId, lat, lng, odometer, selfieUrl } = req.body;
@@ -51,6 +54,9 @@ export class AttendanceController {
         },
       });
 
+      // Sync Rapido Status (Should go ONLINE if eligible)
+      rapidoService.validateAndSyncRapidoStatus(driverId, "CHECK_IN").catch(console.error);
+
       return ApiResponse.send(res, 201, attendance, "Check-in successful");
     } catch (error: any) {
       console.error("Check-in Error:", error);
@@ -60,7 +66,7 @@ export class AttendanceController {
     }
   }
 
-    async getById(req: Request, res: Response) {
+  async getById(req: Request, res: Response) {
     try {
       const { id } = req.params;
 
@@ -97,7 +103,7 @@ export class AttendanceController {
   // Driver Check-Out
   async checkOut(req: Request, res: Response) {
     try {
-      const { driverId, odometer } = req.body;
+      const { driverId, odometer, cashDeposited } = req.body;
 
       const active = await prisma.attendance.findFirst({
         where: {
@@ -111,14 +117,36 @@ export class AttendanceController {
         return res.status(404).json({ message: "No active check-in found" });
       }
 
+      const endOdometer = Number(odometer);
+      const cash = cashDeposited ? Number(cashDeposited) : 0;
+
+      // Validate Odometer
+      if (isNaN(endOdometer)) {
+        return res.status(400).json({ message: "Invalid odometer reading" });
+      }
+      if (active.odometerStart && endOdometer < active.odometerStart) {
+        return res.status(400).json({
+          message: `Odometer reading cannot be less than start reading (${active.odometerStart})`
+        });
+      }
+
+      // Validate Cash
+      if (isNaN(cash) || cash < 0) {
+        return res.status(400).json({ message: "Invalid cash deposit amount" });
+      }
+
       const updated = await prisma.attendance.update({
         where: { id: active.id },
         data: {
           checkOutTime: new Date(),
           status: AttendanceStatus.CHECKED_OUT,
-          odometerEnd: odometer,
+          odometerEnd: endOdometer,
+          cashDeposited: cash,
         },
       });
+
+      // Sync Rapido Status (Should go OFFLINE)
+      rapidoService.validateAndSyncRapidoStatus(driverId, "CHECK_OUT").catch(console.error);
 
       return ApiResponse.send(res, 200, updated, "Check-out successful");
     } catch (error: any) {
@@ -171,6 +199,9 @@ export class AttendanceController {
         },
       });
 
+      // Sync Rapido Status (Should go OFFLINE)
+      rapidoService.validateAndSyncRapidoStatus(driverId, "START_BREAK").catch(console.error);
+
       return ApiResponse.send(res, 200, newBreak, "Break started successfully");
     } catch (error: any) {
       console.error("Start break error:", error);
@@ -214,6 +245,9 @@ export class AttendanceController {
         where: { id: activeBreak.id },
         data: { endTime: new Date() },
       });
+
+      // Sync Rapido Status (Should go ONLINE if eligible)
+      rapidoService.validateAndSyncRapidoStatus(driverId, "END_BREAK").catch(console.error);
 
       return ApiResponse.send(
         res,
@@ -293,7 +327,18 @@ export class AttendanceController {
           skip,
           take: limit,
           orderBy: { createdAt: "desc" },
-          include: { driver: true },
+          include: {
+            driver: {
+              include: {
+                fleet: true,
+                assignments: {
+                  where: { status: "ACTIVE" },
+                  include: { vehicle: true },
+                  orderBy: { createdAt: "desc" },
+                },
+              },
+            },
+          },
         }),
         prisma.attendance.count({ where }),
       ]);

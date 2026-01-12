@@ -8,6 +8,7 @@ import {
     getCollections,
     initiateDeposit,
     initiateRental,
+    getDriverRentalPlans,
     // Admin endpoints
     createRentalPlan,
     getRentalPlans,
@@ -21,10 +22,18 @@ import {
     getPendingPayouts,
     generateVehicleQR,
     getVehicleQR,
+    uploadBulkPayout,
 } from './payment.controller.js';
+import {
+    createOrder as createOrderCtrl,
+    getOrder as getOrderCtrl,
+    listOrders as listOrdersCtrl
+} from './order.controller.js';
 import { authenticate } from '../../middlewares/authenticate.js';
 import { authorizeRoles } from '../../middlewares/authorize.js';
+import multer from 'multer';
 
+const upload = multer({ storage: multer.memoryStorage() });
 const router = Router();
 
 // All routes require authentication
@@ -55,6 +64,9 @@ router.post('/deposit', authorizeRoles('DRIVER'), initiateDeposit);
 // Initiate rental payment
 router.post('/rental', authorizeRoles('DRIVER'), initiateRental);
 
+// Get available rental plans
+router.get('/rental/plans', authorizeRoles('DRIVER'), getDriverRentalPlans);
+
 // ============================================
 // ADMIN ROUTES
 // ============================================
@@ -62,7 +74,7 @@ router.post('/rental', authorizeRoles('DRIVER'), initiateRental);
 // Rental Plans
 router.post(
     '/admin/rental-plans',
-    authorizeRoles('SUPER_ADMIN', 'OPERATIONS'),
+    authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
     createRentalPlan
 );
 
@@ -123,6 +135,14 @@ router.get(
     getPendingPayouts
 );
 
+// Bulk Payout Upload
+router.post(
+    '/admin/bulk-payout',
+    authorizeRoles('SUPER_ADMIN', 'OPERATIONS'),
+    upload.single('file'),
+    uploadBulkPayout
+);
+
 // Virtual QR
 router.post(
     '/admin/vehicle/:id/qr',
@@ -134,6 +154,28 @@ router.get(
     '/admin/vehicle/:id/qr',
     authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
     getVehicleQR
+);
+
+// ============================================
+// ORDER ROUTES (InstaCollect)
+// ============================================
+
+router.post(
+    '/orders',
+    authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
+    createOrderCtrl
+);
+
+router.get(
+    '/orders/:id',
+    authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
+    getOrderCtrl
+);
+
+router.get(
+    '/orders',
+    authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
+    listOrdersCtrl
 );
 
 export default router;

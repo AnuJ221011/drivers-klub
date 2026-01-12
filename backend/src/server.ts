@@ -5,7 +5,7 @@ import http from "http";
 import { connectDB } from "./utils/prisma.js";
 import { startStatusSyncWorker } from "./worker.js";
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 8080;
 
 const server = http.createServer(app);
 

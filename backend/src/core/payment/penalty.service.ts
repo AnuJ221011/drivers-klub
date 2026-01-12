@@ -1,5 +1,6 @@
 import { prisma } from '../../utils/prisma.js';
 import { PenaltyType, TransactionType, TransactionStatus, PaymentMethod, PaymentModel } from '@prisma/client';
+import { easebuzzAdapter } from '../../adapters/easebuzz/easebuzz.adapter.js';
 
 export class PenaltyService {
     /**
@@ -17,6 +18,7 @@ export class PenaltyService {
     }) {
         const driver = await prisma.driver.findUnique({
             where: { id: data.driverId },
+            include: { user: true },
         });
 
         if (!driver) {
@@ -41,7 +43,7 @@ export class PenaltyService {
         // Handle monetary penalty with automatic deposit deduction for RENTAL model
         if (data.type === PenaltyType.MONETARY && data.amount && data.amount > 0) {
             if (driver.paymentModel === PaymentModel.RENTAL) {
-                await this.handleRentalModelPenalty(penalty.id, data.driverId, data.amount);
+                return this.handleRentalModelPenalty(penalty.id, data.driverId, data.amount, driver);
             }
             // For PAYOUT model, penalty will be deducted from next payout
         }
@@ -53,7 +55,7 @@ export class PenaltyService {
 
         // Handle blacklist
         if (data.type === PenaltyType.BLACKLIST) {
-            await this.applyBlacklist(data.driverId);
+            await this.applyBlacklist(data.driverId, driver);
         }
 
         return penalty;
@@ -63,13 +65,7 @@ export class PenaltyService {
      * Handle monetary penalty for rental model driver
      * Auto-deduct from deposit if available
      */
-    private async handleRentalModelPenalty(penaltyId: string, driverId: string, amount: number) {
-        const driver = await prisma.driver.findUnique({
-            where: { id: driverId },
-        });
-
-        if (!driver) return;
-
+    private async handleRentalModelPenalty(penaltyId: string, driverId: string, amount: number, driver: any) {
         const availableDeposit = driver.depositBalance;
 
         if (availableDeposit >= amount) {
@@ -108,6 +104,7 @@ export class PenaltyService {
                     },
                 }),
             ]);
+            return { message: 'Penalty deducted from deposit' };
         } else if (availableDeposit > 0) {
             // Partial deduction from deposit
             const remainingAmount = amount - availableDeposit;
@@ -144,40 +141,185 @@ export class PenaltyService {
                 }),
             ]);
 
-            // TODO: Create payment gateway request for remaining amount
-            console.log(`Remaining penalty amount: ₹${remainingAmount} - PG integration needed`);
+            // Create payment link for remaining amount
+            try {
+                const transaction = await prisma.transaction.create({
+                    data: {
+                        driverId,
+                        type: TransactionType.PENALTY,
+                        amount: remainingAmount,
+                        status: TransactionStatus.PENDING,
+                        paymentMethod: PaymentMethod.PG_UPI,
+                        penaltyId,
+                        description: `Penalty remaining balance payment (Total: ₹${amount})`,
+                    },
+                });
+
+                const payment = await easebuzzAdapter.initiatePayment({
+                    amount: remainingAmount,
+                    productInfo: 'Penalty Payment',
+                    firstName: driver.firstName,
+                    phone: driver.mobile,
+                    email: driver.user?.email || 'driver@driversklub.com',
+                    successUrl: process.env.PAYMENT_SUCCESS_URL || 'http://localhost:3000/payment/success',
+                    failureUrl: process.env.PAYMENT_FAILURE_URL || 'http://localhost:3000/payment/failure',
+                    udf1: driverId,
+                    udf2: TransactionType.PENALTY,
+                    udf3: penaltyId,
+                });
+
+                // Update transaction with Easebuzz txn ID
+                await prisma.transaction.update({
+                    where: { id: transaction.id },
+                    data: {
+                        easebuzzTxnId: payment.txnId,
+                    },
+                });
+
+                return {
+                    message: `Partial deduction (₹${availableDeposit}). Payment link generated for remaining ₹${remainingAmount}.`,
+                    paymentUrl: payment.paymentUrl,
+                    remainingAmount
+                };
+
+            } catch (error: any) {
+                console.error('Failed to generate penalty payment link:', error);
+                return {
+                    message: `Partial deduction (₹${availableDeposit}). Failed to generate payment link for remaining ₹${remainingAmount}.`,
+                    error: error.message
+                };
+            }
+        } else {
+            // No deposit available - Generate full payment link
+            try {
+                const transaction = await prisma.transaction.create({
+                    data: {
+                        driverId,
+                        type: TransactionType.PENALTY,
+                        amount: amount,
+                        status: TransactionStatus.PENDING,
+                        paymentMethod: PaymentMethod.PG_UPI,
+                        penaltyId,
+                        description: `Penalty payment`,
+                    },
+                });
+
+                const payment = await easebuzzAdapter.initiatePayment({
+                    amount: amount,
+                    productInfo: 'Penalty Payment',
+                    firstName: driver.firstName,
+                    phone: driver.mobile,
+                    email: driver.user?.email || 'driver@driversklub.com',
+                    successUrl: process.env.PAYMENT_SUCCESS_URL || 'http://localhost:3000/payment/success',
+                    failureUrl: process.env.PAYMENT_FAILURE_URL || 'http://localhost:3000/payment/failure',
+                    udf1: driverId,
+                    udf2: TransactionType.PENALTY,
+                    udf3: penaltyId,
+                });
+
+                await prisma.transaction.update({
+                    where: { id: transaction.id },
+                    data: { easebuzzTxnId: payment.txnId },
+                });
+
+                return {
+                    message: 'Insufficient deposit. Payment link generated.',
+                    paymentUrl: payment.paymentUrl,
+                    amount
+                };
+            } catch (error: any) {
+                console.error('Failed to generate penalty payment link:', error);
+                throw new Error('Failed to generate payment link');
+            }
         }
-        // If no deposit available, penalty remains unpaid
     }
 
     /**
      * Apply suspension to driver
      */
     private async applySuspension(driverId: string, startDate: Date, endDate: Date) {
-        await prisma.driver.update({
-            where: { id: driverId },
-            data: {
-                status: 'INACTIVE',
-            },
-        });
+        await prisma.$transaction(async (tx) => {
+            // 1. Update Driver Status
+            await tx.driver.update({
+                where: { id: driverId },
+                data: {
+                    status: 'SUSPENDED', // Ensure this enum exists or use 'INACTIVE'
+                    isAvailable: false,
+                },
+            });
 
-        // TODO: Cancel active trips, pause rental plan
-        console.log(`Driver ${driverId} suspended from ${startDate} to ${endDate}`);
+            // 2. Cancel Active/Future Trips
+            // Fetch active trips first to get IDs if needed, or updateMany directly
+            // In a real system, we might need to notify providers. For now, database update is key.
+            const cancelledTrips = await tx.ride.updateMany({
+                where: {
+                    tripAssignments: { some: { driverId } },
+                    status: { in: ['CREATED', 'DRIVER_ASSIGNED'] } // Don't cancel STARTED trips automatically
+                },
+                data: {
+                    status: 'CANCELLED', // Using 'CANCELLED' as generic
+                }
+            });
+
+            // 3. Pause/Expire Active Rental
+            await tx.driverRental.updateMany({
+                where: {
+                    driverId: driverId,
+                    isActive: true,
+                },
+                data: {
+                    isActive: false, // Effectively pauses benefit
+                },
+            });
+
+            console.log(`Driver ${driverId} suspended from ${startDate.toISOString()} to ${endDate.toISOString()}. Cancelled ${cancelledTrips.count} trips.`);
+        });
     }
 
     /**
      * Apply blacklist to driver
      */
-    private async applyBlacklist(driverId: string) {
+    private async applyBlacklist(driverId: string, driver: any) {
         await prisma.driver.update({
             where: { id: driverId },
             data: {
-                status: 'INACTIVE',
+                status: 'BLACKLISTED', // or INACTIVE
                 isAvailable: false,
             },
         });
 
-        // TODO: Initiate deposit refund process
+        // Initiate deposit refund process
+        if (driver.depositBalance > 0) {
+            try {
+                // If driver has bank account (implied by payout model or saved beneficiary), process payout.
+                // Assuming we have beneficiary details. If not, we just zero the balance and log manual refund needed.
+                // For now, we will create a 'PENDING_REFUND' transaction and zero the wallet.
+
+                const payoutTransaction = await prisma.transaction.create({
+                    data: {
+                        driverId,
+                        type: TransactionType.PAYOUT, // Or REFUND
+                        amount: driver.depositBalance,
+                        status: TransactionStatus.PENDING, // Pending manual/auto processing
+                        paymentMethod: PaymentMethod.BANK_TRANSFER,
+                        description: 'Security Deposit Refund (Blacklist)',
+                    },
+                });
+
+                // Zero out the wallet
+                await prisma.driver.update({
+                    where: { id: driverId },
+                    data: { depositBalance: 0 }
+                });
+
+                console.log(`Refund initiated for Driver ${driverId}: ₹${payoutTransaction.amount}`);
+                // In production: Call EasebuzzAdapter.createPayout() here if account details exist.
+
+            } catch (error) {
+                console.error('Failed to initiate blacklist refund:', error);
+            }
+        }
+
         console.log(`Driver ${driverId} blacklisted`);
     }
 
