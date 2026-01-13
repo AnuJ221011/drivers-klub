@@ -1032,7 +1032,15 @@ export default function PaymentPricing() {
               <div className="space-y-3">
                 <div className="flex items-start gap-4">
                   {qrToView.qrCodeBase64 ? (
-                    <img src={qrToView.qrCodeBase64} alt="Vehicle QR" className="h-40 w-40 border rounded-md" />
+                    <img
+                      src={
+                        qrToView.qrCodeBase64.startsWith("data:")
+                          ? qrToView.qrCodeBase64
+                          : `data:image/png;base64,${qrToView.qrCodeBase64}`
+                      }
+                      alt="Vehicle QR"
+                      className="h-40 w-40 border rounded-md"
+                    />
                   ) : (
                     <div className="h-40 w-40 border rounded-md flex items-center justify-center text-sm text-black/60">No QR image</div>
                   )}
