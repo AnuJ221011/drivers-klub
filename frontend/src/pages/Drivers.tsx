@@ -20,6 +20,8 @@ import { getVehiclesByFleet } from '../api/vehicle.api';
 import type { Vehicle } from '../models/vehicle/vehicle';
 import type { AssignmentEntity } from '../models/assignment/assignment';
 import AssignVehicleToDriverModal from '../components/driver/AssignVehicleToDriverModal';
+import { getFleetHubs } from '../api/fleetHub.api';
+import type { FleetHubEntity } from '../api/fleetHub.api';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -40,6 +42,7 @@ export default function DriverManagement() {
   const [assignedVehicleByDriverId, setAssignedVehicleByDriverId] = useState<Record<string, string>>({});
   const [assignments, setAssignments] = useState<AssignmentEntity[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [hubs, setHubs] = useState<FleetHubEntity[]>([]);
   const [searchPhone, setSearchPhone] = useState('');
   const [searchName, setSearchName] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -53,20 +56,23 @@ export default function DriverManagement() {
       setAssignedVehicleByDriverId({});
       setAssignments([]);
       setVehicles([]);
+      setHubs([]);
       return;
     }
     setLoading(true);
     try {
-      const [data, assignments, vehicles] = await Promise.all([
+      const [data, assignments, vehicles, hubs] = await Promise.all([
         getDriversByFleet(effectiveFleetId),
         getAssignmentsByFleet(effectiveFleetId),
         getVehiclesByFleet(effectiveFleetId),
+        getFleetHubs(effectiveFleetId),
       ]);
 
       console.log('Fetched drivers:', data);
       setDrivers(data);
       setAssignments(assignments || []);
       setVehicles(vehicles || []);
+      setHubs(hubs || []);
 
       const vehicleLabelById = new Map<string, string>();
       for (const v of vehicles || []) {
@@ -86,6 +92,16 @@ export default function DriverManagement() {
       setLoading(false);
     }
   }, [effectiveFleetId]);
+
+  const hubLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const h of hubs || []) {
+      const type = h.hubType ? String(h.hubType) : 'Hub';
+      const addr = h.address ? String(h.address) : '';
+      map.set(h.id, addr ? `${type} • ${addr}` : type);
+    }
+    return map;
+  }, [hubs]);
 
   useEffect(() => {
     void refreshDrivers();
@@ -127,6 +143,15 @@ export default function DriverManagement() {
       render: (d) => assignedVehicleByDriverId[d.id] || "—",
     },
     {
+      key: "hub",
+      label: "Hub",
+      render: (d) => {
+        const id = d.hubId;
+        if (!id) return "—";
+        return hubLabelById.get(id) || id;
+      },
+    },
+    {
       key: "status",
       label: "Status",
       render: (d) => (
@@ -156,14 +181,15 @@ export default function DriverManagement() {
       key: "actions",
       label: "Actions",
       render: (d) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative z-10">
           <button
             onClick={() => {
               setAssignDriver(d);
               setAssignOpen(true);
             }}
-            className="p-2 hover:bg-yellow-100 rounded"
+            className={`p-2 hover:bg-yellow-100 rounded ${!d.hubId ? 'opacity-40 cursor-not-allowed' : ''}`}
             title="Assign vehicle"
+            disabled={!d.hubId}
           >
             <Car size={16} />
           </button>
@@ -250,6 +276,7 @@ export default function DriverManagement() {
       >
         <DriverDrawer
           driver={selectedDriver}
+          fleetId={effectiveFleetId || ''}
           onClose={() => setSelectedDriver(null)}
           onUpdated={() => void refreshDrivers()}
         />

@@ -9,6 +9,7 @@ function toUiDriver(entity: DriverEntity): Driver {
     phone: entity.mobile,
     isActive: entity.status === 'ACTIVE',
     isAvailable: Boolean(entity.isAvailable),
+    hubId: entity.hubId ?? null,
     createdAt: entity.createdAt,
   };
 }

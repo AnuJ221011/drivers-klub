@@ -4,20 +4,25 @@ import type { Driver } from "../../utils/index";
 import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
-import { updateDriverAvailability, updateDriverDetails, updateDriverStatus } from '../../api/driver.api';
+import { updateDriverDetails, updateDriverStatus } from '../../api/driver.api';
 import PhoneInput from "../ui/PhoneInput";
+import { addDriverToHub, getFleetHubs, removeDriverFromHub } from '../../api/fleetHub.api';
 
 type Props = {
   driver: Driver | null;
+  fleetId: string;
   onClose?: () => void;
   onUpdated?: () => void;
 };
 
-export default function DriverDrawer({ driver, onClose, onUpdated }: Props) {
+export default function DriverDrawer({ driver, fleetId, onClose, onUpdated }: Props) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState(''); // digits only
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
-  const [availability, setAvailability] = useState<'Available' | 'Unavailable'>('Unavailable');
+  const [hubId, setHubId] = useState<string>(''); // '' => unassigned
+  const [hubOptions, setHubOptions] = useState<Array<{ label: string; value: string }>>([
+    { label: 'Unassigned', value: '' },
+  ]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -25,20 +30,58 @@ export default function DriverDrawer({ driver, onClose, onUpdated }: Props) {
     setName(driver.name);
     setPhone(driver.phone);
     setStatus(driver.isActive ? 'Active' : 'Inactive');
-    setAvailability(driver.isAvailable ? 'Available' : 'Unavailable');
+    setHubId(driver.hubId || '');
   }, [driver]);
+
+  useEffect(() => {
+    if (!fleetId) {
+      setHubOptions([{ label: 'Unassigned', value: '' }]);
+      return;
+    }
+    let mounted = true;
+    void (async () => {
+      try {
+        const hubs = await getFleetHubs(fleetId);
+        if (!mounted) return;
+        setHubOptions([
+          { label: 'Unassigned', value: '' },
+          ...(hubs || []).map((h) => ({
+            label: h.address ? `${h.hubType} • ${h.address}` : String(h.hubType),
+            value: h.id,
+          })),
+        ]);
+      } catch {
+        // best-effort: keep select usable with existing value
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [fleetId]);
 
   async function onSave() {
     if (!driver) return;
     // capture the non-null id to avoid nullability issues in closures
     const driverId = driver.id;
+    const prevHubId = driver.hubId || '';
     const digits = phone.replace(/\D/g, '');
     if (digits.length !== 10) return toast.error('Phone number must be 10 digits');
     setSaving(true);
     try {
       await updateDriverDetails(driverId, { name: name.trim(), phone: digits.slice(0, 10) });
       await updateDriverStatus(driverId, status === 'Active');
-      await updateDriverAvailability(driverId, availability === 'Available');
+
+      // Hub assignment (new):
+      // - If hubId becomes empty => remove from previous hub
+      // - If hubId is set => add to hub (backend updates driver.hubId)
+      if (hubId !== prevHubId) {
+        if (!hubId && prevHubId) {
+          await removeDriverFromHub(prevHubId, driverId);
+        } else if (hubId) {
+          await addDriverToHub(hubId, driverId);
+        }
+      }
+
       toast.success('Driver updated');
       onUpdated?.();
       onClose?.();
@@ -85,15 +128,16 @@ export default function DriverDrawer({ driver, onClose, onUpdated }: Props) {
       />
 
       <Select
-        label="Availability"
-        value={availability}
-        onChange={(e) => setAvailability(e.target.value as typeof availability)}
-        options={[
-          { label: "Available", value: "Available" },
-          { label: "Unavailable", value: "Unavailable" },
-        ]}
-        disabled={saving}
+        label="Hub"
+        value={hubId}
+        onChange={(e) => setHubId(e.target.value)}
+        options={hubOptions}
+        disabled={saving || !fleetId}
       />
+
+      <div className="text-xs text-black/60">
+        Availability is managed by the system (attendance/trips).
+      </div>
 
       <Button className="w-full" onClick={() => void onSave()} disabled={saving} loading={saving}>
         Save Changes

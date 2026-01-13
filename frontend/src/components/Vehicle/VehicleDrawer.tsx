@@ -5,9 +5,11 @@ import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
 import { updateVehicleDetails, updateVehicleStatus } from '../../api/vehicle.api';
+import { addVehicleToHub, getFleetHubs, removeVehicleFromHub } from '../../api/fleetHub.api';
 
 type Props = {
   vehicle: Vehicle | null;
+  fleetId: string;
   onClose?: () => void;
   onUpdated?: () => void;
 };
@@ -23,13 +25,17 @@ function coerceFuelType(value: unknown): FuelType {
   return value === 'PETROL' || value === 'DIESEL' || value === 'CNG' || value === 'EV' ? value : 'PETROL';
 }
 
-export default function VehicleDrawer({ vehicle, onClose, onUpdated }: Props) {
+export default function VehicleDrawer({ vehicle, fleetId, onClose, onUpdated }: Props) {
   const [number, setNumber] = useState('');
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [bodyType, setBodyType] = useState<BodyType>('SEDAN');
   const [fuelType, setFuelType] = useState<FuelType>('PETROL');
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
+  const [hubId, setHubId] = useState<string>(''); // '' => unassigned
+  const [hubOptions, setHubOptions] = useState<Array<{ label: string; value: string }>>([
+    { label: 'Unassigned', value: '' },
+  ]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -40,22 +46,59 @@ export default function VehicleDrawer({ vehicle, onClose, onUpdated }: Props) {
     setBodyType(coerceBodyType(vehicle.bodyType));
     setFuelType(coerceFuelType(vehicle.fuelType));
     setStatus(vehicle.isActive ? 'Active' : 'Inactive');
+    setHubId(vehicle.hubId || '');
   }, [vehicle]);
+
+  useEffect(() => {
+    if (!fleetId) {
+      setHubOptions([{ label: 'Unassigned', value: '' }]);
+      return;
+    }
+    let mounted = true;
+    void (async () => {
+      try {
+        const hubs = await getFleetHubs(fleetId);
+        if (!mounted) return;
+        setHubOptions([
+          { label: 'Unassigned', value: '' },
+          ...(hubs || []).map((h) => ({
+            label: h.address ? `${h.hubType} • ${h.address}` : String(h.hubType),
+            value: h.id,
+          })),
+        ]);
+      } catch {
+        // best-effort
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [fleetId]);
 
   async function onSave() {
     if (!vehicle) return;
     // capture non-null id to avoid nullability issues in closures
     const vehicleId = vehicle.id;
+    const prevHubId = vehicle.hubId || '';
     setSaving(true);
     try {
       await updateVehicleDetails(vehicleId, {
-        number: number.trim(),
         brand: brand.trim(),
         model: model.trim(),
         bodyType,
         fuelType,
       });
       await updateVehicleStatus(vehicleId, status === 'Active');
+
+      // Hub assignment (new)
+      if (hubId !== prevHubId) {
+        if (!hubId && prevHubId) {
+          await removeVehicleFromHub(prevHubId, vehicleId);
+        } else if (hubId) {
+          await addVehicleToHub(hubId, vehicleId);
+        }
+      }
+
       toast.success('Vehicle updated');
       onUpdated?.();
       onClose?.();
@@ -80,7 +123,7 @@ export default function VehicleDrawer({ vehicle, onClose, onUpdated }: Props) {
         label="Vehicle Number"
         value={number}
         onChange={(e) => setNumber(e.target.value)}
-        disabled={saving}
+        disabled
       />
 
       <Input
@@ -131,6 +174,14 @@ export default function VehicleDrawer({ vehicle, onClose, onUpdated }: Props) {
           { label: "Inactive", value: "Inactive" },
         ]}
         disabled={saving}
+      />
+
+      <Select
+        label="Hub"
+        value={hubId}
+        onChange={(e) => setHubId(e.target.value)}
+        options={hubOptions}
+        disabled={saving || !fleetId}
       />
 
       <Button

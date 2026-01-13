@@ -19,6 +19,7 @@ function toUiVehicle(entity: VehicleEntity): Vehicle {
     bodyType: entity.vehicleColor || '-',
     fuelType: toUiFuelType(entity.fuelType),
     isActive: entity.status === 'ACTIVE',
+    hubId: entity.hubId ?? null,
     createdAt: entity.createdAt,
   };
 }
