@@ -25,6 +25,8 @@ function toRoleLabel(role: string): string {
   switch (role) {
     case "SUPER_ADMIN":
       return "Admin";
+    case "FLEET_ADMIN":
+      return "Fleet Admin";
     case "OPERATIONS":
       return "Operations";
     case "MANAGER":
@@ -107,10 +109,8 @@ export default function Team() {
 
   const members = useMemo<TeamMember[]>(() => {
     return (users || []).map((u) => {
-      const assigned = (hubs || []).filter((h) => {
-        const managerId = h.hubManagerId ?? h.hubManager?.id ?? null;
-        return managerId === u.id;
-      });
+      const assignedHubIds = (u.hubAccess || []).map((x) => x.hubId).filter(Boolean);
+      const assigned = (hubs || []).filter((h) => assignedHubIds.includes(h.id));
       const hubLabels = assigned.map((h) => hubLabelById.get(h.id) || h.id);
       const hubIds = assigned.map((h) => h.id);
       return {

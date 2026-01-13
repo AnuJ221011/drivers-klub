@@ -1,4 +1,4 @@
-export type UserRole = 'SUPER_ADMIN' | 'OPERATIONS' | 'MANAGER' | 'DRIVER';
+export type UserRole = 'SUPER_ADMIN' | 'FLEET_ADMIN' | 'OPERATIONS' | 'MANAGER' | 'DRIVER';
 
 export type User = {
   id: string;
@@ -12,6 +12,9 @@ export type User = {
   hubId?: string | null;
   /** Backend: `User.isActive` is non-nullable boolean */
   isActive: boolean;
+  /** Optional access-control relations (may be omitted by some endpoints) */
+  fleetAccess?: { fleetId: string }[];
+  hubAccess?: { hubId: string }[];
   createdAt: string;
   updatedAt: string;
 };

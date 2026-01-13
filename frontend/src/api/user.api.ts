@@ -16,9 +16,25 @@ export async function createUser(input: {
   phone: string;
   role: UserRole;
   isActive?: boolean;
+  fleetIds?: string[];
+  hubIds?: string[];
 }): Promise<User> {
   // Backend DTO doesn't include isActive, but Prisma allows it and backend forwards req.body.
   const res = await api.post<User>('/users', input);
+  return res.data;
+}
+
+export async function updateUser(
+  id: string,
+  input: Partial<{
+    name: string;
+    role: UserRole;
+    isActive: boolean;
+    fleetIds: string[];
+    hubIds: string[];
+  }>,
+): Promise<User> {
+  const res = await api.patch<User>(`/users/${id}`, input);
   return res.data;
 }
 

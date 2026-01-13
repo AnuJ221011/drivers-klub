@@ -63,8 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Backend allows fetching user only for SUPER_ADMIN / OPERATIONS
-    if (role !== 'SUPER_ADMIN' && role !== 'OPERATIONS') {
+    // Backend allows fetching user for admin roles
+    if (role !== 'SUPER_ADMIN' && role !== 'OPERATIONS' && role !== 'MANAGER' && role !== 'FLEET_ADMIN') {
       setUser(null);
       return;
     }
