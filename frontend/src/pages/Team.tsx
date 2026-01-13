@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil, Filter } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -15,7 +15,11 @@ import TeamDrawer from "../components/TeamManagement/TeamDrawer";
 
 import type { Column } from "../components/ui/Table";
 import type { TeamMember } from "../models/user/team";
+import type { User } from "../models/user/user";
 import { getUsers, deactivateUser } from "../api/user.api";
+import { useFleet } from "../context/FleetContext";
+import FleetSelectBar from "../components/fleet/FleetSelectBar";
+import { getFleetHubs, type FleetHubEntity } from "../api/fleetHub.api";
 
 function toRoleLabel(role: string): string {
   switch (role) {
@@ -50,25 +54,19 @@ export default function Team() {
 
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [hubs, setHubs] = useState<FleetHubEntity[]>([]);
   const [searchName, setSearchName] = useState("");
   const [searchPhone, setSearchPhone] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | "Active" | "Inactive">("");
+  const [roleFilter, setRoleFilter] = useState<string>("");
+  const { effectiveFleetId } = useFleet();
 
   async function refreshMembers() {
     setLoading(true);
     try {
-      const users = await getUsers();
-      setMembers(
-        (users || []).map((u) => ({
-          id: u.id,
-          name: u.name,
-          phone: u.phone,
-          email: "", // backend does not expose email in User model currently
-          role: toRoleLabel(u.role),
-          status: u.isActive ? "Active" : "Inactive",
-        })),
-      );
+      const data = await getUsers();
+      setUsers(data || []);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, "Failed to load team"));
     } finally {
@@ -76,21 +74,89 @@ export default function Team() {
     }
   }
 
+  const refreshHubs = useCallback(async () => {
+    if (!effectiveFleetId) {
+      setHubs([]);
+      return;
+    }
+    try {
+      const data = await getFleetHubs(effectiveFleetId);
+      setHubs(data || []);
+    } catch {
+      setHubs([]);
+    }
+  }, [effectiveFleetId]);
+
   useEffect(() => {
     void refreshMembers();
   }, []);
 
+  useEffect(() => {
+    void refreshHubs();
+  }, [refreshHubs]);
+
+  const hubLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const h of hubs || []) {
+      const type = h.hubType ? String(h.hubType) : "Hub";
+      const addr = h.address ? String(h.address) : "";
+      map.set(h.id, addr ? `${type} • ${addr}` : type);
+    }
+    return map;
+  }, [hubs]);
+
+  const members = useMemo<TeamMember[]>(() => {
+    return (users || []).map((u) => {
+      const assigned = (hubs || []).filter((h) => {
+        const managerId = h.hubManagerId ?? h.hubManager?.id ?? null;
+        return managerId === u.id;
+      });
+      const hubLabels = assigned.map((h) => hubLabelById.get(h.id) || h.id);
+      const hubIds = assigned.map((h) => h.id);
+      return {
+        id: u.id,
+        name: u.name,
+        phone: u.phone,
+        email: "", // backend does not expose email in User model currently
+        role: toRoleLabel(u.role),
+        hubLabels,
+        hubIds,
+        status: u.isActive ? "Active" : "Inactive",
+      };
+    });
+  }, [users, hubs, hubLabelById]);
+
+  // Keep the drawer selection in sync as hubs/users load
+  useEffect(() => {
+    if (!selectedMember) return;
+    const latest = members.find((m) => m.id === selectedMember.id) || null;
+    if (!latest) return;
+    // avoid re-setting state if nothing relevant changed
+    const prevHubIds = (selectedMember.hubIds || []).join(",");
+    const nextHubIds = (latest.hubIds || []).join(",");
+    if (prevHubIds !== nextHubIds || selectedMember.role !== latest.role) {
+      setSelectedMember(latest);
+    }
+  }, [members, selectedMember]);
+
   const filteredMembers = useMemo(() => {
     const nameNeedle = (searchName || "").trim().toLowerCase();
     const phoneNeedle = (searchPhone || "").trim();
+    const roleNeedle = (roleFilter || "").trim();
 
     return members.filter((m) => {
       const nameOk = !nameNeedle || (m.name || "").toLowerCase().includes(nameNeedle);
       const phoneOk = !phoneNeedle || (m.phone || "").includes(phoneNeedle);
       const statusOk = !statusFilter || m.status === statusFilter;
-      return nameOk && phoneOk && statusOk;
+      const roleOk = !roleNeedle || m.role === roleNeedle;
+      return nameOk && phoneOk && statusOk && roleOk;
     });
-  }, [members, searchName, searchPhone, statusFilter]);
+  }, [members, searchName, searchPhone, statusFilter, roleFilter]);
+
+  const roleOptions = useMemo(() => {
+    const unique = Array.from(new Set((members || []).map((m) => m.role).filter(Boolean))).sort();
+    return [{ label: "All Roles", value: "" }].concat(unique.map((r) => ({ label: r, value: r })));
+  }, [members]);
 
   const columns: Column<TeamMember>[] = [
     {
@@ -101,6 +167,24 @@ export default function Team() {
     { key: "name", label: "Name" },
     { key: "phone", label: "Phone" },
     { key: "role", label: "Role" },
+    {
+      key: "hub",
+      label: "Hub",
+      render: (m) => {
+        if (!effectiveFleetId) return <span className="text-xs text-black/60">Select a fleet</span>;
+        const items = m.hubLabels || [];
+        if (items.length === 0) return "—";
+        return (
+          <div className="space-y-1 max-w-[320px] whitespace-normal">
+            {items.map((x) => (
+              <div key={x} className="text-xs leading-snug">
+                {x}
+              </div>
+            ))}
+          </div>
+        );
+      },
+    },
     {
       key: "status",
       label: "Status",
@@ -134,6 +218,7 @@ export default function Team() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Team</h1>
         <div className="flex items-center gap-2">
+          <FleetSelectBar className="w-72" />
           {/* Funnel (mobile only) */}
          
           <Button
@@ -155,7 +240,7 @@ export default function Team() {
         className={`
           ${showFilters ? "block" : "hidden"}
           md:grid
-          grid-cols-1 md:grid-cols-3
+          grid-cols-1 md:grid-cols-4
           gap-4 
         `}
       >
@@ -170,6 +255,11 @@ export default function Team() {
           className="mb-2"
           value={searchPhone}
           onChange={(e) => setSearchPhone(e.target.value)}
+        />
+        <Select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          options={roleOptions}
         />
         <Select
           value={statusFilter}
@@ -191,7 +281,12 @@ export default function Team() {
 
       {/* Add Modal */}
       <Modal open={open} onClose={() => setOpen(false)} title="Add Team Member">
-        <AddTeamMember onClose={() => setOpen(false)} onCreated={() => void refreshMembers()} />
+        <AddTeamMember
+          onClose={() => setOpen(false)}
+          onCreated={async () => {
+            await Promise.all([refreshMembers(), refreshHubs()]);
+          }}
+        />
       </Modal>
 
       {/* Edit Drawer */}
@@ -202,20 +297,32 @@ export default function Team() {
       >
         <TeamDrawer
           member={selectedMember}
+          hubOptions={(hubs || []).map((h) => ({
+            id: h.id,
+            label: hubLabelById.get(h.id) || h.id,
+          }))}
+          hubsDisabled={!effectiveFleetId}
           onSave={async (updated) => {
-            // Backend currently supports deactivation only.
+            // Hub assignment is UI-only until backend API is available.
+            if ((updated.hubIds || []).length > 0) {
+              toast("Hub selection changed in UI. Backend API needed to save.", { duration: 4000 });
+            }
+
+            // Deactivate user if requested.
             if (updated.status === "Inactive") {
               try {
                 await deactivateUser(updated.id);
                 toast.success("User deactivated");
-                setSelectedMember(null);
-                await refreshMembers();
               } catch (err: unknown) {
                 toast.error(getErrorMessage(err, "Failed to deactivate user"));
               }
             } else {
-              toast.error("Re-activation not supported yet");
+              // Keep existing behavior: no re-activation
+              // (and we don't currently persist name/phone/email/role edits to backend).
             }
+
+            setSelectedMember(null);
+            await refreshMembers();
           }}
         />
       </Drawer>

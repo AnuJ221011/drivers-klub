@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import Table from "../../../ui/Table";
 import Button from "../../../ui/Button";
-import AddVehiclesModal from "./AddVehicleModal";
 import { getVehiclesByFleet } from "../../../../api/vehicle.api";
 import type { Vehicle } from "../../../../models/vehicle/vehicle";
+import { useFleet } from "../../../../context/FleetContext";
 
 export default function FleetVehicles() {
   const { id: fleetId } = useParams();
-  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const { setActiveFleetId } = useFleet();
   const [rows, setRows] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -39,7 +40,13 @@ export default function FleetVehicles() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={() => setOpen(true)}>
+        <Button
+          onClick={() => {
+            if (!fleetId) return;
+            setActiveFleetId(fleetId);
+            navigate("/admin/vehicles?openAdd=1");
+          }}
+        >
           + Add Vehicles
         </Button>
       </div>
@@ -49,6 +56,7 @@ export default function FleetVehicles() {
       ) : (
         <Table
           columns={[
+            { key: "index", label: "S.No", render: (_v, i) => i + 1 },
             { key: "number", label: "Vehicle Number" },
             { key: "brand", label: "Brand" },
             { key: "model", label: "Model" },
@@ -71,14 +79,6 @@ export default function FleetVehicles() {
         />
       )}
 
-      {fleetId && (
-        <AddVehiclesModal
-          open={open}
-          onClose={() => setOpen(false)}
-          fleetId={fleetId}
-          onAdded={() => void refresh()}
-        />
-      )}
     </div>
   );
 }

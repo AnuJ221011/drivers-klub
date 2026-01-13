@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Car, Filter, MoreVertical, Pencil, SlidersHorizontal } from 'lucide-react';
 
@@ -48,6 +49,7 @@ export default function DriverManagement() {
   const [searchName, setSearchName] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const { effectiveFleetId } = useFleet();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignDriver, setAssignDriver] = useState<Driver | null>(null);
   const [prefOpen, setPrefOpen] = useState(false);
@@ -132,6 +134,21 @@ export default function DriverManagement() {
   useEffect(() => {
     void refreshDrivers();
   }, [refreshDrivers]);
+
+  // Support deep-link from FleetDetails: /admin/drivers?openAdd=1
+  useEffect(() => {
+    if (searchParams.get('openAdd') !== '1') return;
+
+    // Remove param immediately to avoid reopening on future renders
+    const next = new URLSearchParams(searchParams);
+    next.delete('openAdd');
+    setSearchParams(next, { replace: true });
+
+    if (!effectiveFleetId) return;
+    setOpen(true);
+    // best-effort: bring the modal trigger area into view
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [effectiveFleetId, searchParams, setSearchParams]);
 
   const filteredDrivers = useMemo(() => {
     const phoneNeedle = (searchPhone || '').trim();

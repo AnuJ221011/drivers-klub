@@ -51,6 +51,7 @@ export default function FleetManagers() {
       ) : (
         <Table
           columns={[
+            { key: "index", label: "S.No", render: (_m, i) => i + 1 },
             { key: "name", label: "Name" },
             { key: "mobile", label: "Phone" },
             { key: "city", label: "City" },

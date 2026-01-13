@@ -498,13 +498,13 @@ export default function PaymentPricing() {
           <Button
             variant="secondary"
             className="px-3 py-1"
-            disabled={qrBusyVehicleId === v.id}
+            disabled={qrBusyVehicleId === v.id || !!vehicleQrs[v.id]}
             onClick={() => {
+              if (vehicleQrs[v.id]) return;
               setQrVehicleId(v.id);
-              if (vehicleQrs[v.id]) setQrViewVehicleId(v.id);
             }}
           >
-            {vehicleQrs[v.id] ? 'Regenerate' : 'Generate'}
+            {vehicleQrs[v.id] ? 'Generated' : 'Generate'}
           </Button>
           <Button
             variant="secondary"

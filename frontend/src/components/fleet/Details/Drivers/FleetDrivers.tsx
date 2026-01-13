@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Car } from "lucide-react";
 import Button from "../../../ui/Button";
 import Table from "../../../ui/Table";
-import AddDriversModal from "./AddDriverModal";
 import { getDriversByFleet } from "../../../../api/driver.api";
 import type { Driver } from "../../../../models/driver/driver";
 import { getAssignmentsByFleet } from "../../../../api/assignment.api";
@@ -12,10 +11,12 @@ import { getVehiclesByFleet } from "../../../../api/vehicle.api";
 import type { AssignmentEntity } from "../../../../models/assignment/assignment";
 import type { Vehicle } from "../../../../models/vehicle/vehicle";
 import AssignVehicleToDriverModal from "../../../driver/AssignVehicleToDriverModal";
+import { useFleet } from "../../../../context/FleetContext";
 
 export default function FleetDrivers() {
   const { id: fleetId } = useParams();
-  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const { setActiveFleetId } = useFleet();
   const [rows, setRows] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(false);
   const [assignedVehicleByDriverId, setAssignedVehicleByDriverId] = useState<Record<string, string>>({});
@@ -70,7 +71,13 @@ export default function FleetDrivers() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={() => setOpen(true)}>
+        <Button
+          onClick={() => {
+            if (!fleetId) return;
+            setActiveFleetId(fleetId);
+            navigate("/admin/drivers?openAdd=1");
+          }}
+        >
           + Add Drivers
         </Button>
       </div>
@@ -80,6 +87,7 @@ export default function FleetDrivers() {
       ) : (
         <Table
           columns={[
+            { key: "index", label: "S.No", render: (_d, i) => i + 1 },
             { key: "name", label: "Name" },
             { key: "phone", label: "Phone" },
             {
@@ -131,15 +139,6 @@ export default function FleetDrivers() {
             },
           ]}
           data={rows}
-        />
-      )}
-
-      {fleetId && (
-        <AddDriversModal
-          open={open}
-          onClose={() => setOpen(false)}
-          fleetId={fleetId}
-          onAdded={() => void refresh()}
         />
       )}
 

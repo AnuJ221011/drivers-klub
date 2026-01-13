@@ -5,12 +5,16 @@ import Button from "../ui/Button";
 import type { TeamMember } from "../../models/user/team";
 import PhoneInput from "../ui/PhoneInput";
 
+type HubOption = { id: string; label: string };
+
 type Props = {
   member: TeamMember | null;
+  hubOptions?: HubOption[];
+  hubsDisabled?: boolean;
   onSave?: (updated: TeamMember) => void;
 };
 
-export default function TeamDrawer({ member, onSave }: Props) {
+export default function TeamDrawer({ member, hubOptions = [], hubsDisabled = false, onSave }: Props) {
   const [form, setForm] = useState<TeamMember | null>(null);
 
   useEffect(() => {
@@ -18,6 +22,12 @@ export default function TeamDrawer({ member, onSave }: Props) {
   }, [member]);
 
   if (!form) return null;
+
+  // Operations Manager + Manager can belong to one or more hubs
+  const normalizedRole = String(form.role || "").trim().toLowerCase();
+  const canEditHubs =
+    normalizedRole === "manager" ||
+    normalizedRole.includes("operation"); // supports values like "OPERATIONS", "Operations Manager", "OPERATIONS_MANAGER"
 
   const handleChange = <K extends keyof TeamMember>(
     key: K,
@@ -64,11 +74,45 @@ export default function TeamDrawer({ member, onSave }: Props) {
           handleChange("role", e.target.value)
         }
         options={[
-          { label: "Operations Manager", value: "Operations Manager" },
-          { label: "Supervisor", value: "Supervisor" },
+          { label: "Operations", value: "Operations" },
+          { label: "Manager", value: "Manager" },
           { label: "Admin", value: "Admin" },
         ]}
       />
+
+      {canEditHubs ? (
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-black">Assigned Hubs</label>
+          {hubsDisabled ? (
+            <div className="text-xs text-black/60">Select a fleet to edit hub assignments.</div>
+          ) : hubOptions.length === 0 ? (
+            <div className="text-xs text-black/60">No hubs available.</div>
+          ) : (
+            <div className="max-h-44 overflow-y-auto rounded-md border border-black/20 p-2 space-y-2">
+              {hubOptions.map((h) => {
+                const current = form.hubIds || [];
+                const checked = current.includes(h.id);
+                return (
+                  <label key={h.id} className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={hubsDisabled}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? Array.from(new Set([...current, h.id]))
+                          : current.filter((x) => x !== h.id);
+                        handleChange("hubIds", next);
+                      }}
+                    />
+                    <span className="leading-snug">{h.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <Select
         label="Status"

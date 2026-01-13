@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Filter, Pencil } from "lucide-react";
 
@@ -43,6 +44,7 @@ export default function VehicleManagement() {
   const [searchVehicleNo, setSearchVehicleNo] = useState("");
   const [searchBrand, setSearchBrand] = useState("");
   const { effectiveFleetId } = useFleet();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const refreshVehicles = useCallback(async () => {
     if (!effectiveFleetId) {
@@ -69,6 +71,20 @@ export default function VehicleManagement() {
   useEffect(() => {
     void refreshVehicles();
   }, [refreshVehicles]);
+
+  // Support deep-link from FleetDetails: /admin/vehicles?openAdd=1
+  useEffect(() => {
+    if (searchParams.get('openAdd') !== '1') return;
+
+    // Remove param immediately to avoid reopening on future renders
+    const next = new URLSearchParams(searchParams);
+    next.delete('openAdd');
+    setSearchParams(next, { replace: true });
+
+    if (!effectiveFleetId) return;
+    setOpen(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [effectiveFleetId, searchParams, setSearchParams]);
 
   const filteredVehicles = useMemo(() => {
     const numberNeedle = (searchVehicleNo || '').trim().toLowerCase();

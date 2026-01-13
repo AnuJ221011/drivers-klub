@@ -7,6 +7,8 @@ export type FleetHubEntity = {
   address: string;
   hubType: string;
   hubManagerId?: string | null;
+  // Some backends may return a nested relation instead of hubManagerId
+  hubManager?: { id: string } | null;
 };
 
 export type HubLocation = { lat: number; lng: number };
