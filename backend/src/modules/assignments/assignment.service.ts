@@ -17,6 +17,17 @@ export class AssignmentService {
       throw new ApiError(400, "Driver and Vehicle must belong to same fleet");
     }
 
+    // Hub rule: driver can only be assigned vehicles from their hub
+    if (!driver.hubId) {
+      throw new ApiError(400, "Driver is not assigned to any hub");
+    }
+    if (!vehicle.hubId) {
+      throw new ApiError(400, "Vehicle is not assigned to any hub");
+    }
+    if (driver.hubId !== vehicle.hubId) {
+      throw new ApiError(400, "Driver and Vehicle must belong to same hub");
+    }
+
     const activeDriver = await this.repo.findActiveByDriver(data.driverId);
     if (activeDriver) {
       throw new ApiError(409, "Driver already has an active assignment");

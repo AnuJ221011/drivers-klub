@@ -3,8 +3,31 @@ import { prisma } from "../../utils/prisma.js";
 import { ApiResponse } from "../../utils/apiResponse.js";
 import { AttendanceStatus, DriverStatus } from "@prisma/client";
 import { checkGeoLocation } from "./attendance.service.js";
+import { ApiError } from "../../utils/apiError.js";
 
 export class AttendanceController {
+  private async assertCanAccessDriver(driverId: string, req: Request) {
+    const role = req.user?.role;
+    if (!role) throw new ApiError(401, "Unauthorized");
+    if (role === "SUPER_ADMIN") return;
+
+    const userFleetId = req.user?.fleetId;
+    const hubIds = req.user?.hubIds || [];
+    if (!userFleetId) throw new ApiError(403, "User is not scoped to a fleet");
+
+    const driver = await prisma.driver.findUnique({
+      where: { id: driverId },
+      select: { fleetId: true, hubId: true },
+    });
+    if (!driver) throw new ApiError(404, "Driver not found");
+
+    if (driver.fleetId !== userFleetId) throw new ApiError(403, "Access denied");
+
+    if (role === "OPERATIONS") {
+      // Hub-only access for OPERATIONS on attendance approvals/history
+      if (driver.hubId && !hubIds.includes(driver.hubId)) throw new ApiError(403, "Access denied");
+    }
+  }
   
   async checkIn(req: Request, res: Response) {
     try {
@@ -256,6 +279,9 @@ export class AttendanceController {
           },
         });
 
+        // Access control: SUPER_ADMIN any, MANAGER fleet-only, OPERATIONS hub-only
+        await this.assertCanAccessDriver(attendance.driverId, req);
+
         // Business rule:
         // - Driver becomes ACTIVE again once their check-in is approved.
         await tx.driver.update({
@@ -279,6 +305,10 @@ export class AttendanceController {
     try {
       const { id } = req.params;
       const { adminId, remarks } = req.body;
+
+      const existing = await prisma.attendance.findUnique({ where: { id }, select: { driverId: true } });
+      if (!existing) return res.status(404).json({ message: "Attendance not found" });
+      await this.assertCanAccessDriver(existing.driverId, req);
 
       const updated = await prisma.attendance.update({
         where: { id },
@@ -308,6 +338,23 @@ export class AttendanceController {
 
       const where: any = {};
       if (driverId) where.driverId = String(driverId);
+
+      // Scope filtering for admin callers:
+      // - SUPER_ADMIN: no filter
+      // - MANAGER: fleet-only
+      // - OPERATIONS: hub-only
+      const role = req.user?.role;
+      if (role && role !== "SUPER_ADMIN") {
+        const fleetId = req.user?.fleetId;
+        if (!fleetId) throw new ApiError(403, "User is not scoped to a fleet");
+
+        if (role === "MANAGER") {
+          where.driver = { fleetId };
+        } else if (role === "OPERATIONS") {
+          const hubIds = req.user?.hubIds || [];
+          where.driver = { fleetId, hubId: { in: hubIds } };
+        }
+      }
 
       const [data, total] = await Promise.all([
         prisma.attendance.findMany({

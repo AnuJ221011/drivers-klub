@@ -62,71 +62,71 @@ router.post('/rental', authorizeRoles('DRIVER'), initiateRental);
 // Rental Plans
 router.post(
     '/admin/rental-plans',
-    authorizeRoles('SUPER_ADMIN', 'OPERATIONS'),
+    authorizeRoles('SUPER_ADMIN', 'MANAGER'),
     createRentalPlan
 );
 
 router.get(
     '/admin/rental-plans/:fleetId',
-    authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
+    authorizeRoles('SUPER_ADMIN', 'MANAGER'),
     getRentalPlans
 );
 
 // Penalties
 router.post(
     '/admin/penalty',
-    authorizeRoles('SUPER_ADMIN', 'OPERATIONS'),
+    authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
     createPenalty
 );
 
 router.post(
     '/admin/penalty/:id/waive',
-    authorizeRoles('SUPER_ADMIN', 'OPERATIONS'),
+    authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
     waivePenalty
 );
 
 // Incentives
 router.post(
     '/admin/incentive',
-    authorizeRoles('SUPER_ADMIN', 'OPERATIONS'),
+    authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
     createIncentive
 );
 
 router.post(
     '/admin/incentive/:id/payout',
-    authorizeRoles('SUPER_ADMIN', 'OPERATIONS'),
+    authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
     payoutIncentive
 );
 
 // Collections & Payouts
 router.post(
     '/admin/collection/:id/reconcile',
-    authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
+    authorizeRoles('SUPER_ADMIN', 'MANAGER'),
     reconcileCollection
 );
 
 router.post(
     '/admin/collection/:id/payout',
-    authorizeRoles('SUPER_ADMIN', 'OPERATIONS'),
+    authorizeRoles('SUPER_ADMIN', 'MANAGER'),
     processPayout
 );
 
 router.get(
     '/admin/reconciliations/pending',
-    authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
+    authorizeRoles('SUPER_ADMIN', 'MANAGER'),
     getPendingReconciliations
 );
 
 router.get(
     '/admin/payouts/pending',
-    authorizeRoles('SUPER_ADMIN', 'OPERATIONS'),
+    authorizeRoles('SUPER_ADMIN', 'MANAGER'),
     getPendingPayouts
 );
 
 // Virtual QR
 router.post(
     '/admin/vehicle/:id/qr',
-    authorizeRoles('SUPER_ADMIN', 'OPERATIONS'),
+    authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
     generateVehicleQR
 );
 

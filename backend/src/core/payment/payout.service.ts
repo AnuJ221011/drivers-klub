@@ -312,10 +312,20 @@ export class PayoutService {
     /**
      * Get pending reconciliations (for admin dashboard)
      */
-    async getPendingReconciliations() {
+    async getPendingReconciliations(scope?: { fleetId?: string; hubIds?: string[] }) {
         return prisma.dailyCollection.findMany({
             where: {
                 isReconciled: false,
+                ...(scope?.fleetId
+                    ? {
+                          driver: {
+                              fleetId: scope.fleetId,
+                              ...(scope.hubIds && scope.hubIds.length > 0
+                                  ? { hubId: { in: scope.hubIds } }
+                                  : {}),
+                          },
+                      }
+                    : {}),
             },
             include: {
                 driver: {
@@ -324,6 +334,8 @@ export class PayoutService {
                         firstName: true,
                         lastName: true,
                         mobile: true,
+                        fleetId: true,
+                        hubId: true,
                     },
                 },
                 vehicle: {
@@ -339,7 +351,7 @@ export class PayoutService {
     /**
      * Get pending payouts (for admin dashboard)
      */
-    async getPendingPayouts() {
+    async getPendingPayouts(scope?: { fleetId?: string; hubIds?: string[] }) {
         return prisma.dailyCollection.findMany({
             where: {
                 isReconciled: true,
@@ -347,6 +359,16 @@ export class PayoutService {
                 netPayout: {
                     gt: 0,
                 },
+                ...(scope?.fleetId
+                    ? {
+                          driver: {
+                              fleetId: scope.fleetId,
+                              ...(scope.hubIds && scope.hubIds.length > 0
+                                  ? { hubId: { in: scope.hubIds } }
+                                  : {}),
+                          },
+                      }
+                    : {}),
             },
             include: {
                 driver: {
@@ -358,6 +380,8 @@ export class PayoutService {
                         bankAccountNumber: true,
                         bankIfscCode: true,
                         bankAccountName: true,
+                        fleetId: true,
+                        hubId: true,
                     },
                 },
             },

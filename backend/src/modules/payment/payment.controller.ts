@@ -7,6 +7,58 @@ import { virtualQRService } from '../../core/payment/virtualqr.service.js';
 import { ApiResponse } from '../../utils/apiResponse.js';
 import { PenaltyType } from '@prisma/client';
 import { prisma } from '../../utils/prisma.js';
+import { ApiError } from '../../utils/apiError.js';
+
+async function assertFleetAccess(req: Request, fleetId: string) {
+    const role = req.user?.role;
+    if (!role) throw new ApiError(401, 'Unauthorized');
+    if (role === 'SUPER_ADMIN') return;
+    const userFleetId = req.user?.fleetId;
+    if (!userFleetId) throw new ApiError(403, 'User is not scoped to a fleet');
+    if (userFleetId !== fleetId) throw new ApiError(403, 'Access denied');
+}
+
+async function assertDriverAccess(req: Request, driverId: string, opts?: { hubScoped?: boolean }) {
+    const role = req.user?.role;
+    if (!role) throw new ApiError(401, 'Unauthorized');
+    if (role === 'SUPER_ADMIN') return;
+
+    const userFleetId = req.user?.fleetId;
+    const hubIds = req.user?.hubIds || [];
+    if (!userFleetId) throw new ApiError(403, 'User is not scoped to a fleet');
+
+    const driver = await prisma.driver.findUnique({
+        where: { id: driverId },
+        select: { fleetId: true, hubId: true },
+    });
+    if (!driver) throw new ApiError(404, 'Driver not found');
+    if (driver.fleetId !== userFleetId) throw new ApiError(403, 'Access denied');
+
+    if (opts?.hubScoped && role === 'OPERATIONS') {
+        if (driver.hubId && !hubIds.includes(driver.hubId)) throw new ApiError(403, 'Access denied');
+    }
+}
+
+async function assertVehicleAccess(req: Request, vehicleId: string, opts?: { hubScoped?: boolean }) {
+    const role = req.user?.role;
+    if (!role) throw new ApiError(401, 'Unauthorized');
+    if (role === 'SUPER_ADMIN') return;
+
+    const userFleetId = req.user?.fleetId;
+    const hubIds = req.user?.hubIds || [];
+    if (!userFleetId) throw new ApiError(403, 'User is not scoped to a fleet');
+
+    const vehicle = await prisma.vehicle.findUnique({
+        where: { id: vehicleId },
+        select: { fleetId: true, hubId: true },
+    });
+    if (!vehicle) throw new ApiError(404, 'Vehicle not found');
+    if (vehicle.fleetId !== userFleetId) throw new ApiError(403, 'Access denied');
+
+    if (opts?.hubScoped && role === 'OPERATIONS') {
+        if (vehicle.hubId && !hubIds.includes(vehicle.hubId)) throw new ApiError(403, 'Access denied');
+    }
+}
 
 // ============================================
 // DRIVER ENDPOINTS
@@ -235,6 +287,7 @@ export const initiateRental = async (req: Request, res: Response) => {
  */
 export const createRentalPlan = async (req: Request, res: Response) => {
     const { fleetId, name, rentalAmount, depositAmount, validityDays } = req.body;
+    await assertFleetAccess(req, String(fleetId));
 
     const plan = await rentalService.createRentalPlan({
         fleetId,
@@ -254,6 +307,7 @@ export const createRentalPlan = async (req: Request, res: Response) => {
 export const getRentalPlans = async (req: Request, res: Response) => {
     const { fleetId } = req.params;
     const { activeOnly = 'true' } = req.query;
+    await assertFleetAccess(req, String(fleetId));
 
     const plans = await rentalService.getRentalPlans(fleetId, activeOnly === 'true');
 
@@ -275,6 +329,11 @@ export const createPenalty = async (req: Request, res: Response) => {
         suspensionStartDate,
         suspensionEndDate,
     } = req.body;
+
+    // Scope:
+    // - MANAGER: fleet-only
+    // - OPERATIONS: hub-only (for penalties/incentives/vehicle-qr)
+    await assertDriverAccess(req, String(driverId), { hubScoped: true });
 
     const penalty = await penaltyService.createPenalty({
         driverId,
@@ -299,6 +358,13 @@ export const waivePenalty = async (req: Request, res: Response) => {
     const { id: penaltyId } = req.params;
     const { waiverReason } = req.body;
 
+    const penaltyRow = await prisma.penalty.findUnique({
+        where: { id: penaltyId },
+        select: { driverId: true },
+    });
+    if (!penaltyRow) return res.status(404).json({ message: 'Penalty not found' });
+    await assertDriverAccess(req, penaltyRow.driverId, { hubScoped: true });
+
     const penalty = await penaltyService.waivePenalty(penaltyId, userId, waiverReason);
 
     ApiResponse.send(res, 200, penalty, 'Penalty waived successfully');
@@ -311,6 +377,8 @@ export const waivePenalty = async (req: Request, res: Response) => {
 export const createIncentive = async (req: Request, res: Response) => {
     const { id: userId } = req.user as any;
     const { driverId, amount, reason, category } = req.body;
+
+    await assertDriverAccess(req, String(driverId), { hubScoped: true });
 
     const incentive = await incentiveService.createIncentive({
         driverId,
@@ -330,6 +398,13 @@ export const createIncentive = async (req: Request, res: Response) => {
 export const payoutIncentive = async (req: Request, res: Response) => {
     const { id: incentiveId } = req.params;
 
+    const incentiveRow = await prisma.incentive.findUnique({
+        where: { id: incentiveId },
+        select: { driverId: true },
+    });
+    if (!incentiveRow) return res.status(404).json({ message: 'Incentive not found' });
+    await assertDriverAccess(req, incentiveRow.driverId, { hubScoped: true });
+
     const result = await incentiveService.payoutIncentive(incentiveId);
 
     ApiResponse.send(res, 200, result, 'Incentive payout initiated');
@@ -343,6 +418,11 @@ export const reconcileCollection = async (req: Request, res: Response) => {
     const { id: userId } = req.user as any;
     const { id: collectionId } = req.params;
     const { expectedRevenue, reconciliationNotes } = req.body;
+
+    // Manager: fleet-only access (collection belongs to a driver)
+    const col = await payoutService.getCollectionById(collectionId);
+    if (!col) return res.status(404).json({ message: 'Collection not found' });
+    await assertFleetAccess(req, col.driver.fleetId);
 
     const collection = await payoutService.reconcileCollection({
         collectionId,
@@ -361,6 +441,10 @@ export const reconcileCollection = async (req: Request, res: Response) => {
 export const processPayout = async (req: Request, res: Response) => {
     const { id: collectionId } = req.params;
 
+    const col = await payoutService.getCollectionById(collectionId);
+    if (!col) return res.status(404).json({ message: 'Collection not found' });
+    await assertFleetAccess(req, col.driver.fleetId);
+
     const result = await payoutService.processPayout(collectionId);
 
     ApiResponse.send(res, 200, result, 'Payout processed successfully');
@@ -370,8 +454,13 @@ export const processPayout = async (req: Request, res: Response) => {
  * Get pending reconciliations
  * GET /admin/payment/reconciliations/pending
  */
-export const getPendingReconciliations = async (_req: Request, res: Response) => {
-    const reconciliations = await payoutService.getPendingReconciliations();
+export const getPendingReconciliations = async (req: Request, res: Response) => {
+    const role = req.user?.role;
+    const scope =
+        role && role !== 'SUPER_ADMIN'
+            ? { fleetId: req.user?.fleetId }
+            : undefined;
+    const reconciliations = await payoutService.getPendingReconciliations(scope);
 
     ApiResponse.send(res, 200, reconciliations, 'Pending reconciliations retrieved');
 };
@@ -380,8 +469,13 @@ export const getPendingReconciliations = async (_req: Request, res: Response) =>
  * Get pending payouts
  * GET /admin/payment/payouts/pending
  */
-export const getPendingPayouts = async (_req: Request, res: Response) => {
-    const payouts = await payoutService.getPendingPayouts();
+export const getPendingPayouts = async (req: Request, res: Response) => {
+    const role = req.user?.role;
+    const scope =
+        role && role !== 'SUPER_ADMIN'
+            ? { fleetId: req.user?.fleetId }
+            : undefined;
+    const payouts = await payoutService.getPendingPayouts(scope);
 
     ApiResponse.send(res, 200, payouts, 'Pending payouts retrieved');
 };
@@ -392,6 +486,8 @@ export const getPendingPayouts = async (_req: Request, res: Response) => {
  */
 export const generateVehicleQR = async (req: Request, res: Response) => {
     const { id: vehicleId } = req.params;
+
+    await assertVehicleAccess(req, vehicleId, { hubScoped: true });
 
     const qr = await virtualQRService.generateVehicleQR(vehicleId);
 
@@ -404,6 +500,8 @@ export const generateVehicleQR = async (req: Request, res: Response) => {
  */
 export const getVehicleQR = async (_req: Request, res: Response) => {
     const { id: vehicleId } = _req.params;
+
+    await assertVehicleAccess(_req, vehicleId, { hubScoped: true });
 
     const qr = await virtualQRService.getVehicleQR(vehicleId);
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useFleet } from '../../context/FleetContext';
 import Select from '../ui/Select';
+import { useAuth } from '../../context/AuthContext';
 
 type Props = {
   label?: string;
@@ -11,6 +12,7 @@ export default function FleetSelectBar({
   label = 'Fleet',
   className = '',
 }: Props) {
+  const { role } = useAuth();
   const {
     fleets,
     fleetsLoading,
@@ -23,6 +25,9 @@ export default function FleetSelectBar({
   useEffect(() => {
     void refreshFleets();
   }, [refreshFleets]);
+
+  // Fleet selection is SUPER_ADMIN-only.
+  if (role !== 'SUPER_ADMIN') return null;
 
   const options = useMemo(() => {
     const placeholderLabel = fleetsLoading ? 'Loading fleets…' : 'Select fleet';

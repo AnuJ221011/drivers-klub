@@ -22,13 +22,13 @@ router.get(
 
 router.post(
   "/:id/approve",
-  authorizeRoles(UserRole.SUPER_ADMIN, UserRole.MANAGER),
+  authorizeRoles(UserRole.SUPER_ADMIN, UserRole.MANAGER, UserRole.OPERATIONS),
   controller.approve
 );
 
 router.post(
   "/:id/reject",
-  authorizeRoles(UserRole.SUPER_ADMIN, UserRole.MANAGER),
+  authorizeRoles(UserRole.SUPER_ADMIN, UserRole.MANAGER, UserRole.OPERATIONS),
   controller.reject
 );
 

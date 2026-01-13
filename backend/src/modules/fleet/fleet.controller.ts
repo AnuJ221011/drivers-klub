@@ -5,6 +5,8 @@ import {
   HubManagerService,
 } from "./fleet.service.js";
 import { ApiResponse } from "../../utils/apiResponse.js";
+import { prisma } from "../../utils/prisma.js";
+import { ApiError } from "../../utils/apiError.js";
 
 const fleetService = new FleetService();
 const fleetHubService = new FleetHubService();
@@ -39,7 +41,21 @@ export const createFleetHub = async (req: Request, res: Response) => {
 };
 
 export const getAllFleetHubs = async (req: Request, res: Response) => {
-  const fleetHubs = await fleetHubService.getAllFleetHubs(req.params.id);
+  const fleetId = req.params.id;
+  const role = req.user?.role;
+
+  // OPERATIONS: only hubs assigned to me
+  if (role === "OPERATIONS") {
+    const hubIds = req.user?.hubIds || [];
+    const data = await prisma.fleetHub.findMany({
+      where: { fleetId, id: { in: hubIds } },
+    });
+    return ApiResponse.send(res, 200, data, "Fleet hubs retrieved successfully");
+  }
+
+  // MANAGER: fleet-only (enforced by route middleware)
+  // SUPER_ADMIN: any
+  const fleetHubs = await fleetHubService.getAllFleetHubs(fleetId);
   ApiResponse.send(res, 200, fleetHubs, "Fleet hubs retrieved successfully");
 };
 

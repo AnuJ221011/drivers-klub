@@ -5,6 +5,11 @@ declare global {
         interface User {
             id: string;
             role: UserRole;
+            phone?: string;
+            /** Scoped roles (MANAGER/OPERATIONS/DRIVER) */
+            fleetId?: string;
+            /** OPERATIONS (hub manager) may have 1..n hubs */
+            hubIds?: string[];
         }
 
         interface Request {

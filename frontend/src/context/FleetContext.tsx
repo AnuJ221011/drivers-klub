@@ -20,7 +20,7 @@ type FleetContextValue = {
 const FleetContext = createContext<FleetContextValue | undefined>(undefined);
 
 export function FleetProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, role, fleetId: scopedFleetId } = useAuth();
   const [fleets, setFleets] = useState<Fleet[]>([]);
   const [fleetsLoading, setFleetsLoading] = useState(false);
   const [activeFleetId, setActiveFleetIdState] = useState<string | null>(() => {
@@ -42,6 +42,16 @@ export function FleetProvider({ children }: { children: ReactNode }) {
       // Not authenticated (or token not present) — don't force any default
       return;
     }
+
+    // Fleet selection is SUPER_ADMIN-only.
+    // MANAGER/OPERATIONS are scoped to their own fleet and should not fetch full fleet list.
+    if (role !== 'SUPER_ADMIN') {
+      setFleets([]);
+      setFleetsLoading(false);
+      clearActiveFleetId();
+      return;
+    }
+
     setFleetsLoading(true);
     try {
       const data = await getFleets();
@@ -63,7 +73,7 @@ export function FleetProvider({ children }: { children: ReactNode }) {
     } finally {
       setFleetsLoading(false);
     }
-  }, [isAuthenticated, clearActiveFleetId]);
+  }, [isAuthenticated, role, clearActiveFleetId]);
 
   useEffect(() => {
     void refreshFleets();
@@ -74,12 +84,14 @@ export function FleetProvider({ children }: { children: ReactNode }) {
       fleets,
       fleetsLoading,
       activeFleetId,
-      effectiveFleetId: activeFleetId,
+      // SUPER_ADMIN: chosen fleet from selector
+      // MANAGER/OPERATIONS: fleet from auth scope
+      effectiveFleetId: role === 'SUPER_ADMIN' ? activeFleetId : (scopedFleetId || null),
       setActiveFleetId,
       clearActiveFleetId,
       refreshFleets,
     }),
-    [fleets, fleetsLoading, activeFleetId, setActiveFleetId, clearActiveFleetId, refreshFleets],
+    [fleets, fleetsLoading, activeFleetId, role, scopedFleetId, setActiveFleetId, clearActiveFleetId, refreshFleets],
   );
 
   return <FleetContext.Provider value={value}>{children}</FleetContext.Provider>;
