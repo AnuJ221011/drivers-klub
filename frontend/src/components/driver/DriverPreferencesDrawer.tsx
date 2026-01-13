@@ -17,14 +17,11 @@ import {
   getPendingDriverPreferenceRequests,
 } from '../../api/driverPreference.api';
 
-/**
- * ⚠️ These APIs MUST exist in your api layer.
- * If not, backend support is required.
- */
+
 import {
   getDriverPreference,
   createDriverPreferenceChangeRequest,
-} from '../../api/driverPreferences.extra'; // ← must exist
+} from '../../api/driverPreferences.extra'; 
 
 type Props = {
   driverId: string;
@@ -129,12 +126,6 @@ export default function DriverPreferencesDrawer({ driverId }: Props) {
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={() => void refresh()} loading={loading}>
             Refresh
-          </Button>
-          <Button
-            onClick={() => setEditMode((v) => !v)}
-            disabled={pendingForDriver.length > 0}
-          >
-            {editMode ? 'View only' : 'Edit'}
           </Button>
         </div>
       </div>

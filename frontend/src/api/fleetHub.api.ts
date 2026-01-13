@@ -41,3 +41,23 @@ export async function getFleetHubById(hubId: string): Promise<FleetHubEntity> {
   const res = await api.get<FleetHubEntity>(`/fleets/hubs/${hubId}`);
   return res.data;
 }
+
+export async function addVehicleToHub(hubId: string, vehicleId: string) {
+  const res = await api.post(`/fleets/hubs/${hubId}/add-vehicle`, { vehicleId });
+  return res.data;
+}
+
+export async function removeVehicleFromHub(hubId: string, vehicleId: string) {
+  const res = await api.post(`/fleets/hubs/${hubId}/remove-vehicle`, { vehicleId });
+  return res.data;
+}
+
+export async function addDriverToHub(hubId: string, driverId: string) {
+  const res = await api.post(`/fleets/hubs/${hubId}/add-driver`, { driverId });
+  return res.data;
+}
+
+export async function removeDriverFromHub(hubId: string, driverId: string) {
+  const res = await api.post(`/fleets/hubs/${hubId}/remove-driver`, { driverId });
+  return res.data;
+}

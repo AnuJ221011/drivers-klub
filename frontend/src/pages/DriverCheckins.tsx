@@ -73,6 +73,10 @@ export default function DriverCheckins() {
     });
   }, [rows, searchDriver, searchVehicle]);
 
+  const checkinOnly = useMemo(() => {
+    return filtered.filter((r) => !r.checkOutTime);
+  }, [filtered]);
+
   const checkoutOnly = useMemo(() => {
     return filtered.filter((r) => Boolean(r.checkOutTime));
   }, [filtered]);
@@ -147,7 +151,7 @@ export default function DriverCheckins() {
         // `/admin/driver-checkins/:id`
         <Table
           columns={activeTab === "checkin" ? columns : checkoutColumns}
-          data={activeTab === "checkin" ? filtered : checkoutOnly}
+          data={activeTab === "checkin" ? checkinOnly : checkoutOnly}
         />
       )}
     </div>

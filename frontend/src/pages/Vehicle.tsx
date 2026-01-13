@@ -17,6 +17,8 @@ import type { Column } from "../components/ui/Table";
 import { getVehiclesByFleet } from '../api/vehicle.api';
 import type { Vehicle } from '../models/vehicle/vehicle';
 import { useFleet } from '../context/FleetContext';
+import { getFleetHubs } from '../api/fleetHub.api';
+import type { FleetHubEntity } from '../api/fleetHub.api';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -35,6 +37,7 @@ export default function VehicleManagement() {
     useState<Vehicle | null>(null);
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [hubs, setHubs] = useState<FleetHubEntity[]>([]);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [searchVehicleNo, setSearchVehicleNo] = useState("");
@@ -44,12 +47,17 @@ export default function VehicleManagement() {
   const refreshVehicles = useCallback(async () => {
     if (!effectiveFleetId) {
       setVehicles([]);
+      setHubs([]);
       return;
     }
     setLoading(true);
     try {
-      const data = await getVehiclesByFleet(effectiveFleetId);
+      const [data, hubs] = await Promise.all([
+        getVehiclesByFleet(effectiveFleetId),
+        getFleetHubs(effectiveFleetId),
+      ]);
       setVehicles(data);
+      setHubs(hubs || []);
       console.log("Fetched Vehicles data:", data);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to load vehicles'));
@@ -73,6 +81,16 @@ export default function VehicleManagement() {
     });
   }, [vehicles, searchVehicleNo, searchBrand]);
 
+  const hubLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const h of hubs || []) {
+      const type = h.hubType ? String(h.hubType) : 'Hub';
+      const addr = h.address ? String(h.address) : '';
+      map.set(h.id, addr ? `${type} • ${addr}` : type);
+    }
+    return map;
+  }, [hubs]);
+
   const columns: Column<Vehicle>[] = [
     {
       key: "index",
@@ -84,6 +102,15 @@ export default function VehicleManagement() {
     { key: "model", label: "Model" },
     { key: "bodyType", label: "Body Type" },
     { key: "fuelType", label: "Fuel Type" },
+    {
+      key: "hub",
+      label: "Hub",
+      render: (v) => {
+        const id = v.hubId;
+        if (!id) return "—";
+        return hubLabelById.get(id) || id;
+      },
+    },
     {
       key: "status",
       label: "Status",
@@ -188,6 +215,7 @@ export default function VehicleManagement() {
       >
         <VehicleDrawer
           vehicle={selectedVehicle}
+          fleetId={effectiveFleetId || ''}
           onClose={() => setSelectedVehicle(null)}
           onUpdated={() => void refreshVehicles()}
         />

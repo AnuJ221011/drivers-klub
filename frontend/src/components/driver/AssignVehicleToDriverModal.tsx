@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import Modal from "../layout/Modal";
 import Table from "../ui/Table";
 import Button from "../ui/Button";
+import Input from "../ui/Input";
 import type { Driver } from "../../models/driver/driver";
 import type { Vehicle } from "../../models/vehicle/vehicle";
 import type { AssignmentEntity } from "../../models/assignment/assignment";
@@ -40,6 +41,7 @@ export default function AssignVehicleToDriverModal({
 }: Props) {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
 
   const { currentAssignmentId, currentVehicleId } = useMemo(() => {
     const activeByDriverId = new Map<string, AssignmentEntity>();
@@ -55,13 +57,30 @@ export default function AssignVehicleToDriverModal({
   }, [assignments, driver.id]);
 
   const rows = useMemo(() => {
+    // Hub restriction: driver can only be assigned to vehicles from the same hub.
+    const driverHubId = driver.hubId || null;
+
     const activeVehicleIds = new Set<string>();
     for (const a of assignments || []) {
       if (a.status !== "ACTIVE") continue;
       activeVehicleIds.add(a.vehicleId);
     }
 
+    const needle = (search || "").trim().toLowerCase();
+
     return (vehicles || [])
+      .filter((v) => {
+        if (!driverHubId) return false;
+        return (v.hubId || null) === driverHubId;
+      })
+      .filter((v) => {
+        if (!needle) return true;
+        return (
+          (v.number || "").toLowerCase().includes(needle) ||
+          (v.model || "").toLowerCase().includes(needle) ||
+          (v.brand || "").toLowerCase().includes(needle)
+        );
+      })
       .map((v) => {
         const inUseByOtherDriver =
           activeVehicleIds.has(v.id) && v.id !== currentVehicleId;
@@ -77,11 +96,12 @@ export default function AssignVehicleToDriverModal({
           r._status === "Available" ? 0 : r._status === "In use" ? 1 : 2;
         return rank(a) - rank(b);
       });
-  }, [vehicles, assignments, currentVehicleId]);
+  }, [vehicles, assignments, currentVehicleId, driver.hubId, search]);
 
   useEffect(() => {
     if (!open) return;
     setSelectedVehicleId(null);
+    setSearch("");
   }, [open]);
 
   const handleAssign = async () => {
@@ -120,12 +140,25 @@ export default function AssignVehicleToDriverModal({
   return (
     <Modal open={open} onClose={onClose} title={`Assign Vehicle • ${driver.name}`}>
       <div className="space-y-4">
+        {!driver.hubId ? (
+          <div className="text-sm text-red-600">
+            This driver is not assigned to any hub. Assign a hub first, then assign a vehicle.
+          </div>
+        ) : null}
+
         {currentVehicleId && (
           <div className="text-sm text-black/70">
             Note: this driver currently has an active assignment. Assigning a new vehicle will
             end the current assignment first.
           </div>
         )}
+
+        <Input
+          placeholder="Search vehicle (number / brand / model)"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          disabled={!driver.hubId}
+        />
 
         <Table
           columns={[
@@ -158,7 +191,11 @@ export default function AssignVehicleToDriverModal({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleAssign} disabled={!selectedVehicleId} loading={saving}>
+          <Button
+            onClick={handleAssign}
+            disabled={!driver.hubId || !selectedVehicleId}
+            loading={saving}
+          >
             Assign Vehicle
           </Button>
         </div>

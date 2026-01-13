@@ -14,12 +14,14 @@ export type Vehicle = {
   bodyType: string;
   fuelType: string;
   isActive: boolean;
+  hubId?: string | null;
   createdAt: string;
 };
 
 export type VehicleEntity = {
   id: string;
   fleetId: string;
+  hubId?: string | null;
   vehicleNumber: string;
   vehicleName: string;
   vehicleModel: string;

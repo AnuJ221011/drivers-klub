@@ -112,7 +112,7 @@ export default function LoginPage() {
               />
 
               <Button type="submit" loading={loading} disabled={!canSend} className="w-full">
-                Send OTP via WhatsApp
+                Get OTP
               </Button>
             </form>
           ) : (
