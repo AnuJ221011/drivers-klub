@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createUser,
+  updateUser,
   getAllUsers,
   getUserById,
   deactivateUser,
@@ -12,13 +13,16 @@ const router = Router();
 // All routes below require authentication
 router.use(authenticate);
 
+// Create/update users
+router.post("/", authorizeRoles("SUPER_ADMIN", "FLEET_ADMIN", "MANAGER"), createUser);
+router.patch("/:id", authorizeRoles("SUPER_ADMIN", "FLEET_ADMIN", "MANAGER"), updateUser);
+
 // SUPER_ADMIN only
-router.post("/", authorizeRoles("SUPER_ADMIN"), createUser);
 router.patch("/:id/deactivate", authorizeRoles("SUPER_ADMIN"), deactivateUser);
 
-// SUPER_ADMIN + OPERATIONS + MANAGER
-router.get("/", authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER"), getAllUsers);
+// SUPER_ADMIN + OPERATIONS + MANAGER + FLEET_ADMIN
+router.get("/", authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"), getAllUsers);
 
-router.get("/:id", authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER"), getUserById);
+router.get("/:id", authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"), getUserById);
 
 export default router;

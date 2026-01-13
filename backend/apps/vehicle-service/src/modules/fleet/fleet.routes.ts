@@ -30,13 +30,13 @@ router.post(
 
 router.get(
   "/",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   getAllFleets
 );
 
 router.get(
   "/:id",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   getFleetById
 );
 
@@ -54,7 +54,7 @@ router.post(
 
 router.get(
   "/:id/hubs",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   getAllFleetHubs
 );
 
@@ -78,7 +78,7 @@ router.get(
 
 router.get(
   "/hubs/:id",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   getFleetHubById
 );
 

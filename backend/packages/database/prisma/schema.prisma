@@ -18,6 +18,8 @@ model User {
   updatedAt     DateTime       @updatedAt
   driver        Driver?
   refreshTokens RefreshToken[]
+  fleetAccess   UserFleetAccess[]
+  hubAccess     UserHubAccess[]
 
   @@index([role])
 }
@@ -65,6 +67,7 @@ model Fleet {
   vehicles      Vehicle[]
   hubManagers   HubManager[]
   rentalPlans   RentalPlan[]
+  userAccess    UserFleetAccess[]
 
   @@index([mobile])
   @@index([city])
@@ -574,6 +577,7 @@ model DailyCollection {
 
 enum UserRole {
   SUPER_ADMIN
+  FLEET_ADMIN
   OPERATIONS
   MANAGER
   DRIVER
@@ -597,10 +601,36 @@ enum FleetManagerStatus {
 model FleetHub {
   id           String  @id @default(uuid())
   fleetId      String
+  fleet        Fleet   @relation(fields: [fleetId], references: [id], onDelete: Cascade)
   location     Json
   address      String
   hubType      String
   hubManagerId String?
+  userAccess   UserHubAccess[]
+}
+
+model UserFleetAccess {
+  userId    String
+  fleetId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fleet Fleet @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+
+  @@id([userId, fleetId])
+  @@index([fleetId])
+}
+
+model UserHubAccess {
+  userId    String
+  hubId     String
+  createdAt DateTime @default(now())
+
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hub  FleetHub @relation(fields: [hubId], references: [id], onDelete: Cascade)
+
+  @@id([userId, hubId])
+  @@index([hubId])
 }
 
 enum HubManagerStatus {
