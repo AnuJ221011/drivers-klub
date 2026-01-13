@@ -4,6 +4,9 @@ export type CreateUserInput = {
     name: string;
     phone: string;
     role: UserRole;
+    fleetId?: string;
+    hubIds?: string[];
+    isActive?: boolean;
 };
 
 export type UpdateUserInput = {

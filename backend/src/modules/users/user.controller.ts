@@ -6,13 +6,13 @@ import { ApiError } from "../../utils/apiError.js";
 const userService = new UserService();
 
 export const createUser = async (req: Request, res: Response) => {
-    const { name, phone, role } = req.body;
+    const { name, phone, role, fleetId, hubIds, isActive } = req.body;
 
     if (!name || !phone || !role) {
         throw new ApiError(400, "name, phone and role are required");
     }
 
-    const user = await userService.createUser({ name, phone, role });
+    const user = await userService.createUser({ name, phone, role, fleetId, hubIds, isActive }, req.user);
     ApiResponse.send(res, 201, user, "User created successfully");
 };
 

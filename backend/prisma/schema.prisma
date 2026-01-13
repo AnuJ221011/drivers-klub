@@ -12,13 +12,19 @@ model User {
   name          String
   phone         String         @unique
   role          UserRole
+  /** For scoped admin roles (FLEET_ADMIN/MANAGER/OPERATIONS). SUPER_ADMIN leaves this null. */
+  fleetId       String?
+  /** For OPERATIONS users: list of hub ids they can operate on. */
+  hubIds        String[]       @default([])
   isActive      Boolean        @default(true)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   driver        Driver?
   refreshTokens RefreshToken[]
+  fleet         Fleet?         @relation(fields: [fleetId], references: [id])
 
   @@index([role])
+  @@index([fleetId])
 }
 
 model RefreshToken {
@@ -64,6 +70,7 @@ model Fleet {
   vehicles      Vehicle[]
   hubManagers   HubManager[]
   rentalPlans   RentalPlan[]
+  users         User[]
 
   @@index([mobile])
   @@index([city])
@@ -471,8 +478,9 @@ model DailyCollection {
 
 enum UserRole {
   SUPER_ADMIN
-  OPERATIONS
+  FLEET_ADMIN
   MANAGER
+  OPERATIONS
   DRIVER
 }
 

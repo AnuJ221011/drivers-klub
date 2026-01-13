@@ -11,7 +11,7 @@ export async function getUserById(id: string): Promise<User> {
   return res.data;
 }
 
-export async function createUser(input: { name: string; phone: string; role: UserRole; isActive?: boolean }): Promise<User> {
+export async function createUser(input: { name: string; phone: string; role: UserRole; isActive?: boolean; fleetId?: string; hubIds?: string[] }): Promise<User> {
   // Backend DTO doesn't include isActive, but Prisma allows it and backend forwards req.body.
   const res = await api.post<User>('/users', input);
   return res.data;

@@ -13,8 +13,11 @@ const router = Router();
 // All routes below require authentication
 router.use(authenticate);
 
-// SUPER_ADMIN only
-router.post("/", authorizeRoles("SUPER_ADMIN"), createUser);
+// Create team members:
+// - SUPER_ADMIN: can create all roles
+// - FLEET_ADMIN: can create MANAGER/OPERATIONS for their fleet (enforced in service)
+// - MANAGER: can create OPERATIONS for their fleet (enforced in service)
+router.post("/", authorizeRoles("SUPER_ADMIN", "FLEET_ADMIN", "MANAGER"), createUser);
 router.patch(
     "/:id/deactivate",
     authorizeRoles("SUPER_ADMIN"),
@@ -24,13 +27,13 @@ router.patch(
 // SUPER_ADMIN + OPERATIONS
 router.get(
     "/",
-    authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+    authorizeRoles("SUPER_ADMIN", "OPERATIONS", "FLEET_ADMIN", "MANAGER"),
     getAllUsers
 );
 
 router.get(
     "/:id",
-    authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+    authorizeRoles("SUPER_ADMIN", "OPERATIONS", "FLEET_ADMIN", "MANAGER"),
     getUserById
 );
 

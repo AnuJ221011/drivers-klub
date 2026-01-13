@@ -6,7 +6,6 @@ import {
 } from "./fleet.service.js";
 import { ApiResponse } from "../../utils/apiResponse.js";
 import { prisma } from "../../utils/prisma.js";
-import { ApiError } from "../../utils/apiError.js";
 
 const fleetService = new FleetService();
 const fleetHubService = new FleetHubService();

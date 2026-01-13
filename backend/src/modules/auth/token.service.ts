@@ -2,7 +2,7 @@ import { prisma } from "../../utils/prisma.js";
 import { generateTokens, verifyRefreshToken } from "./jwt.util.js";
 import { ApiError } from "../../utils/apiError.js";
 
-async function resolveScope(user: { id: string; role: any; phone: string }) {
+async function resolveScope(user: { id: string; role: any; phone: string; fleetId?: string | null; hubIds?: string[] }) {
     const role = user.role;
     if (role === "SUPER_ADMIN") return {};
 
@@ -15,32 +15,16 @@ async function resolveScope(user: { id: string; role: any; phone: string }) {
         return { fleetId: driver.fleetId, hubIds: driver.hubId ? [driver.hubId] : [] };
     }
 
-    if (role === "MANAGER") {
-        const manager = await prisma.fleetManager.findFirst({
-            where: { mobile: user.phone, status: "ACTIVE" },
-            select: { fleetId: true },
-        });
-        if (!manager) throw new ApiError(403, "Manager is not assigned to a fleet");
-        return { fleetId: manager.fleetId, hubIds: [] as string[] };
+    if (role === "FLEET_ADMIN" || role === "MANAGER") {
+        if (!user.fleetId) throw new ApiError(403, "User is not assigned to a fleet");
+        return { fleetId: user.fleetId, hubIds: [] as string[] };
     }
 
     if (role === "OPERATIONS") {
-        const hubManager = await prisma.hubManager.findFirst({
-            where: { mobile: user.phone, status: "ACTIVE" },
-            select: { id: true, fleetId: true, hubId: true },
-        });
-        if (!hubManager) throw new ApiError(403, "Operations user is not assigned to a hub");
-
-        const hubs = await prisma.fleetHub.findMany({
-            where: { hubManagerId: hubManager.id },
-            select: { id: true },
-        });
-
-        const hubIds = new Set<string>();
-        if (hubManager.hubId) hubIds.add(hubManager.hubId);
-        for (const h of hubs) hubIds.add(h.id);
-
-        return { fleetId: hubManager.fleetId, hubIds: [...hubIds] };
+        if (!user.fleetId) throw new ApiError(403, "User is not assigned to a fleet");
+        const hubIds = Array.isArray(user.hubIds) ? user.hubIds : [];
+        if (hubIds.length === 0) throw new ApiError(403, "Operations user is not assigned to any hubs");
+        return { fleetId: user.fleetId, hubIds };
     }
 
     // Unknown/unsupported roles get no scope

@@ -21,6 +21,8 @@ function toRoleLabel(role: string): string {
   switch (role) {
     case "SUPER_ADMIN":
       return "Admin";
+    case "FLEET_ADMIN":
+      return "Fleet Admin";
     case "OPERATIONS":
       return "Operations";
     case "MANAGER":
