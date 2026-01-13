@@ -67,6 +67,7 @@ model Fleet {
   vehicles      Vehicle[]
   hubManagers   HubManager[]
   rentalPlans   RentalPlan[]
+  fleetHubs     FleetHub[]
   userAccess    UserFleetAccess[]
 
   @@index([mobile])
