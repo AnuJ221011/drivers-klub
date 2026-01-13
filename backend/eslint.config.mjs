@@ -7,7 +7,7 @@ import tseslint from "typescript-eslint";
 export default [
     {
         ignores: [
-            "dist/**",
+            "**/dist/**",
             "node_modules/**"
         ]
     },
@@ -16,10 +16,15 @@ export default [
     pluginJs.configs.recommended,
     ...tseslint.configs.recommended,
     {
+        files: ["**/*.{js,mjs,cjs,ts,tsx}"],
         rules: {
-            "@typescript-eslint/no-explicit-any": "warn",
-            "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-            "no-undef": "off"
+            "@typescript-eslint/no-explicit-any": "off",
+            "@typescript-eslint/no-unused-vars": "warn",
+            "no-undef": "off",
+            "no-empty": "warn",
+            "@typescript-eslint/ban-ts-comment": "off",
+            "no-constant-condition": "warn",
+            "@typescript-eslint/no-require-imports": "off"
         }
     }
 ];

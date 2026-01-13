@@ -1,5 +1,6 @@
 import { prisma } from "./utils.js";
-import { RapidoService } from "../../src/modules/partner/rapido/rapido.service.js";
+import * as RapidoServiceModule from "../../apps/trip-service/src/modules/partner/rapido/rapido.service.js";
+const RapidoService = RapidoServiceModule.RapidoService || (RapidoServiceModule as any).default?.RapidoService;
 
 // Mock Service for API interception
 class TestRapidoService extends RapidoService {

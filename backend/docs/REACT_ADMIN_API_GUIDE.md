@@ -1,11 +1,14 @@
-# 💻 React Admin Dashboard - API Integration Guide (Production)
+# 💻 React Admin Dashboard - API Integration Guide
 
 **Target Audience:** Web Frontend Team  
-**Base URL (Production):** `https://driversklub-backend.onrender.com/`  
-**Base URL (Development):** `http://localhost:5000`  
-**Auth:** Requires `Authorization: Bearer <TOKEN>` with Role `SUPER_ADMIN` or `OPERATIONS`  
-**Version:** 3.1.0  
-**Last Updated:** January 9, 2026
+**Base URL (Staging):** `https://driversklub-backend.onrender.com`  
+**Base URL (Development):** `http://localhost:3000` (API Gateway)  
+**Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
+**Auth:** Requires `Authorization: Bearer <TOKEN>` with Role `SUPER_ADMIN`, `OPERATIONS`, or `MANAGER`  
+**Version:** 4.0.0 (Microservices)  
+**Last Updated:** January 12, 2026
+
+> **Note:** All requests route through the API Gateway to 6 microservices. The gateway handles authentication and routing automatically.
 
 ---
 
@@ -1002,6 +1005,43 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 **Use Case:**
 
 - **Weekly Settlements**: Accountant uploads a CSV of all driver payouts on Monday morning to process them in one batch.
+
+---
+
+### 7.10 Vehicle QR Generation
+
+Generate and manage Easebuzz virtual account QR codes for vehicles.
+
+**Endpoint:** `POST /payments/admin/vehicle/:vehicleId/qr`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Response (201):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "virtualAccountId": "VA123456789",
+    "qrCodeBase64": "iVBORw0KGgoAAAANSUhEUgAA...",
+    "upiId": "vehicle@easebuzz"
+  }
+}
+```
+
+**Get Existing QR:** `GET /payments/admin/vehicle/:vehicleId/qr`
+
+**Frontend Usage:**
+
+```javascript
+// Display QR code
+<img src={`data:image/png;base64,${qrCodeBase64}`} alt="Vehicle QR" />
+```
+
+**Features:**
+
+- Scannable with any UPI app
+- Payments tracked automatically
+- Print for vehicle placement
 
 ---
 

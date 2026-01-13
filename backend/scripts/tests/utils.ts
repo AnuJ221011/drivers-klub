@@ -2,7 +2,6 @@ import axios from "axios";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
-import { spawn, ChildProcess } from "child_process";
 import path from "path";
 import dotenv from "dotenv";
 
@@ -15,7 +14,7 @@ const pool = new pg.Pool({
 const adapter = new PrismaPg(pool);
 export const prisma = new PrismaClient({ adapter });
 
-export const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:5000";
+export const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:3000";
 
 // Shared Test Context
 export interface TestContext {
@@ -44,7 +43,7 @@ export async function apiCall(method: string, url: string, data?: any, token?: s
     } catch (error: any) {
         let errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Unknown error';
         if (typeof errorMessage === 'object') {
-            try { errorMessage = JSON.stringify(errorMessage); } catch (e) { }
+            try { errorMessage = JSON.stringify(errorMessage); } catch (e) { /* ignore */ }
         }
         return {
             success: false,
@@ -55,7 +54,6 @@ export async function apiCall(method: string, url: string, data?: any, token?: s
     }
 }
 
-let serverProcess: ChildProcess | null = null;
 
 export async function isServerRunning(): Promise<boolean> {
     try {
@@ -67,35 +65,18 @@ export async function isServerRunning(): Promise<boolean> {
 }
 
 export async function startServer() {
-    console.log("\n🚀 Starting backend server for testing...");
-    const serverPath = path.join(process.cwd(), "src", "server.ts");
-
-    serverProcess = spawn("npx", ["tsx", serverPath], {
-        stdio: "inherit",
-        shell: true,
-        env: { ...process.env, PORT: "5000" }
-    });
-
-    console.log("   Waiting for server to be ready...");
-    let retries = 20;
-    while (retries > 0) {
-        if (await isServerRunning()) {
-            console.log("   ✅ Server is ready!");
-            return;
-        }
-        await new Promise(r => setTimeout(r, 1000));
-        retries--;
+    console.log("\n🚀 Checking backend server for testing...");
+    if (await isServerRunning()) {
+        console.log("   ✅ Server is ready!");
+        return;
     }
-    throw new Error("Server failed to start within 20 seconds");
+    console.error("❌ API Gateway not running on port 3000.");
+    console.error("   Please start the system (npm run dev:all or npm start) before running tests.");
+    throw new Error("Server not running");
 }
 
 export async function stopServer() {
-    if (serverProcess) {
-        console.log("\n🛑 Stopping test server...");
-        if (process.platform === "win32") {
-            try { spawn("taskkill", ["/pid", serverProcess.pid?.toString()!, "/f", "/t"]); } catch (e) { }
-        } else {
-            serverProcess.kill();
-        }
-    }
+    // No-op as we don't start it
 }
+
+

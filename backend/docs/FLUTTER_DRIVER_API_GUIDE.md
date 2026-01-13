@@ -1,11 +1,14 @@
-# 📱 Flutter Driver App - API Integration Guide (Production)
+# 📱 Flutter Driver App - API Integration Guide
 
 **Target Audience:** Mobile Engineering Team  
-**Base URL (Production):** `https://driversklub-backend.onrender.com/`  
-**Base URL (Development):** `http://localhost:5000`  
+**Base URL (Staging):** `https://driversklub-backend.onrender.com`  
+**Base URL (Development):** `http://localhost:3000` (API Gateway)  
+**Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
 **Auth Header:** `Authorization: Bearer <ACCESS_TOKEN>`  
-**Version:** 3.1.0  
-**Last Updated:** January 9, 2026
+**Version:** 4.0.0 (Microservices)  
+**Last Updated:** January 12, 2026
+
+> **Note:** All requests go through the API Gateway. The gateway routes to 6 microservices (Auth, Driver, Vehicle, Assignment, Trip, Notification).
 
 ---
 
@@ -641,10 +644,34 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
     "status": "ACTIVE",
     "fleet": {
       "id": "uuid",
-      "name": "Delhi Cabs Pvt Ltd"
-    }
+      "name": "Delhi Cabs Pvt Ltd",
+      "city": "DELHI"
+    },
+    "assignments": [
+      {
+        "id": "assignment-uuid",
+        "status": "ACTIVE",
+        "startDate": "2026-01-12T00:00:00Z",
+        "vehicle": {
+          "id": "vehicle-uuid",
+          "vehicleNumber": "DL10CA1234",
+          "vehicleName": "Tata Tigor EV",
+          "fuelType": "ELECTRIC",
+          "vehicleType": "SEDAN",
+          "status": "ACTIVE"
+        }
+      }
+    ]
   }
 }
+```
+
+**Note:**
+
+- `assignments` array contains the currently assigned vehicle (if any)
+- If no vehicle is assigned, `assignments` will be an empty array `[]`
+- Use `assignments[0].vehicle` to access the assigned vehicle details
+
 ```
 
 ---

@@ -1,7 +1,7 @@
 # 📘 Driver's Klub Backend - Production Documentation
 
-**Version:** 3.1.0
-**Date:** January 9, 2026
+**Version:** 4.0.0 (Microservices Architecture)
+**Date:** January 12, 2026
 **Authors:** Driver's Klub Engineering Team
 **Status:** **LIVE / PRODUCTION**
 
@@ -48,7 +48,7 @@ The system is engineered for **high availability**, **strict consistency** (ACID
 
 ## 2. System Architecture
 
-The application follows a **Modular Monolithic Architecture** with a clear separation of concerns, designed to be broken into microservices if scaling demands.
+The application follows a **Microservices Architecture** with 6 independent services behind an API Gateway, designed for horizontal scalability and independent deployment.
 
 ### High-Level Components
 
@@ -302,7 +302,7 @@ The **Single Source of Truth** for all API endpoints, request/response schemas, 
 
 1. `npm install`
 2. `npx prisma generate`
-3. `npm run dev` (Runs on Port 5000, configurable via `PORT` env var)
+3. `npm run dev` (API Gateway runs on Port 3000, services on 3001-3006)
 
 ### Testing
 

@@ -10,8 +10,18 @@ pipelines:
           script:
             - npm ci
             - npm run build
-            # Verify tests pass before deployment....
+            # Start server in background for integration tests
+            - echo "Starting server in background..."
+            - npm start &
+            - SERVER_PID=$!
+            - echo "Server PID is $SERVER_PID"
+            # Wait for server to be ready (max 30 seconds)
+            - sleep 5
+            - curl --retry 10 --retry-delay 2 --retry-connrefused http://localhost:${PORT:-3000}/health || echo "Server may not be ready"
+            # Run integration tests
             - npx tsx scripts/test-project.ts
+            # Stop server
+            - kill $SERVER_PID || true
             # Create the deployment bundle
             - apt-get update && apt-get install -y zip
             - npx tsx scripts/build-eb-bundle.ts
@@ -29,4 +39,5 @@ pipelines:
                 APPLICATION_NAME: "driversklub-backend"
                 ENVIRONMENT_NAME: "driversklub-backend-env"
                 ZIP_FILE: "deploy.zip"
+                S3_BUCKET: "elasticbeanstalk-ap-south-1-384694315351"
                 WAIT: "true"

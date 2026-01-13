@@ -3,3 +3,8 @@ dist
 .env
 
 /src/generated/prisma
+
+# Deployment bundles
+*.zip
+deploy.zip
+eb-init.zip

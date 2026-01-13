@@ -1,0 +1,27 @@
+{
+    "name": "api-gateway",
+    "version": "1.0.0",
+    "main": "dist/index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "dev": "tsx watch --env-file=../../.env src/index.ts",
+        "start": "node dist/index.js",
+        "build": "tsc"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^16.3.1",
+        "express": "^5.2.1",
+        "http-proxy-middleware": "^2.0.6",
+        "morgan": "^1.10.0"
+    },
+    "devDependencies": {
+        "@types/cors": "^2.8.17",
+        "@types/express": "^5.0.0",
+        "@types/http-proxy-middleware": "*",
+        "@types/morgan": "^1.9.9",
+        "@types/node": "^20.10.0",
+        "tsx": "^4.7.0",
+        "typescript": "^5.3.2"
+    }
+}

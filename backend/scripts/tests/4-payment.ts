@@ -19,7 +19,7 @@ export async function run() {
     // 2. Test Penalty Service Logic (Direct Service Call for Verification)
     // Dynamic import to use PenaltyService
     try {
-        const { penaltyService } = await import("../../src/core/payment/penalty.service.js");
+        const { penaltyService } = await import("../../apps/trip-service/src/core/payment/penalty.service.js");
 
         console.log("   🧪 Creating Penalty (500)...");
         await penaltyService.createPenalty({
@@ -39,7 +39,7 @@ export async function run() {
         // 3. Test InstaCollect Orders (Admin Flow)
         try {
             console.log("   🧪 Testing InstaCollect Orders...");
-            const { orderService } = await import("../../src/core/payment/order.service.js"); // Dynamic import
+            const { orderService } = await import("../../apps/trip-service/src/core/payment/order.service.js"); // Dynamic import
 
             // 3.1 Create Order (Admin API)
             const orderInput = {

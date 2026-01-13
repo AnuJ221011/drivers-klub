@@ -1,8 +1,26 @@
-# 📚 Complete API Reference (Canonical)
+# 📚 Complete API Reference
 
-**Version:** 3.1.0  
-**Base URL:** `http://localhost:5000` (Development) | `https://driversklub-backend.onrender.com/` (Production)
-**Last Updated:** January 9, 2026
+**Version:** 4.0.0 (Microservices Architecture)  
+**Base URL (Development):** `http://localhost:3000` (API Gateway)  
+**Base URL (Staging):** `https://driversklub-backend.onrender.com`  
+**Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
+**Last Updated:** January 12, 2026
+
+## Architecture Overview
+
+This API is built on a **microservices architecture** with 6 independent services behind an API Gateway:
+
+- **API Gateway** (Port 3000) - Routes all requests
+- **Auth Service** (Port 3001) - Authentication & user management
+- **Driver Service** (Port 3002) - Driver profiles & attendance
+- **Vehicle Service** (Port 3003) - Vehicles, fleets & managers
+- **Assignment Service** (Port 3004) - Driver-vehicle assignments
+- **Trip Service** (Port 3005) - Trips, payments, pricing & partners
+- **Notification Service** (Port 3006) - Real-time notifications
+
+**Total Endpoints:** 103
+
+> **Note:** All requests should go through the API Gateway. Individual service ports are for internal communication only.
 
 ---
 
@@ -439,9 +457,32 @@ Get current driver's profile.
     "licenseNumber": "DL-0120230012345",
     "kycStatus": "APPROVED",
     "status": "ACTIVE",
-    "isAvailable": true
+    "isAvailable": true,
+    "fleet": {
+      "id": "uuid",
+      "name": "Delhi Cabs Pvt Ltd",
+      "city": "DELHI"
+    },
+    "assignments": [
+      {
+        "id": "assignment-uuid",
+        "status": "ACTIVE",
+        "startDate": "2026-01-12T00:00:00Z",
+        "vehicle": {
+          "id": "vehicle-uuid",
+          "vehicleNumber": "DL10CA1234",
+          "vehicleName": "Tata Tigor EV",
+          "fuelType": "ELECTRIC",
+          "vehicleType": "SEDAN"
+        }
+      }
+    ]
   }
 }
+```
+
+**Note:** The `assignments` array contains the currently assigned vehicle. If no vehicle is assigned, it will be empty.
+
 ```
 
 ---
@@ -2847,6 +2888,36 @@ Endpoints returning lists support pagination:
 
 ---
 
+---
+
+### Vehicle QR Generation
+
+#### POST `/payments/admin/vehicle/:id/qr`
+
+Generate Easebuzz virtual account QR code for a vehicle.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Response (201):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "virtualAccountId": "VA123456789",
+    "qrCodeBase64": "iVBORw0KGgoAAAANSUhEUgAA...",
+    "upiId": "vehicle@easebuzz"
+  }
+}
+```
+
+#### GET `/payments/admin/vehicle/:id/qr`
+
+Get existing QR code. Returns 404 if not found.
+
+---
+
 ## Support
 
 For API support and questions:
@@ -3135,9 +3206,7 @@ Initiate rental payment.
 
 ---
 
-#### Admin Endpoints
-
-##### POST `/payment/admin/rental-plans`
+#### Admin Endpoints\r\n\r\n##### POST \r\n\r\nGenerate Easebuzz virtual account QR code for a vehicle.\r\n\r\n**Authentication:** Required  \r\n**Roles:** , , \r\n\r\n**URL Parameters:**\r\n- uid=197609(Hello Youtuber) gid=197609 groups=197609 (string, required) - Vehicle UUID\r\n\r\n**Response (201):**\r\n\r\n\r\n\r\n**Notes:** QR code is Base64 PNG. If QR exists, returns existing. Scannable with any UPI app.\r\n\r\n---\r\n\r\n##### GET \r\n\r\nGet existing QR code for a vehicle.\r\n\r\n**Authentication:** Required  \r\n**Roles:** , , \r\n\r\n**Response (200):** Same as POST. **Response (404):** QR not found.\r\n\r\n---\r\n\r\n##### POST `/payment/admin/rental-plans`
 
 Create a rental plan.
 

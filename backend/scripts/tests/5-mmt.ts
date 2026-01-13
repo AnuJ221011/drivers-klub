@@ -29,7 +29,7 @@ export async function run() {
 
     // 1. Block
     try {
-        const res = await axios.post(`${BASE_URL}/partner/mmt/partnerblockendpoint`, {
+        const res = await axios.post(`${BASE_URL}/partners/mmt/partnerblockendpoint`, {
             skuId: "TATA_TIGOR_EV",
             mmtRefId: mmtRefId,
             pickupTime: getFutureDate(26), // > 24h
@@ -47,7 +47,7 @@ export async function run() {
 
     // 2. Reschedule (Testing New Logic)
     try {
-        const res = await axios.post(`${BASE_URL}/partner/mmt/partnerrescheduleblockendpoint`, {
+        const res = await axios.post(`${BASE_URL}/partners/mmt/partnerrescheduleblockendpoint`, {
             order_reference_number: bookingId,
             start_time: getFutureDate(30)
         }, AUTH_HEADER);
