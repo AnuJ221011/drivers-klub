@@ -64,11 +64,10 @@ export default function DriverDrawer({ driver, fleetId, onClose, onUpdated }: Pr
     // capture the non-null id to avoid nullability issues in closures
     const driverId = driver.id;
     const prevHubId = driver.hubId || '';
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length !== 10) return toast.error('Phone number must be 10 digits');
     setSaving(true);
     try {
-      await updateDriverDetails(driverId, { name: name.trim(), phone: digits.slice(0, 10) });
+      // Phone is intentionally not editable in this UI.
+      await updateDriverDetails(driverId, { name: name.trim() });
       await updateDriverStatus(driverId, status === 'Active');
 
       // Hub assignment (new):
@@ -113,7 +112,7 @@ export default function DriverDrawer({ driver, fleetId, onClose, onUpdated }: Pr
         label="Phone Number"
         value={phone}
         onChange={setPhone}
-        disabled={saving}
+        disabled
       />
 
       <Select
