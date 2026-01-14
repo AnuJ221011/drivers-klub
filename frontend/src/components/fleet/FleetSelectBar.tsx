@@ -13,6 +13,7 @@ export default function FleetSelectBar({
   className = '',
 }: Props) {
   const { role } = useAuth();
+  const isSuperAdmin = role === 'SUPER_ADMIN';
   const {
     fleets,
     fleetsLoading,
@@ -22,12 +23,10 @@ export default function FleetSelectBar({
     refreshFleets,
   } = useFleet();
 
-  // Fleet selection is a SUPER_ADMIN-only control.
-  if (role !== 'SUPER_ADMIN') return null;
-
   useEffect(() => {
+    if (!isSuperAdmin) return;
     void refreshFleets();
-  }, [refreshFleets]);
+  }, [refreshFleets, isSuperAdmin]);
 
   const options = useMemo(() => {
     const placeholderLabel = fleetsLoading ? 'Loading fleets…' : 'Select fleet';
@@ -39,6 +38,9 @@ export default function FleetSelectBar({
       })),
     ];
   }, [fleets, fleetsLoading]);
+
+  // Fleet selection is a SUPER_ADMIN-only control.
+  if (!isSuperAdmin) return null;
 
   return (
     <div
