@@ -109,7 +109,7 @@ export default function Team() {
 
   const members = useMemo<TeamMember[]>(() => {
     return (users || []).map((u) => {
-      const assignedHubIds = (u.hubAccess || []).map((x) => x.hubId).filter(Boolean);
+      const assignedHubIds = (u.hubIds || []).filter(Boolean);
       const assigned = (hubs || []).filter((h) => assignedHubIds.includes(h.id));
       const hubLabels = assigned.map((h) => hubLabelById.get(h.id) || h.id);
       const hubIds = assigned.map((h) => h.id);

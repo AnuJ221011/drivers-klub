@@ -7,6 +7,7 @@ import PhoneInput from "../ui/PhoneInput";
 import { createUser } from "../../api/user.api";
 import type { UserRole } from "../../models/user/user";
 import { useFleet } from "../../context/FleetContext";
+import { useAuth } from "../../context/AuthContext";
 import { getFleetHubs, type FleetHubEntity } from "../../api/fleetHub.api";
 
 type Props = {
@@ -32,42 +33,58 @@ export default function AddTeamMember({ onClose, onCreated }: Props) {
   const [role, setRole] = useState<UserRole>("OPERATIONS");
   const [status, setStatus] = useState("active");
   const [saving, setSaving] = useState(false);
-  const [selectedFleetIds, setSelectedFleetIds] = useState<string[]>([]);
+  const [selectedFleetId, setSelectedFleetId] = useState<string | null>(null);
   const [selectedHubIds, setSelectedHubIds] = useState<string[]>([]);
   const [hubs, setHubs] = useState<FleetHubEntity[]>([]);
   const [loadingHubs, setLoadingHubs] = useState(false);
 
   const { fleets, fleetsLoading } = useFleet();
+  const { role: actorRole, fleetId: actorFleetId } = useAuth();
   const mappedRole = useMemo(() => role, [role]);
-  const shouldShowFleet =
-    mappedRole === "FLEET_ADMIN" || mappedRole === "MANAGER" || mappedRole === "OPERATIONS";
+  const shouldShowFleet = mappedRole === "FLEET_ADMIN" || mappedRole === "MANAGER" || mappedRole === "OPERATIONS";
   const shouldShowHub = mappedRole === "OPERATIONS";
+  const canSelectFleet = actorRole === "SUPER_ADMIN" && shouldShowFleet;
+  const effectiveFleetId = canSelectFleet ? selectedFleetId : (actorFleetId || null);
+
+  const roleOptions = useMemo(() => {
+    if (actorRole === "MANAGER") {
+      return [{ label: "Operations", value: "OPERATIONS" as const }];
+    }
+    if (actorRole === "FLEET_ADMIN") {
+      return [
+        { label: "Operations", value: "OPERATIONS" as const },
+        { label: "Manager", value: "MANAGER" as const },
+      ];
+    }
+    // SUPER_ADMIN (or unknown) can create all admin roles
+    return [
+      { label: "Operations", value: "OPERATIONS" as const },
+      { label: "Manager", value: "MANAGER" as const },
+      { label: "Fleet Admin", value: "FLEET_ADMIN" as const },
+      { label: "Admin", value: "SUPER_ADMIN" as const },
+    ];
+  }, [actorRole]);
 
   useEffect(() => {
     // Reset role-scoped selections when role changes
-    setSelectedFleetIds([]);
+    setSelectedFleetId(null);
     setSelectedHubIds([]);
     setHubs([]);
   }, [mappedRole]);
 
   useEffect(() => {
     if (!shouldShowHub) return;
-    if (selectedFleetIds.length === 0) {
+    if (!effectiveFleetId) {
       setHubs([]);
       setSelectedHubIds([]);
       return;
     }
     setLoadingHubs(true);
-    Promise.all(selectedFleetIds.map((fleetId) => getFleetHubs(fleetId).catch(() => [])))
-      .then((lists) => {
-        const merged = lists.flat();
-        const byId = new Map<string, FleetHubEntity>();
-        for (const h of merged) byId.set(h.id, h);
-        setHubs(Array.from(byId.values()));
-      })
+    getFleetHubs(effectiveFleetId)
+      .then((data) => setHubs(data || []))
       .catch(() => setHubs([]))
       .finally(() => setLoadingHubs(false));
-  }, [selectedFleetIds, shouldShowHub]);
+  }, [effectiveFleetId, shouldShowHub]);
 
   const hubLabelById = useMemo(() => {
     const map = new Map<string, string>();
@@ -89,7 +106,7 @@ export default function AddTeamMember({ onClose, onCreated }: Props) {
         const digits = phone.replace(/\D/g, "");
         if (digits.length !== 10) return toast.error("Phone number must be 10 digits");
         if (shouldShowFleet) {
-          if (selectedFleetIds.length === 0) return toast.error("Please assign at least one fleet");
+          if (!effectiveFleetId) return toast.error("Please assign a fleet");
         }
         if (shouldShowHub) {
           if (selectedHubIds.length === 0) return toast.error("Please assign at least one hub for Operations");
@@ -102,10 +119,7 @@ export default function AddTeamMember({ onClose, onCreated }: Props) {
             phone: digits.slice(0, 10),
             role: mappedRole,
             isActive: status === "active",
-            fleetIds:
-              mappedRole === "FLEET_ADMIN" || mappedRole === "MANAGER"
-                ? selectedFleetIds
-                : undefined,
+            fleetId: shouldShowFleet ? effectiveFleetId : null,
             hubIds: mappedRole === "OPERATIONS" ? selectedHubIds : undefined,
           });
 
@@ -147,16 +161,11 @@ export default function AddTeamMember({ onClose, onCreated }: Props) {
         label="Role"
         value={role}
         onChange={(e) => setRole(e.target.value as UserRole)}
-        options={[
-          { label: "Operations", value: "OPERATIONS" },
-          { label: "Manager", value: "MANAGER" },
-          { label: "Fleet Admin", value: "FLEET_ADMIN" },
-          { label: "Admin", value: "SUPER_ADMIN" },
-        ]}
+        options={roleOptions}
         disabled={saving}
       />
 
-      {shouldShowFleet ? (
+      {canSelectFleet ? (
         <div className="space-y-2">
           <label className="text-sm font-medium text-black">Assign Fleets</label>
           {fleetsLoading ? (
@@ -166,7 +175,7 @@ export default function AddTeamMember({ onClose, onCreated }: Props) {
           ) : (
             <div className="max-h-44 overflow-y-auto rounded-md border border-black/20 p-2 space-y-2">
               {fleets.map((f) => {
-                const checked = selectedFleetIds.includes(f.id);
+                const checked = selectedFleetId === f.id;
                 return (
                   <label key={f.id} className="flex items-start gap-2 text-sm">
                     <input
@@ -174,10 +183,7 @@ export default function AddTeamMember({ onClose, onCreated }: Props) {
                       checked={checked}
                       disabled={saving}
                       onChange={(e) => {
-                        const next = e.target.checked
-                          ? Array.from(new Set([...selectedFleetIds, f.id]))
-                          : selectedFleetIds.filter((x) => x !== f.id);
-                        setSelectedFleetIds(next);
+                        setSelectedFleetId(e.target.checked ? f.id : null);
                       }}
                     />
                     <span className="leading-snug">{f.name}</span>
@@ -192,12 +198,14 @@ export default function AddTeamMember({ onClose, onCreated }: Props) {
       {shouldShowHub ? (
         <div className="space-y-2">
           <label className="text-sm font-medium text-black">Assign Hubs</label>
-          {selectedFleetIds.length === 0 ? (
-            <div className="text-xs text-black/60">Select one or more fleets to load hubs.</div>
+          {!effectiveFleetId ? (
+            <div className="text-xs text-black/60">
+              {canSelectFleet ? "Select a fleet to load hubs." : "Your account must be scoped to a fleet to assign hubs."}
+            </div>
           ) : loadingHubs ? (
             <div className="text-xs text-black/60">Loading hubs…</div>
           ) : hubs.length === 0 ? (
-            <div className="text-xs text-black/60">No hubs found for selected fleets.</div>
+            <div className="text-xs text-black/60">No hubs found for this fleet.</div>
           ) : (
             <div className="max-h-44 overflow-y-auto rounded-md border border-black/20 p-2 space-y-2">
               {hubs.map((h) => {
@@ -208,7 +216,7 @@ export default function AddTeamMember({ onClose, onCreated }: Props) {
                     <input
                       type="checkbox"
                       checked={checked}
-                      disabled={saving || selectedFleetIds.length === 0}
+                      disabled={saving || !effectiveFleetId}
                       onChange={(e) => {
                         const next = e.target.checked
                           ? Array.from(new Set([...selectedHubIds, h.id]))

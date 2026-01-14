@@ -9,6 +9,8 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   userId: string | null;
   role: UserRole | null;
+  fleetId: string | null;
+  hubIds: string[];
   user: User | null;
   userLoading: boolean;
   refreshUser: () => Promise<void>;
@@ -18,7 +20,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function decodeJwtPayload(token: string): { sub?: string; role?: UserRole } | null {
+function decodeJwtPayload(token: string): { sub?: string; role?: UserRole; fleetId?: string | null; hubIds?: string[] } | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -26,7 +28,7 @@ function decodeJwtPayload(token: string): { sub?: string; role?: UserRole } | nu
     // Pad base64 string (atob requires length multiple of 4)
     while (payloadB64.length % 4 !== 0) payloadB64 += '=';
     const json = atob(payloadB64);
-    return JSON.parse(json) as { sub?: string; role?: UserRole };
+    return JSON.parse(json) as { sub?: string; role?: UserRole; fleetId?: string | null; hubIds?: string[] };
   } catch {
     return null;
   }
@@ -50,6 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const decoded = accessToken ? decodeJwtPayload(accessToken) : null;
   const userId = decoded?.sub || null;
   const role = decoded?.role || null;
+  const fleetId = decoded?.fleetId ?? null;
+  const hubIds = Array.isArray(decoded?.hubIds) ? decoded!.hubIds! : [];
 
   const setTokens = useCallback((tokens: TokenPair) => {
     setAuthToken(tokens.accessToken);
@@ -106,13 +110,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: isAuthenticated(),
       userId,
       role,
+      fleetId,
+      hubIds,
       user,
       userLoading,
       refreshUser,
       setTokens,
       logout,
     }),
-    [userId, role, user, userLoading, refreshUser, setTokens, logout],
+    [userId, role, fleetId, hubIds, user, userLoading, refreshUser, setTokens, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

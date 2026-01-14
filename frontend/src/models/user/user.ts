@@ -10,11 +10,12 @@ export type User = {
    * For operations users we use it to show/assign hub ownership.
    */
   hubId?: string | null;
+  /** Scope for admin roles (Fleet Admin / Manager / Operations) */
+  fleetId?: string | null;
+  /** Operations: hubs they can operate */
+  hubIds?: string[];
   /** Backend: `User.isActive` is non-nullable boolean */
   isActive: boolean;
-  /** Optional access-control relations (may be omitted by some endpoints) */
-  fleetAccess?: { fleetId: string }[];
-  hubAccess?: { hubId: string }[];
   createdAt: string;
   updatedAt: string;
 };

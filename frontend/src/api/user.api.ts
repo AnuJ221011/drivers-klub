@@ -16,7 +16,7 @@ export async function createUser(input: {
   phone: string;
   role: UserRole;
   isActive?: boolean;
-  fleetIds?: string[];
+  fleetId?: string | null;
   hubIds?: string[];
 }): Promise<User> {
   // Backend DTO doesn't include isActive, but Prisma allows it and backend forwards req.body.
@@ -30,7 +30,7 @@ export async function updateUser(
     name: string;
     role: UserRole;
     isActive: boolean;
-    fleetIds: string[];
+    fleetId: string | null;
     hubIds: string[];
   }>,
 ): Promise<User> {
