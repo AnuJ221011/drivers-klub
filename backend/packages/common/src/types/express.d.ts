@@ -5,6 +5,8 @@ declare global {
         interface User {
             id: string;
             role: UserRole;
+            fleetId?: string | null;
+            hubIds?: string[];
         }
 
         interface Request {

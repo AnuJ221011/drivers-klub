@@ -6,11 +6,11 @@ import type { UserRole } from "@prisma/client";
 const userService = new UserService();
 
 export const createUser = async (req: Request, res: Response) => {
-  const { name, phone, role, fleetIds, hubIds, isActive } = req.body as {
+  const { name, phone, role, fleetId, hubIds, isActive } = req.body as {
     name?: string;
     phone?: string;
     role?: UserRole;
-    fleetIds?: string[];
+    fleetId?: string | null;
     hubIds?: string[];
     isActive?: boolean;
   };
@@ -19,20 +19,15 @@ export const createUser = async (req: Request, res: Response) => {
     throw new ApiError(400, "name, phone and role are required");
   }
 
-  // Managers cannot create Fleet Admins (or Super Admins)
-  if (req.user?.role === "MANAGER" && (role === "FLEET_ADMIN" || role === "SUPER_ADMIN")) {
-    throw new ApiError(403, "Managers cannot create Fleet Admin users");
-  }
-
-  const user = await userService.createUser({ name, phone, role, fleetIds, hubIds, isActive });
+  const user = await userService.createUser(req.user, { name, phone, role, fleetId, hubIds, isActive });
   ApiResponse.send(res, 201, user, "User created successfully");
 };
 
 export const updateUser = async (req: Request, res: Response) => {
-  const { name, role, fleetIds, hubIds, isActive } = (req.body ?? {}) as {
+  const { name, role, fleetId, hubIds, isActive } = (req.body ?? {}) as {
     name?: string;
     role?: UserRole;
-    fleetIds?: string[];
+    fleetId?: string | null;
     hubIds?: string[];
     isActive?: boolean;
   };
@@ -41,10 +36,10 @@ export const updateUser = async (req: Request, res: Response) => {
     throw new ApiError(401, "Unauthorized");
   }
 
-  const user = await userService.updateUser(req.user.role, req.params.id, {
+  const user = await userService.updateUser(req.user, req.params.id, {
     name,
     role,
-    fleetIds,
+    fleetId,
     hubIds,
     isActive,
   });

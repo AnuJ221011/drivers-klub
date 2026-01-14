@@ -11,99 +11,81 @@ export class UserService {
         this.userRepo = userRepo;
     }
 
-    private async validateRoleAssignmentsForCreate(role: UserRole, fleetIds?: string[], hubIds?: string[]) {
-        const uniqueFleetIds = Array.from(new Set((fleetIds || []).filter(Boolean)));
-        const uniqueHubIds = Array.from(new Set((hubIds || []).filter(Boolean)));
+    private async assertValidScopeForRole(role: UserRole, fleetId?: string | null, hubIds?: string[]) {
+        const cleanedHubIds = Array.from(new Set((hubIds || []).filter(Boolean)));
 
         if (role === "FLEET_ADMIN" || role === "MANAGER") {
-            if (uniqueFleetIds.length === 0) {
-                throw new ApiError(400, "fleetIds is required for Fleet Admin / Manager");
-            }
-            // Ensure fleets exist
-            const count = await prisma.fleet.count({ where: { id: { in: uniqueFleetIds } } });
-            if (count !== uniqueFleetIds.length) {
-                throw new ApiError(400, "One or more fleetIds are invalid");
-            }
+            if (!fleetId) throw new ApiError(400, "fleetId is required for Fleet Admin / Manager");
+            const exists = await prisma.fleet.findUnique({ where: { id: fleetId } });
+            if (!exists) throw new ApiError(400, "Invalid fleetId");
         }
 
         if (role === "OPERATIONS") {
-            if (uniqueHubIds.length === 0) {
-                throw new ApiError(400, "hubIds is required for Operations");
+            if (!fleetId) throw new ApiError(400, "fleetId is required for Operations");
+            if (cleanedHubIds.length === 0) throw new ApiError(400, "hubIds is required for Operations");
+            // Ensure hubs belong to the fleet
+            const count = await prisma.fleetHub.count({
+                where: { id: { in: cleanedHubIds }, fleetId }
+            });
+            if (count !== cleanedHubIds.length) {
+                throw new ApiError(400, "One or more hubIds are invalid for the selected fleet");
             }
-            const count = await prisma.fleetHub.count({ where: { id: { in: uniqueHubIds } } });
-            if (count !== uniqueHubIds.length) {
-                throw new ApiError(400, "One or more hubIds are invalid");
-            }
+        }
+
+        // SUPER_ADMIN / DRIVER: no scope requirements here
+    }
+
+    private assertCreatePermissions(actor: { role: UserRole; fleetId?: string | null }, targetRole: UserRole) {
+        // MANAGER can only create OPERATIONS
+        if (actor.role === "MANAGER" && targetRole !== "OPERATIONS") {
+            throw new ApiError(403, "Manager can only create Operations users");
+        }
+
+        // FLEET_ADMIN cannot create SUPER_ADMIN or another FLEET_ADMIN
+        if (actor.role === "FLEET_ADMIN" && (targetRole === "SUPER_ADMIN" || targetRole === "FLEET_ADMIN")) {
+            throw new ApiError(403, "Fleet Admin cannot create Admin or Fleet Admin users");
         }
     }
 
-    private async validateRoleAssignmentsForUpdate(
-        role: UserRole,
-        prevRole: UserRole,
-        fleetIds?: string[],
-        hubIds?: string[]
-    ) {
-        const uniqueFleetIds =
-            fleetIds === undefined ? undefined : Array.from(new Set((fleetIds || []).filter(Boolean)));
-        const uniqueHubIds =
-            hubIds === undefined ? undefined : Array.from(new Set((hubIds || []).filter(Boolean)));
-
-        const roleChanged = role !== prevRole;
-
-        if (role === "FLEET_ADMIN" || role === "MANAGER") {
-            // If role is being changed into a fleet-scoped role, require fleetIds in the same request.
-            if (roleChanged && (prevRole !== "FLEET_ADMIN" && prevRole !== "MANAGER")) {
-                if (!uniqueFleetIds || uniqueFleetIds.length === 0) {
-                    throw new ApiError(400, "fleetIds is required when changing role to Fleet Admin / Manager");
-                }
-            }
-            // If fleetIds were provided, validate them (and allow empty to clear).
-            if (uniqueFleetIds && uniqueFleetIds.length > 0) {
-                const count = await prisma.fleet.count({ where: { id: { in: uniqueFleetIds } } });
-                if (count !== uniqueFleetIds.length) {
-                    throw new ApiError(400, "One or more fleetIds are invalid");
-                }
-            }
+    private assertFleetScope(actor: { role: UserRole; fleetId?: string | null }, fleetId?: string | null) {
+        if (actor.role === "SUPER_ADMIN") return;
+        // Non-super actors cannot assign users to a different fleet than their own
+        const actorFleetId = actor.fleetId ?? null;
+        if (!actorFleetId) {
+            throw new ApiError(403, "Your account is not scoped to any fleet");
         }
-
-        if (role === "OPERATIONS") {
-            if (roleChanged && prevRole !== "OPERATIONS") {
-                if (!uniqueHubIds || uniqueHubIds.length === 0) {
-                    throw new ApiError(400, "hubIds is required when changing role to Operations");
-                }
-            }
-            if (uniqueHubIds && uniqueHubIds.length > 0) {
-                const count = await prisma.fleetHub.count({ where: { id: { in: uniqueHubIds } } });
-                if (count !== uniqueHubIds.length) {
-                    throw new ApiError(400, "One or more hubIds are invalid");
-                }
-            }
+        if (fleetId !== actorFleetId) {
+            throw new ApiError(403, "You cannot assign users to a different fleet");
         }
     }
 
-    async createUser(data: CreateUserInput): Promise<UserEntity> {
-        if (!data?.phone) {
-            throw new ApiError(400, "Invalid user data");
-        }
+    async createUser(
+        actor: { role: UserRole; fleetId?: string | null },
+        data: CreateUserInput
+    ): Promise<UserEntity> {
+        if (!data?.phone) throw new ApiError(400, "Invalid user data");
 
         const existingUser = await this.userRepo.findByPhone(data.phone);
+        if (existingUser) throw new ApiError(409, "User with this phone number already exists");
 
-        if (existingUser) {
-            throw new ApiError(409, "User with this phone number already exists");
-        }
+        this.assertCreatePermissions(actor, data.role);
+        this.assertFleetScope(actor, data.fleetId ?? null);
+        await this.assertValidScopeForRole(data.role, data.fleetId ?? null, data.hubIds);
 
-        await this.validateRoleAssignmentsForCreate(data.role, data.fleetIds, data.hubIds);
-        return this.userRepo.create(data);
+        return this.userRepo.create({
+            ...data,
+            hubIds: Array.from(new Set((data.hubIds || []).filter(Boolean)))
+        });
     }
 
     async updateUser(
-        actorRole: UserRole,
+        actor: { role: UserRole; fleetId?: string | null },
         userId: string,
         data: {
             name?: string;
             role?: UserRole;
             isActive?: boolean;
-            fleetIds?: string[];
+            fleetId?: string | null;
             hubIds?: string[];
         }
     ): Promise<UserEntity> {
@@ -112,22 +94,23 @@ export class UserService {
             throw new ApiError(404, "User not found");
         }
 
-        // Managers must never be able to create/change Fleet Admins
-        if (actorRole === "MANAGER") {
+        // Managers cannot create/change fleet admins
+        if (actor.role === "MANAGER") {
             if (existing.role === "FLEET_ADMIN" || data.role === "FLEET_ADMIN") {
-                throw new ApiError(403, "Managers cannot create or modify Fleet Admin users");
+                throw new ApiError(403, "Manager cannot create or modify Fleet Admin users");
             }
         }
 
         const effectiveRole = data.role ?? existing.role;
-        await this.validateRoleAssignmentsForUpdate(
-            effectiveRole,
-            existing.role,
-            data.fleetIds,
-            data.hubIds
-        );
+        const effectiveFleetId = data.fleetId !== undefined ? data.fleetId : existing.fleetId;
 
-        return this.userRepo.update(userId, data);
+        this.assertFleetScope(actor, effectiveFleetId ?? null);
+        await this.assertValidScopeForRole(effectiveRole, effectiveFleetId ?? null, data.hubIds ?? existing.hubIds);
+
+        return this.userRepo.update(userId, {
+            ...data,
+            hubIds: data.hubIds ? Array.from(new Set(data.hubIds.filter(Boolean))) : undefined
+        });
     }
 
 

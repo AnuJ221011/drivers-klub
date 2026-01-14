@@ -20,7 +20,9 @@ export const authenticate = (
     // Attach decoded user to request
     req.user = {
         id: payload.sub,
-        role: payload.role
+        role: payload.role,
+        fleetId: payload.fleetId ?? null,
+        hubIds: payload.hubIds ?? []
     };
 
 

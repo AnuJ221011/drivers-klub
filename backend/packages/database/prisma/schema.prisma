@@ -13,15 +13,26 @@ model User {
   name          String
   phone         String         @unique
   role          UserRole
+  /**
+   * Scope for access control:
+   * - FLEET_ADMIN / MANAGER / OPERATIONS: fleetId must be set
+   * - SUPER_ADMIN: fleetId is null
+   */
+  fleetId       String?
+  fleet         Fleet?         @relation(fields: [fleetId], references: [id], onDelete: SetNull)
+  /**
+   * Operations users can manage multiple hubs.
+   * Stored directly on User to avoid join tables.
+   */
+  hubIds        String[]       @default([])
   isActive      Boolean        @default(true)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   driver        Driver?
   refreshTokens RefreshToken[]
-  fleetAccess   UserFleetAccess[]
-  hubAccess     UserHubAccess[]
 
   @@index([role])
+  @@index([fleetId])
 }
 
 model RefreshToken {
@@ -68,7 +79,7 @@ model Fleet {
   hubManagers   HubManager[]
   rentalPlans   RentalPlan[]
   fleetHubs     FleetHub[]
-  userAccess    UserFleetAccess[]
+  users         User[]
 
   @@index([mobile])
   @@index([city])
@@ -607,31 +618,6 @@ model FleetHub {
   address      String
   hubType      String
   hubManagerId String?
-  userAccess   UserHubAccess[]
-}
-
-model UserFleetAccess {
-  userId    String
-  fleetId   String
-  createdAt DateTime @default(now())
-
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fleet Fleet @relation(fields: [fleetId], references: [id], onDelete: Cascade)
-
-  @@id([userId, fleetId])
-  @@index([fleetId])
-}
-
-model UserHubAccess {
-  userId    String
-  hubId     String
-  createdAt DateTime @default(now())
-
-  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  hub  FleetHub @relation(fields: [hubId], references: [id], onDelete: Cascade)
-
-  @@id([userId, hubId])
-  @@index([hubId])
 }
 
 enum HubManagerStatus {

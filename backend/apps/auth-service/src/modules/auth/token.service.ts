@@ -7,10 +7,28 @@ export const issueTokens = async (userId: string) => {
         throw new ApiError(404, "User not found");
     }
 
+    // Resolve scope for token payload from stored user fields (no mapping tables)
+    let fleetId: string | null = user.fleetId ?? null;
+    let hubIds: string[] = Array.isArray(user.hubIds) ? user.hubIds : [];
+
+    // Driver scope is derived from Driver table (profile is separate)
+    if (user.role === "DRIVER") {
+        const driver = await prisma.driver.findUnique({ where: { userId: user.id } });
+        if (driver) {
+            fleetId = driver.fleetId ?? null;
+            hubIds = driver.hubId ? [driver.hubId] : [];
+        } else {
+            fleetId = null;
+            hubIds = [];
+        }
+    }
+
     const tokens = generateTokens({
         sub: user.id,
         role: user.role,
-        phone: user.phone
+        phone: user.phone,
+        fleetId,
+        hubIds
     });
 
     await prisma.refreshToken.create({
@@ -46,7 +64,9 @@ export const refresh = async (refreshTokenInput: string) => {
     const tokens = generateTokens({
         sub: payload.sub,
         role: payload.role,
-        phone: payload.phone
+        phone: payload.phone,
+        fleetId: payload.fleetId ?? null,
+        hubIds: payload.hubIds ?? []
     });
 
     await prisma.refreshToken.create({

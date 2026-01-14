@@ -7,10 +7,10 @@ export type CreateUserInput = {
   isActive?: boolean;
   /**
    * Role-scoped access control assignments:
-   * - FLEET_ADMIN / MANAGER: fleets they can manage
-   * - OPERATIONS: hubs they can operate
+   * - FLEET_ADMIN / MANAGER / OPERATIONS: fleetId scope
+   * - OPERATIONS: hubIds scope (non-empty)
    */
-  fleetIds?: string[];
+  fleetId?: string | null;
   hubIds?: string[];
 };
 
@@ -18,11 +18,8 @@ export type UpdateUserInput = {
   name?: string;
   role?: UserRole;
   isActive?: boolean;
-  fleetIds?: string[];
+  fleetId?: string | null;
   hubIds?: string[];
 };
 
-export type UserEntity = User & {
-  fleetAccess?: { fleetId: string }[];
-  hubAccess?: { hubId: string }[];
-};
+export type UserEntity = User;
