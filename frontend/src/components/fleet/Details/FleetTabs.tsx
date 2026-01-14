@@ -3,10 +3,10 @@ type Tab = "HUBS" | "DRIVERS" | "VEHICLES" | "MANAGERS";
 type Props = {
   value: Tab;
   onChange: (v: Tab) => void;
+  tabs?: Tab[];
 };
 
-export default function FleetTabs({ value, onChange }: Props) {
-  const tabs: Tab[] = ["HUBS", "DRIVERS", "VEHICLES", "MANAGERS"];
+export default function FleetTabs({ value, onChange, tabs = ["HUBS", "DRIVERS", "VEHICLES", "MANAGERS"] }: Props) {
 
   return (
     <div className="flex gap-2 border-b border-black/10">

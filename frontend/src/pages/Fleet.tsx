@@ -18,6 +18,7 @@ import CreateNewFleet from "../components/fleet/CreateNewFleet";
 import type { Column } from "../components/ui/Table";
 import { useFleet } from "../context/FleetContext";
 import type { Fleet, FleetType } from "../models/fleet/fleet";
+import { useAuth } from "../context/AuthContext";
 
 export default function FleetManagement() {
   const [openAdd, setOpenAdd] = useState(false);
@@ -29,12 +30,19 @@ export default function FleetManagement() {
   const [fleetTypeFilter, setFleetTypeFilter] = useState<FleetType | "">("");
 
   const { fleets, fleetsLoading, refreshFleets } = useFleet();
+  const { role, fleetId } = useAuth();
 
   const navigate = useNavigate();
 
   useEffect(() => {
     void refreshFleets();
   }, [refreshFleets]);
+
+  // Non-super roles should land directly on their fleet details page.
+  useEffect(() => {
+    if (role === "SUPER_ADMIN") return;
+    if (fleetId) navigate(`/admin/fleets/${fleetId}`, { replace: true });
+  }, [role, fleetId, navigate]);
 
   const filteredFleets = useMemo(() => {
     return (fleets || []).filter((f) => {
@@ -107,9 +115,11 @@ export default function FleetManagement() {
             <Filter size={16} />
           </Button>
 
-          <Button onClick={() => setOpenAdd(true)}>
-            + Add Fleet
-          </Button>
+          {(role === "SUPER_ADMIN" || role === "FLEET_ADMIN" || role === "MANAGER") ? (
+            <Button onClick={() => setOpenAdd(true)}>
+              + Add Fleet
+            </Button>
+          ) : null}
         </div>
       </div>
 

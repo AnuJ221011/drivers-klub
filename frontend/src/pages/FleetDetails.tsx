@@ -12,6 +12,7 @@ import FleetVehicles from "../components/fleet/Details/Vehicles/FleetVehicles";
 import FleetManagers from "../components/fleet/Details/Managers/FleetManagers";
 import { getFleetById } from "../api/fleet.api";
 import type { Fleet } from "../models/fleet/fleet";
+import { useAuth } from "../context/AuthContext";
 
 type Tab = "HUBS" | "DRIVERS" | "VEHICLES" | "MANAGERS";
 
@@ -22,6 +23,16 @@ export default function FleetDetails() {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [fleet, setFleet] = useState<Fleet | null>(null);
   const [loading, setLoading] = useState(false);
+  const { role, fleetId } = useAuth();
+
+  // Prevent users from navigating to another fleet's page.
+  useEffect(() => {
+    if (!id) return;
+    if (role === "SUPER_ADMIN") return;
+    if (fleetId && id !== fleetId) {
+      window.location.replace(`/admin/fleets/${fleetId}`);
+    }
+  }, [id, role, fleetId]);
 
   useEffect(() => {
     if (!id) return;
@@ -71,12 +82,16 @@ export default function FleetDetails() {
       {loading && <div className="text-sm text-black/60">Loading fleet…</div>}
       <FleetHeader fleet={effectiveFleet} />
       <FleetSummary fleet={effectiveFleet} />
-      <FleetTabs value={tab} onChange={setTab} />
+      <FleetTabs
+        value={tab}
+        onChange={setTab}
+        tabs={role === "OPERATIONS" ? ["HUBS", "DRIVERS", "VEHICLES"] : ["HUBS", "DRIVERS", "VEHICLES", "MANAGERS"]}
+      />
 
       {tab === "HUBS" && <FleetHubs />}
       {tab === "DRIVERS" && <FleetDrivers />}
       {tab === "VEHICLES" && <FleetVehicles />}
-      {tab === "MANAGERS" && <FleetManagers />}
+      {tab === "MANAGERS" && role !== "OPERATIONS" ? <FleetManagers /> : null}
     </div>
   );
 }

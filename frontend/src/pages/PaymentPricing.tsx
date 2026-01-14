@@ -9,6 +9,7 @@ import Table, { type Column } from '../components/ui/Table';
 import Modal from '../components/layout/Modal';
 import FleetSelectBar from '../components/fleet/FleetSelectBar';
 import { useFleet } from '../context/FleetContext';
+import { useAuth } from '../context/AuthContext';
 import { getDriversByFleet } from '../api/driver.api';
 import { getVehiclesByFleet } from '../api/vehicle.api';
 import {
@@ -90,8 +91,25 @@ function getApiErrorMessage(err: unknown, fallback: string): string {
 export default function PaymentPricing() {
   const { effectiveFleetId } = useFleet();
   const fleetId = effectiveFleetId;
+  const { role } = useAuth();
 
-  const [tab, setTab] = useState<TabKey>('RENTAL_PLANS');
+  const initialTab: TabKey =
+    role === 'OPERATIONS' ? 'PENALTIES' : 'RENTAL_PLANS';
+  const [tab, setTab] = useState<TabKey>(initialTab);
+
+  const allowedTabs: TabKey[] = useMemo(() => {
+    if (role === 'SUPER_ADMIN') return ['RENTAL_PLANS', 'PENALTIES', 'INCENTIVES', 'RECONCILIATIONS', 'PAYOUTS', 'VEHICLE_QR'];
+    if (role === 'OPERATIONS') return ['PENALTIES', 'INCENTIVES', 'VEHICLE_QR'];
+    // FLEET_ADMIN / MANAGER
+    return ['RENTAL_PLANS', 'PENALTIES', 'INCENTIVES', 'RECONCILIATIONS', 'PAYOUTS', 'VEHICLE_QR'];
+  }, [role]);
+
+  useEffect(() => {
+    if (!allowedTabs.includes(tab)) {
+      setTab(allowedTabs[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role]);
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -717,7 +735,7 @@ export default function PaymentPricing() {
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-black/10 overflow-x-auto">
-        {(Object.keys(TAB_LABEL) as TabKey[]).map((k) => (
+        {allowedTabs.map((k) => (
           <button
             key={k}
             type="button"

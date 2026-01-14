@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Home, Car, Users, UserCircle, ArrowRightCircle, X, LogOut, Building2, ClipboardCheck, CreditCard, SlidersHorizontal } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -26,8 +27,17 @@ export default function Sidebar({
   isMobile,
   onClose,
 }: SidebarProps) {
-  const { logout } = useAuth();
+  const { logout, role, fleetId } = useAuth();
   const location = useLocation();
+
+  const resolvedNavItems = useMemo(() => {
+    return navItems.map((item) => {
+      if (item.path === "/admin/fleets" && role !== "SUPER_ADMIN" && fleetId) {
+        return { ...item, path: `/admin/fleets/${fleetId}` };
+      }
+      return item;
+    });
+  }, [role, fleetId]);
 
   function isPathActive(path: string) {
     // keep nav highlight stable when using buttons for fleet-scoped pages
@@ -76,7 +86,7 @@ export default function Sidebar({
 
           {/* Nav */}
           <nav className="p-2 space-y-1">
-            {navItems.map((item) => (
+            {resolvedNavItems.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.path}

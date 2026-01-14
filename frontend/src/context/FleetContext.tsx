@@ -20,7 +20,7 @@ type FleetContextValue = {
 const FleetContext = createContext<FleetContextValue | undefined>(undefined);
 
 export function FleetProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, role, fleetId } = useAuth();
   const [fleets, setFleets] = useState<Fleet[]>([]);
   const [fleetsLoading, setFleetsLoading] = useState(false);
   const [activeFleetId, setActiveFleetIdState] = useState<string | null>(() => {
@@ -69,17 +69,32 @@ export function FleetProvider({ children }: { children: ReactNode }) {
     void refreshFleets();
   }, [refreshFleets, isAuthenticated]);
 
+  // For non-super roles, fleet scope is fixed from token; ignore stored selection.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (role === 'SUPER_ADMIN') return;
+    // Clear any previously selected fleet (super admin session) to avoid confusion
+    setActiveFleetIdState(null);
+    localStorage.removeItem(ACTIVE_FLEET_KEY);
+  }, [isAuthenticated, role]);
+
+  const effectiveFleetId = useMemo(() => {
+    if (!isAuthenticated) return null;
+    if (role === 'SUPER_ADMIN') return activeFleetId;
+    return fleetId || null;
+  }, [isAuthenticated, role, activeFleetId, fleetId]);
+
   const value = useMemo<FleetContextValue>(
     () => ({
       fleets,
       fleetsLoading,
       activeFleetId,
-      effectiveFleetId: activeFleetId,
+      effectiveFleetId,
       setActiveFleetId,
       clearActiveFleetId,
       refreshFleets,
     }),
-    [fleets, fleetsLoading, activeFleetId, setActiveFleetId, clearActiveFleetId, refreshFleets],
+    [fleets, fleetsLoading, activeFleetId, effectiveFleetId, setActiveFleetId, clearActiveFleetId, refreshFleets],
   );
 
   return <FleetContext.Provider value={value}>{children}</FleetContext.Provider>;
