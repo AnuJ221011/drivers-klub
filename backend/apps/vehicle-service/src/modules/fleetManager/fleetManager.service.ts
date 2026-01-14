@@ -27,12 +27,16 @@ export class FleetManagerService {
     return this.repo.findByFleet(fleetId);
   }
 
-  async deactivateFleetManager(id: string) {
+  async getFleetManagerById(id: string) {
     const manager = await this.repo.findById(id);
     if (!manager) {
       throw new ApiError(404, "Fleet manager not found");
     }
+    return manager;
+  }
 
+  async deactivateFleetManager(id: string) {
+    await this.getFleetManagerById(id);
     return this.repo.updateStatus(id, { status: "INACTIVE" });
   }
 }

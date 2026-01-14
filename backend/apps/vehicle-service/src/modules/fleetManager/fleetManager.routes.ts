@@ -12,19 +12,19 @@ router.use(authenticate);
 
 router.post(
   "/",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "FLEET_ADMIN", "MANAGER"),
   createFleetManager
 );
 
 router.get(
   "/fleet/:fleetId",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "FLEET_ADMIN", "MANAGER"),
   getFleetManagersByFleet
 );
 
 router.patch(
   "/:id/deactivate",
-  authorizeRoles("SUPER_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "FLEET_ADMIN", "MANAGER"),
   deactivateFleetManager
 );
 
