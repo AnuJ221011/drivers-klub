@@ -22,10 +22,18 @@ export class OtpService {
         const shouldLogDevOtp =
             process.env.SHOW_DEV_OTP_LOGS === "true" || process.env.NODE_ENV !== "production";
         if (shouldLogDevOtp) {
-            logger.info("==========================================");
-            logger.info(`[DEV OTP] Phone: ${phone}`);
-            logger.info(`[DEV OTP] Code : ${otp}`);
-            logger.info("==========================================");
+            // Use BOTH console + logger:
+            // - console.log: always visible in typical dev terminals (even if LOG_LEVEL is warn/error)
+            // - logger: visible in structured log collectors
+            console.log("==========================================");
+            console.log(`[DEV OTP] Phone: ${phone}`);
+            console.log(`[DEV OTP] Code : ${otp}`);
+            console.log("==========================================");
+
+            logger.warn("==========================================");
+            logger.warn(`[DEV OTP] Phone: ${phone}`);
+            logger.warn(`[DEV OTP] Code : ${otp}`);
+            logger.warn("==========================================");
         }
 
         try {
