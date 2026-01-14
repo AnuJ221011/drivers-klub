@@ -17,9 +17,12 @@ const otpService = new OtpService();
 export const sendOtp = async (req: Request, res: Response) => {
     const { phone } = req.body;
 
+    logger.info("OTP requested", { phone });
+
     // check if user exists before sending OTP if we strictly want only registered users
     const user = await prisma.user.findUnique({ where: { phone } });
     if (!user) {
+        logger.warn("OTP requested for unregistered phone", { phone });
         return res.status(404).json({ message: "User not registered" });
     }
 
