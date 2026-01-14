@@ -12,7 +12,28 @@ import { PreferencesRequestStatus } from "@prisma/client";
 export class DriverService {
   private driverRepo = new DriverRepository();
 
-  async createDriver(data: CreateDriverInput) {
+  private assertFleetScope(user: any, fleetId: string) {
+    const role = String(user?.role || "");
+    if (role === "SUPER_ADMIN") return;
+    const scopedFleetId = user?.fleetId;
+    if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
+    if (scopedFleetId !== fleetId) throw new ApiError(403, "Access denied");
+  }
+
+  private assertDriverScope(user: any, driver: { fleetId: string; hubId?: string | null }) {
+    const role = String(user?.role || "");
+    if (role === "SUPER_ADMIN") return;
+    const scopedFleetId = user?.fleetId;
+    if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
+    if (driver.fleetId !== scopedFleetId) throw new ApiError(403, "Access denied");
+    if (role === "OPERATIONS") {
+      const hubIds = Array.isArray(user?.hubIds) ? user.hubIds : [];
+      if (!driver.hubId || !hubIds.includes(driver.hubId)) throw new ApiError(403, "Access denied");
+    }
+  }
+
+  async createDriver(data: CreateDriverInput, userScope?: any) {
+    if (userScope) this.assertFleetScope(userScope, data.fleetId);
     const user = await prisma.user.findUnique({
       where: { id: data.userId },
     });
@@ -41,25 +62,41 @@ export class DriverService {
     return this.driverRepo.create(data);
   }
 
-  async getDriversByFleet(fleetId: string) {
+  async getDriversByFleet(fleetId: string, userScope?: any) {
+    if (userScope) this.assertFleetScope(userScope, fleetId);
+    const role = String(userScope?.role || "");
+    if (role === "OPERATIONS") {
+      const hubIds = Array.isArray(userScope?.hubIds) ? userScope.hubIds : [];
+      if (hubIds.length === 0) return [];
+      return this.driverRepo.findAllByFleetAndHubs(fleetId, hubIds);
+    }
     return this.driverRepo.findAllByFleet(fleetId);
   }
 
-  async getDriversByHub(hubId: string) {
-    return this.driverRepo.findAllByHub(hubId);
+  async getDriversByHub(hubId: string, userScope?: any) {
+    const role = String(userScope?.role || "");
+    if (role === "OPERATIONS") {
+      const hubIds = Array.isArray(userScope?.hubIds) ? userScope.hubIds : [];
+      if (!hubIds.includes(hubId)) throw new ApiError(403, "Access denied");
+    }
+    const rows = await this.driverRepo.findAllByHub(hubId);
+    if (userScope && role !== "SUPER_ADMIN") {
+      for (const d of rows) this.assertDriverScope(userScope, d);
+    }
+    return rows;
   }
 
-  async getDriverById(id: string) {
+  async getDriverById(id: string, userScope?: any) {
     const driver = await this.driverRepo.findById(id);
     if (!driver) {
       throw new ApiError(404, "Driver not found");
     }
+    if (userScope) this.assertDriverScope(userScope, driver);
     return driver;
   }
 
-  async updateDriver(id: string, data: UpdateDriverInput) {
-    const driver = await this.driverRepo.findById(id);
-    if (!driver) throw new ApiError(404, "Driver not found");
+  async updateDriver(id: string, data: UpdateDriverInput, userScope?: any) {
+    const driver = await this.getDriverById(id, userScope);
 
     const update: UpdateDriverInput = {};
     if (typeof data.firstName === "string") update.firstName = data.firstName;
@@ -71,28 +108,26 @@ export class DriverService {
     return this.driverRepo.updateDetails(id, update);
   }
 
-  async updateDriverStatus(id: string, data: UpdateDriverStatusInput) {
-    const driver = await this.driverRepo.findById(id);
-    if (!driver) throw new ApiError(404, "Driver not found");
+  async updateDriverStatus(id: string, data: UpdateDriverStatusInput, userScope?: any) {
+    await this.getDriverById(id, userScope);
     if (!data?.status) throw new ApiError(400, "status is required");
     return this.driverRepo.updateStatus(id, data);
   }
 
   async updateDriverAvailability(
     id: string,
-    data: UpdateDriverAvailabilityInput
+    data: UpdateDriverAvailabilityInput,
+    userScope?: any
   ) {
-    const driver = await this.driverRepo.findById(id);
-    if (!driver) throw new ApiError(404, "Driver not found");
+    await this.getDriverById(id, userScope);
     if (typeof data?.isAvailable !== "boolean") {
       throw new ApiError(400, "isAvailable must be boolean");
     }
     return this.driverRepo.updateAvailability(id, data);
   }
 
-  async getDriverPreferences(id: string) {
-    const driver = await this.driverRepo.findById(id);
-    if (!driver) throw new ApiError(404, "Driver not found");
+  async getDriverPreferences(id: string, userScope?: any) {
+    await this.getDriverById(id, userScope);
 
     const driverPreference = await this.driverRepo.findDriverPreferences(id);
     const preferenceDefinations =
@@ -149,11 +184,18 @@ export class DriverService {
     );
   }
 
-  async getPendingPreferenceChangeRequests() {
-    const pendingPreferenceChangeRequests =
-      await this.driverRepo.getPendingPreferenceChangeRequests();
-
-    return pendingPreferenceChangeRequests;
+  async getPendingPreferenceChangeRequests(userScope?: any) {
+    const role = String(userScope?.role || "");
+    if (role === "SUPER_ADMIN") {
+      return this.driverRepo.getPendingPreferenceChangeRequests();
+    }
+    const scopedFleetId = userScope?.fleetId;
+    if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
+    if (role === "OPERATIONS") {
+      const hubIds = Array.isArray(userScope?.hubIds) ? userScope.hubIds : [];
+      return this.driverRepo.getPendingPreferenceChangeRequestsScoped({ fleetId: scopedFleetId, hubIds });
+    }
+    return this.driverRepo.getPendingPreferenceChangeRequestsScoped({ fleetId: scopedFleetId });
   }
 
   async updatePendingPreferenceChangeRequest(data: any, reviewedBy?: string) {

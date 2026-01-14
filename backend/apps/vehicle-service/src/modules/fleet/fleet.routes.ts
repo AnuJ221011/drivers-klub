@@ -24,7 +24,7 @@ router.use(authenticate);
 
 router.post(
   "/",
-  authorizeRoles("SUPER_ADMIN"),
+  authorizeRoles("SUPER_ADMIN", "FLEET_ADMIN", "MANAGER"),
   createFleet
 );
 
@@ -48,7 +48,7 @@ router.patch(
 
 router.post(
   "/:id/hubs",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   createFleetHub
 );
 
@@ -60,19 +60,19 @@ router.get(
 
 router.post(
   "/:id/hub-managers",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   createHubManager
 );
 
 router.get(
   "/:id/hub-managers",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   getAllHubManagers
 );
 
 router.get(
   "/hub-manager/:id",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   getHubManagerById
 );
 
@@ -84,31 +84,31 @@ router.get(
 
 router.post(
   "/hubs/:hubId/assign-manager",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   assignHubManager
 );
 
 router.post(
   "/hubs/:id/add-vehicle",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   addVehicleToHub
 );
 
 router.post(
   "/hubs/:id/add-driver",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   addDriverToHub
 );
 
 router.post(
   "/hubs/:id/remove-vehicle",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   removeVehicleFromHub
 );
 
 router.post(
   "/hubs/:id/remove-driver",
-  authorizeRoles("SUPER_ADMIN", "OPERATIONS"),
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "FLEET_ADMIN"),
   removeDriverFromHub
 );
 

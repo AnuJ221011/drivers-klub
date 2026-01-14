@@ -8,6 +8,37 @@ import { ApiResponse, logger } from '@driversklub/common';
 import { PenaltyType } from '@prisma/client';
 import { prisma } from '@driversklub/database';
 
+function getScope(req: Request): { role: string; fleetId: string | null; hubIds: string[] } {
+    const role = String((req.user as any)?.role || '');
+    const fleetId = ((req.user as any)?.fleetId as string | null | undefined) ?? null;
+    const hubIds = Array.isArray((req.user as any)?.hubIds) ? ((req.user as any).hubIds as string[]) : [];
+    return { role, fleetId, hubIds };
+}
+
+async function assertDriverInScope(req: Request, driverId: string) {
+    const { role, fleetId, hubIds } = getScope(req);
+    if (role === 'SUPER_ADMIN') return;
+    if (!fleetId) throw new Error('Fleet scope not set');
+    const driver = await prisma.driver.findUnique({ where: { id: driverId } });
+    if (!driver) throw new Error('Driver not found');
+    if (driver.fleetId !== fleetId) throw new Error('Access denied');
+    if (role === 'OPERATIONS') {
+        if (!driver.hubId || !hubIds.includes(driver.hubId)) throw new Error('Access denied');
+    }
+}
+
+async function assertVehicleInScope(req: Request, vehicleId: string) {
+    const { role, fleetId, hubIds } = getScope(req);
+    if (role === 'SUPER_ADMIN') return;
+    if (!fleetId) throw new Error('Fleet scope not set');
+    const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
+    if (!vehicle) throw new Error('Vehicle not found');
+    if (vehicle.fleetId !== fleetId) throw new Error('Access denied');
+    if (role === 'OPERATIONS') {
+        if (!vehicle.hubId || !hubIds.includes(vehicle.hubId)) throw new Error('Access denied');
+    }
+}
+
 // ============================================
 // DRIVER ENDPOINTS
 // ============================================
@@ -275,29 +306,14 @@ export const getDriverRentalPlans = async (req: Request, res: Response) => {
  * POST /admin/payment/rental-plans
  */
 export const createRentalPlan = async (req: Request, res: Response) => {
-    const { id: userId, role } = req.user as any;
-    let { fleetId } = req.body;
+    const { role, fleetId: scopedFleetId } = getScope(req);
+    let { fleetId } = req.body as { fleetId?: string };
     const { name, rentalAmount, depositAmount, validityDays } = req.body;
 
-    // Secure fleetId for Managers
-    if (role === 'MANAGER') {
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-        });
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        const fleetManager = await prisma.fleetManager.findFirst({
-            where: { mobile: user.phone },
-        });
-
-        if (!fleetManager) {
-            return res.status(403).json({ message: 'Fleet Manager profile not found' });
-        }
-
-        fleetId = fleetManager.fleetId;
+    // For non-super roles, fleet scope is fixed from JWT.
+    if (role !== 'SUPER_ADMIN') {
+        if (!scopedFleetId) return res.status(403).json({ message: 'Fleet scope not set for this user' });
+        fleetId = scopedFleetId;
     }
 
     if (!fleetId) {
@@ -323,6 +339,12 @@ export const getRentalPlans = async (req: Request, res: Response) => {
     const { fleetId } = req.params;
     const { activeOnly = 'true' } = req.query;
 
+    const scope = getScope(req);
+    if (scope.role !== 'SUPER_ADMIN') {
+        if (!scope.fleetId) return res.status(403).json({ message: 'Fleet scope not set for this user' });
+        if (fleetId !== scope.fleetId) return res.status(403).json({ message: 'Access denied' });
+    }
+
     const plans = await rentalService.getRentalPlans(fleetId, activeOnly === 'true');
 
     ApiResponse.send(res, 200, plans, 'Rental plans retrieved successfully');
@@ -343,6 +365,14 @@ export const createPenalty = async (req: Request, res: Response) => {
         suspensionStartDate,
         suspensionEndDate,
     } = req.body;
+
+    try {
+        await assertDriverInScope(req, driverId);
+    } catch (e: any) {
+        const msg = e?.message || 'Access denied';
+        const code = msg === 'Driver not found' ? 404 : msg === 'Fleet scope not set' ? 403 : 403;
+        return res.status(code).json({ message: msg });
+    }
 
     const penalty = await penaltyService.createPenalty({
         driverId,
@@ -367,6 +397,20 @@ export const waivePenalty = async (req: Request, res: Response) => {
     const { id: penaltyId } = req.params;
     const { waiverReason } = req.body;
 
+    const scope = getScope(req);
+    if (scope.role !== 'SUPER_ADMIN') {
+        if (!scope.fleetId) return res.status(403).json({ message: 'Fleet scope not set for this user' });
+        const penaltyRow = await prisma.penalty.findUnique({ where: { id: penaltyId } });
+        if (!penaltyRow) return res.status(404).json({ message: 'Penalty not found' });
+        try {
+            await assertDriverInScope(req, penaltyRow.driverId);
+        } catch (e: any) {
+            const msg = e?.message || 'Access denied';
+            const code = msg === 'Driver not found' ? 404 : msg === 'Fleet scope not set' ? 403 : 403;
+            return res.status(code).json({ message: msg });
+        }
+    }
+
     const penalty = await penaltyService.waivePenalty(penaltyId, userId, waiverReason);
 
     ApiResponse.send(res, 200, penalty, 'Penalty waived successfully');
@@ -379,6 +423,14 @@ export const waivePenalty = async (req: Request, res: Response) => {
 export const createIncentive = async (req: Request, res: Response) => {
     const { id: userId } = req.user as any;
     const { driverId, amount, reason, category } = req.body;
+
+    try {
+        await assertDriverInScope(req, driverId);
+    } catch (e: any) {
+        const msg = e?.message || 'Access denied';
+        const code = msg === 'Driver not found' ? 404 : msg === 'Fleet scope not set' ? 403 : 403;
+        return res.status(code).json({ message: msg });
+    }
 
     const incentive = await incentiveService.createIncentive({
         driverId,
@@ -397,6 +449,19 @@ export const createIncentive = async (req: Request, res: Response) => {
  */
 export const payoutIncentive = async (req: Request, res: Response) => {
     const { id: incentiveId } = req.params;
+
+    const scope = getScope(req);
+    if (scope.role !== 'SUPER_ADMIN') {
+        const incentive = await prisma.incentive.findUnique({ where: { id: incentiveId } });
+        if (!incentive) return res.status(404).json({ message: 'Incentive not found' });
+        try {
+            await assertDriverInScope(req, incentive.driverId);
+        } catch (e: any) {
+            const msg = e?.message || 'Access denied';
+            const code = msg === 'Driver not found' ? 404 : msg === 'Fleet scope not set' ? 403 : 403;
+            return res.status(code).json({ message: msg });
+        }
+    }
 
     const result = await incentiveService.payoutIncentive(incentiveId);
 
@@ -438,8 +503,11 @@ export const processPayout = async (req: Request, res: Response) => {
  * Get pending reconciliations
  * GET /admin/payment/reconciliations/pending
  */
-export const getPendingReconciliations = async (_req: Request, res: Response) => {
-    const reconciliations = await payoutService.getPendingReconciliations();
+export const getPendingReconciliations = async (req: Request, res: Response) => {
+    const scope = getScope(req);
+    const reconciliations = await payoutService.getPendingReconciliations(
+        scope.role === 'SUPER_ADMIN' ? undefined : { fleetId: scope.fleetId }
+    );
 
     ApiResponse.send(res, 200, reconciliations, 'Pending reconciliations retrieved');
 };
@@ -448,8 +516,11 @@ export const getPendingReconciliations = async (_req: Request, res: Response) =>
  * Get pending payouts
  * GET /admin/payment/payouts/pending
  */
-export const getPendingPayouts = async (_req: Request, res: Response) => {
-    const payouts = await payoutService.getPendingPayouts();
+export const getPendingPayouts = async (req: Request, res: Response) => {
+    const scope = getScope(req);
+    const payouts = await payoutService.getPendingPayouts(
+        scope.role === 'SUPER_ADMIN' ? undefined : { fleetId: scope.fleetId }
+    );
 
     ApiResponse.send(res, 200, payouts, 'Pending payouts retrieved');
 };
@@ -460,6 +531,14 @@ export const getPendingPayouts = async (_req: Request, res: Response) => {
  */
 export const generateVehicleQR = async (req: Request, res: Response) => {
     const { id: vehicleId } = req.params;
+
+    try {
+        await assertVehicleInScope(req, vehicleId);
+    } catch (e: any) {
+        const msg = e?.message || 'Access denied';
+        const code = msg === 'Vehicle not found' ? 404 : msg === 'Fleet scope not set' ? 403 : 403;
+        return res.status(code).json({ message: msg });
+    }
 
     const qr = await virtualQRService.generateVehicleQR(vehicleId);
 
@@ -472,6 +551,14 @@ export const generateVehicleQR = async (req: Request, res: Response) => {
  */
 export const getVehicleQR = async (_req: Request, res: Response) => {
     const { id: vehicleId } = _req.params;
+
+    try {
+        await assertVehicleInScope(_req, vehicleId);
+    } catch (e: any) {
+        const msg = e?.message || 'Access denied';
+        const code = msg === 'Vehicle not found' ? 404 : msg === 'Fleet scope not set' ? 403 : 403;
+        return res.status(code).json({ message: msg });
+    }
 
     const qr = await virtualQRService.getVehicleQR(vehicleId);
 

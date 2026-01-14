@@ -254,10 +254,21 @@ export class PayoutService {
     /**
      * Get pending reconciliations (for admin dashboard)
      */
-    async getPendingReconciliations() {
+    async getPendingReconciliations(scope?: { fleetId?: string | null; hubIds?: string[] }) {
+        const fleetId = scope?.fleetId ?? null;
+        const hubIds = Array.isArray(scope?.hubIds) ? scope!.hubIds! : [];
+
         return prisma.dailyCollection.findMany({
             where: {
                 isReconciled: false,
+                ...(fleetId
+                    ? {
+                        driver: {
+                            fleetId,
+                            ...(hubIds.length ? { hubId: { in: hubIds } } : {}),
+                        },
+                    }
+                    : {}),
             },
             include: {
                 driver: {
@@ -281,7 +292,10 @@ export class PayoutService {
     /**
      * Get pending payouts (for admin dashboard)
      */
-    async getPendingPayouts() {
+    async getPendingPayouts(scope?: { fleetId?: string | null; hubIds?: string[] }) {
+        const fleetId = scope?.fleetId ?? null;
+        const hubIds = Array.isArray(scope?.hubIds) ? scope!.hubIds! : [];
+
         return prisma.dailyCollection.findMany({
             where: {
                 isReconciled: true,
@@ -289,6 +303,14 @@ export class PayoutService {
                 netPayout: {
                     gt: 0,
                 },
+                ...(fleetId
+                    ? {
+                        driver: {
+                            fleetId,
+                            ...(hubIds.length ? { hubId: { in: hubIds } } : {}),
+                        },
+                    }
+                    : {}),
             },
             include: {
                 driver: {

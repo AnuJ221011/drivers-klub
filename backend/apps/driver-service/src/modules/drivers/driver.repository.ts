@@ -29,6 +29,15 @@ export class DriverRepository {
     return prisma.driver.findMany({ where: { fleetId } });
   }
 
+  async findAllByFleetAndHubs(fleetId: string, hubIds: string[]): Promise<DriverEntity[]> {
+    return prisma.driver.findMany({
+      where: {
+        fleetId,
+        hubId: { in: hubIds },
+      },
+    });
+  }
+
   async findAllByHub(hubId: string): Promise<DriverEntity[]> {
     return prisma.driver.findMany({ where: { hubId } });
   }
@@ -92,6 +101,21 @@ export class DriverRepository {
   > {
     return prisma.driverPreferenceRequest.findMany({
       where: { status: PreferencesRequestStatus.PENDING },
+    });
+  }
+
+  async getPendingPreferenceChangeRequestsScoped(params: {
+    fleetId: string;
+    hubIds?: string[];
+  }): Promise<DriverPreferenceRequestEntity[]> {
+    return prisma.driverPreferenceRequest.findMany({
+      where: {
+        status: PreferencesRequestStatus.PENDING,
+        driver: {
+          fleetId: params.fleetId,
+          ...(params.hubIds?.length ? { hubId: { in: params.hubIds } } : {}),
+        },
+      },
     });
   }
 

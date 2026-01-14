@@ -4,7 +4,7 @@ import {
   FleetService,
   HubManagerService,
 } from "./fleet.service.js";
-import { ApiResponse } from "@driversklub/common";
+import { ApiResponse, ApiError } from "@driversklub/common";
 
 const fleetService = new FleetService();
 const fleetHubService = new FleetHubService();
@@ -16,11 +16,28 @@ export const createFleet = async (req: Request, res: Response) => {
 };
 
 export const getAllFleets = async (_req: Request, res: Response) => {
-  const fleets = await fleetService.getAllFleets();
+  const role = String(_req.user?.role || "");
+  if (role === "SUPER_ADMIN") {
+    const fleets = await fleetService.getAllFleets();
+    return ApiResponse.send(res, 200, fleets, "Fleets retrieved successfully");
+  }
+
+  const scopedFleetId = _req.user?.fleetId;
+  if (!scopedFleetId) {
+    throw new ApiError(403, "Fleet scope not set for this user");
+  }
+  const fleet = await fleetService.getFleetById(scopedFleetId);
+  const fleets = fleet ? [fleet] : [];
   ApiResponse.send(res, 200, fleets, "Fleets retrieved successfully");
 };
 
 export const getFleetById = async (req: Request, res: Response) => {
+  const role = String(req.user?.role || "");
+  if (role !== "SUPER_ADMIN") {
+    const scopedFleetId = req.user?.fleetId;
+    if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
+    if (scopedFleetId !== req.params.id) throw new ApiError(403, "Access denied");
+  }
   const fleet = await fleetService.getFleetById(req.params.id);
   ApiResponse.send(res, 200, fleet, "Fleet retrieved successfully");
 };
@@ -31,6 +48,12 @@ export const deactivateFleet = async (req: Request, res: Response) => {
 };
 
 export const createFleetHub = async (req: Request, res: Response) => {
+  const role = String(req.user?.role || "");
+  if (role !== "SUPER_ADMIN") {
+    const scopedFleetId = req.user?.fleetId;
+    if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
+    if (scopedFleetId !== req.params.id) throw new ApiError(403, "Access denied");
+  }
   const fleetHub = await fleetHubService.createFleetHub(
     req.params.id,
     req.body
@@ -39,12 +62,30 @@ export const createFleetHub = async (req: Request, res: Response) => {
 };
 
 export const getAllFleetHubs = async (req: Request, res: Response) => {
-  const fleetHubs = await fleetHubService.getAllFleetHubs(req.params.id);
+  const role = String(req.user?.role || "");
+  if (role !== "SUPER_ADMIN") {
+    const scopedFleetId = req.user?.fleetId;
+    if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
+    if (scopedFleetId !== req.params.id) throw new ApiError(403, "Access denied");
+  }
+  const hubs = await fleetHubService.getAllFleetHubs(req.params.id);
+  const hubIds = Array.isArray(req.user?.hubIds) ? req.user.hubIds : [];
+  const fleetHubs = role === "OPERATIONS" ? hubs.filter((h) => hubIds.includes(h.id)) : hubs;
   ApiResponse.send(res, 200, fleetHubs, "Fleet hubs retrieved successfully");
 };
 
 export const getFleetHubById = async (req: Request, res: Response) => {
+  const role = String(req.user?.role || "");
   const hub = await fleetHubService.getFleetHubById(req.params.id);
+  if (role !== "SUPER_ADMIN") {
+    const scopedFleetId = req.user?.fleetId;
+    if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
+    if (hub.fleetId !== scopedFleetId) throw new ApiError(403, "Access denied");
+    if (role === "OPERATIONS") {
+      const hubIds = Array.isArray(req.user?.hubIds) ? req.user.hubIds : [];
+      if (!hubIds.includes(hub.id)) throw new ApiError(403, "Access denied");
+    }
+  }
   ApiResponse.send(res, 200, hub, "Fleet hub retrieved successfully");
 };
 

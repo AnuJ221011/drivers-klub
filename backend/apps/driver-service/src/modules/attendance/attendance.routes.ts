@@ -11,7 +11,11 @@ router.post("/check-in", controller.checkIn);
 router.post("/check-out", controller.checkOut);
 router.post("/start-break", controller.startBreak);
 router.post("/end-break", controller.endBreak);
-router.get("/history", controller.getHistory);
+router.get(
+  "/history",
+  authorizeRoles("SUPER_ADMIN", "FLEET_ADMIN", "OPERATIONS", "MANAGER"),
+  controller.getHistory
+);
 router.get(
   "/:id",
   authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),

@@ -20,6 +20,15 @@ export class VehicleRepository {
     return prisma.vehicle.findMany({ where: { fleetId } });
   }
 
+  async findByFleetAndHubs(fleetId: string, hubIds: string[]): Promise<VehicleEntity[]> {
+    return prisma.vehicle.findMany({
+      where: {
+        fleetId,
+        hubId: { in: hubIds },
+      },
+    });
+  }
+
   async findByHub(hubId: string): Promise<VehicleEntity[]> {
     return prisma.vehicle.findMany({ where: { hubId } });
   }

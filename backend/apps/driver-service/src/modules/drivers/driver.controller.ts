@@ -6,22 +6,22 @@ import { prisma } from "@driversklub/database";
 const driverService = new DriverService();
 
 export const createDriver = async (req: Request, res: Response) => {
-  const driver = await driverService.createDriver(req.body);
+  const driver = await driverService.createDriver(req.body, req.user);
   ApiResponse.send(res, 201, driver, "Driver created successfully");
 };
 
 export const getDriversByFleet = async (req: Request, res: Response) => {
-  const drivers = await driverService.getDriversByFleet(req.params.fleetId);
+  const drivers = await driverService.getDriversByFleet(req.params.fleetId, req.user);
   ApiResponse.send(res, 200, drivers, "Drivers retrieved successfully");
 };
 
 export const getDriversByHub = async (req: Request, res: Response) => {
-  const drivers = await driverService.getDriversByHub(req.params.hubId);
+  const drivers = await driverService.getDriversByHub(req.params.hubId, req.user);
   ApiResponse.send(res, 200, drivers, "Drivers retrieved successfully");
 };
 
 export const getDriverById = async (req: Request, res: Response) => {
-  const driver = await driverService.getDriverById(req.params.id);
+  const driver = await driverService.getDriverById(req.params.id, req.user);
   ApiResponse.send(res, 200, driver, "Driver retrieved successfully");
 };
 
@@ -48,14 +48,15 @@ export const getMyProfile = async (req: Request, res: Response) => {
 };
 
 export const updateDriver = async (req: Request, res: Response) => {
-  const driver = await driverService.updateDriver(req.params.id, req.body);
+  const driver = await driverService.updateDriver(req.params.id, req.body, req.user);
   ApiResponse.send(res, 200, driver, "Driver updated successfully");
 };
 
 export const updateDriverStatus = async (req: Request, res: Response) => {
   const driver = await driverService.updateDriverStatus(
     req.params.id,
-    req.body
+    req.body,
+    req.user
   );
   ApiResponse.send(res, 200, driver, "Driver status updated successfully");
 };
@@ -63,7 +64,8 @@ export const updateDriverStatus = async (req: Request, res: Response) => {
 export const updateDriverAvailability = async (req: Request, res: Response) => {
   const driver = await driverService.updateDriverAvailability(
     req.params.id,
-    req.body
+    req.body,
+    req.user
   );
   ApiResponse.send(
     res,
@@ -75,7 +77,8 @@ export const updateDriverAvailability = async (req: Request, res: Response) => {
 
 export const getDriverPreferences = async (req: Request, res: Response) => {
   const driverPreference = await driverService.getDriverPreferences(
-    req.params.id
+    req.params.id,
+    req.user
   );
   ApiResponse.send(
     res,
@@ -100,11 +103,11 @@ export const createDriverPreferencesChangeRequest = async (
 };
 
 export const getAllPreferenceChangePendingRequests = async (
-  _req: Request,
+  req: Request,
   res: Response
 ) => {
   const pendingPreferenceChangeRequests =
-    await driverService.getPendingPreferenceChangeRequests();
+    await driverService.getPendingPreferenceChangeRequests(req.user);
 
   ApiResponse.send(
     res,

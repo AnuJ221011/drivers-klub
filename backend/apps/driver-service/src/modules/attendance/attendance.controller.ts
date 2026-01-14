@@ -96,6 +96,22 @@ export class AttendanceController {
         return res.status(404).json({ message: "Attendance not found" });
       }
 
+      // Scope enforcement: non-super users must only access their fleet (and hub for operations)
+      const role = String(req.user?.role || "");
+      if (role !== "SUPER_ADMIN") {
+        const scopedFleetId = req.user?.fleetId || null;
+        if (!scopedFleetId) return res.status(403).json({ message: "Fleet scope not set for this user" });
+        const driverFleetId = attendance.driver?.fleetId;
+        if (driverFleetId !== scopedFleetId) return res.status(403).json({ message: "Access denied" });
+        if (role === "OPERATIONS") {
+          const hubIds = Array.isArray(req.user?.hubIds) ? req.user.hubIds : [];
+          const driverHubId = attendance.driver?.hubId || null;
+          if (!driverHubId || !hubIds.includes(driverHubId)) {
+            return res.status(403).json({ message: "Access denied" });
+          }
+        }
+      }
+
       return ApiResponse.send(res, 200, attendance, "Attendance retrieved");
     } catch (error: any) {
       return res
@@ -335,8 +351,22 @@ export class AttendanceController {
       const limit = Number(req.query.limit) || 10;
       const skip = (page - 1) * limit;
 
+      const role = String(req.user?.role || "");
+      const scopedFleetId = req.user?.fleetId || null;
+      const scopedHubIds = Array.isArray(req.user?.hubIds) ? req.user.hubIds : [];
+
       const where: any = {};
       if (driverId) where.driverId = String(driverId);
+
+      if (role !== "SUPER_ADMIN") {
+        if (!scopedFleetId) {
+          return res.status(403).json({ message: "Fleet scope not set for this user" });
+        }
+        where.driver = {
+          fleetId: scopedFleetId,
+          ...(role === "OPERATIONS" ? { hubId: { in: scopedHubIds } } : {}),
+        };
+      }
 
       const [data, total] = await Promise.all([
         prisma.attendance.findMany({
