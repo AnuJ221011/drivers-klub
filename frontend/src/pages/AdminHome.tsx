@@ -9,6 +9,7 @@ import AddTrip from '../components/trip/AddTrip';
 
 import { getAdminTripsPage } from '../api/trip.api';
 import type { TripEntity } from '../models/trip/trip';
+import { useAuth } from '../context/AuthContext';
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
@@ -49,6 +50,7 @@ function hasActiveAssignment(trip: TripEntity): boolean {
 
 export default function AdminHome() {
   const nav = useNavigate();
+  const { role, fleetId } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [trips, setTrips] = useState<TripEntity[]>([]);
@@ -69,9 +71,17 @@ export default function AdminHome() {
     }
   }, []);
 
+  // Dashboard is currently a global trips overview.
+  // For fleet-scoped roles, redirect to their fleet page (consistent with other tabs).
   useEffect(() => {
+    if (role === 'SUPER_ADMIN') return;
+    if (fleetId) nav(`/admin/fleets/${fleetId}`, { replace: true });
+  }, [role, fleetId, nav]);
+
+  useEffect(() => {
+    if (role !== 'SUPER_ADMIN') return;
     void refresh();
-  }, [refresh]);
+  }, [refresh, role]);
 
   const now = useMemo(() => new Date(), []);
 
