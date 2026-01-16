@@ -4,7 +4,8 @@ import { ApiResponse, ApiError } from "@driversklub/common";
 
 const service = new FleetManagerService();
 
-export const createFleetManager = async (req: Request, res: Response) => {
+// Use function declarations (not const) to avoid TDZ issues in some CJS/tsx runtimes.
+export async function createFleetManager(req: Request, res: Response) {
   const role = String(req.user?.role || "");
   if (role !== "SUPER_ADMIN") {
     const scopedFleetId = req.user?.fleetId;
@@ -13,9 +14,9 @@ export const createFleetManager = async (req: Request, res: Response) => {
   }
   const manager = await service.createFleetManager(req.body);
   ApiResponse.send(res, 201, manager, "Fleet Manager created successfully");
-};
+}
 
-export const getFleetManagersByFleet = async (req: Request, res: Response) => {
+export async function getFleetManagersByFleet(req: Request, res: Response) {
   const role = String(req.user?.role || "");
   if (role !== "SUPER_ADMIN") {
     const scopedFleetId = req.user?.fleetId;
@@ -24,9 +25,9 @@ export const getFleetManagersByFleet = async (req: Request, res: Response) => {
   }
   const managers = await service.getFleetManagersByFleet(req.params.fleetId);
   ApiResponse.send(res, 200, managers, "Fleet Managers retrieved successfully");
-};
+}
 
-export const deactivateFleetManager = async (req: Request, res: Response) => {
+export async function deactivateFleetManager(req: Request, res: Response) {
   const role = String(req.user?.role || "");
   const managerRow = await service.getFleetManagerById(req.params.id);
   if (role !== "SUPER_ADMIN") {
@@ -36,4 +37,4 @@ export const deactivateFleetManager = async (req: Request, res: Response) => {
   }
   const manager = await service.deactivateFleetManager(req.params.id);
   ApiResponse.send(res, 200, manager, "Fleet Manager deactivated successfully");
-};
+}
