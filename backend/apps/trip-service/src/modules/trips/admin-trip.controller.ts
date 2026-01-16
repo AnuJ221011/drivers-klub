@@ -8,10 +8,65 @@ import { MMTWebhook } from "../partner/mmt/mmt.webhook.js";
 export class AdminTripController {
   private mmtWebhook = new MMTWebhook();
 
+  private getScope(req: Request): {
+    id?: string;
+    role?: string;
+    fleetId: string | null;
+    hubIds: string[];
+  } {
+    const u = req.user as any;
+    return {
+      id: u?.id,
+      role: u?.role,
+      fleetId: typeof u?.fleetId === "string" ? u.fleetId : u?.fleetId ?? null,
+      hubIds: Array.isArray(u?.hubIds) ? u.hubIds : [],
+    };
+  }
+
+  private assertScopeReady(scope: { role?: string; fleetId: string | null; hubIds: string[] }) {
+    if (scope.role && scope.role !== "SUPER_ADMIN" && !scope.fleetId) {
+      return { ok: false as const, status: 403, message: "Fleet scope not set for this user" };
+    }
+    if (scope.role === "OPERATIONS" && (!scope.hubIds || scope.hubIds.length === 0)) {
+      return { ok: false as const, status: 403, message: "Hub scope not set for this user" };
+    }
+    return { ok: true as const };
+  }
+
+  private async assertDriverInScope(req: Request, driverId: string) {
+    const scope = this.getScope(req);
+    const ready = this.assertScopeReady(scope);
+    if (!ready.ok) return ready;
+
+    if (scope.role === "SUPER_ADMIN") return { ok: true as const };
+
+    const driver = await prisma.driver.findUnique({
+      where: { id: driverId },
+      select: { id: true, fleetId: true, hubId: true },
+    });
+    if (!driver) return { ok: false as const, status: 404, message: "Driver not found" };
+
+    if (driver.fleetId !== scope.fleetId) {
+      return { ok: false as const, status: 403, message: "Access denied" };
+    }
+    if (scope.role === "OPERATIONS") {
+      const hubId = driver.hubId || "";
+      if (!scope.hubIds.includes(hubId)) {
+        return { ok: false as const, status: 403, message: "Access denied" };
+      }
+    }
+    return { ok: true as const };
+  }
+
   async assignDriver(req: Request, res: Response) {
     const { tripId, driverId } = req.body;
 
     try {
+      const scoped = await this.assertDriverInScope(req, driverId);
+      if (!scoped.ok) {
+        return res.status(scoped.status).json({ message: scoped.message });
+      }
+
       const assignment = await TripAssignmentService.assignDriver(
         tripId,
         driverId
@@ -28,6 +83,31 @@ export class AdminTripController {
   async unassignDriver(req: Request, res: Response) {
     const { tripId } = req.body;
 
+    const scope = this.getScope(req);
+    const ready = this.assertScopeReady(scope);
+    if (!ready.ok) {
+      return res.status(ready.status).json({ message: ready.message });
+    }
+
+    // If trip has an active assignment, ensure it belongs to the user's scope.
+    if (scope.role !== "SUPER_ADMIN") {
+      const activeAssignment = await prisma.tripAssignment.findFirst({
+        where: { tripId, status: { in: ["ASSIGNED", "ACTIVE"] } },
+        include: { driver: { select: { fleetId: true, hubId: true } } },
+      });
+      if (activeAssignment?.driver) {
+        if (activeAssignment.driver.fleetId !== scope.fleetId) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+        if (scope.role === "OPERATIONS") {
+          const hubId = activeAssignment.driver.hubId || "";
+          if (!scope.hubIds.includes(hubId)) {
+            return res.status(403).json({ message: "Access denied" });
+          }
+        }
+      }
+    }
+
     await TripAssignmentService.unassignDriver(tripId);
 
     // NOTE: TripAssignmentService already reverts ride status to CREATED.
@@ -43,6 +123,11 @@ export class AdminTripController {
     const { tripId, driverId } = req.body;
 
     try {
+      const scoped = await this.assertDriverInScope(req, driverId);
+      if (!scoped.ok) {
+        return res.status(scoped.status).json({ message: scoped.message });
+      }
+
       const assignment =
         await TripAssignmentService.reassignDriver(
           tripId,
@@ -65,9 +150,29 @@ export class AdminTripController {
       const skip = (page - 1) * limit;
       const { status } = req.query;
 
+      const scope = this.getScope(req);
+      const ready = this.assertScopeReady(scope);
+      if (!ready.ok) {
+        return res.status(ready.status).json({ message: ready.message });
+      }
+
       const where: any = {};
       if (status) {
         where.status = status;
+      }
+
+      // Non-super admins can only see trips that currently have an active assignment
+      // to a driver within their scoped fleet (and hubs for OPERATIONS).
+      if (scope.role && scope.role !== "SUPER_ADMIN") {
+        where.tripAssignments = {
+          some: {
+            status: { in: ["ASSIGNED", "ACTIVE"] },
+            driver: {
+              fleetId: scope.fleetId,
+              ...(scope.role === "OPERATIONS" ? { hubId: { in: scope.hubIds } } : {}),
+            },
+          },
+        };
       }
 
       const [trips, total] = await Promise.all([
