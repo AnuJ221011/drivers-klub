@@ -3,6 +3,8 @@ declare module '@vis.gl/react-google-maps' {
 
   export interface APIProviderProps {
     apiKey: string;
+    /** Google Maps JS API libraries (e.g. ['places']) */
+    libraries?: string[];
     children?: React.ReactNode;
   }
   export const APIProvider: React.FC<APIProviderProps>;
@@ -10,7 +12,7 @@ declare module '@vis.gl/react-google-maps' {
   export interface MapProps {
     defaultZoom?: number;
     defaultCenter?: google.maps.LatLngLiteral;
-    onClick?: (e: { detail?: { latLng?: { lat: number; lng: number } } }) => void;
+    onClick?: (e: { detail?: { latLng?: { lat: number; lng: number } | { lat: () => number; lng: () => number } } }) => void;
     children?: React.ReactNode;
   }
   export const Map: React.FC<MapProps>;

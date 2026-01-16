@@ -16,6 +16,54 @@ import { createFleetHub } from "../../../../api/fleetHub.api";
 
 type LatLng = { lat: number; lng: number };
 
+function PlaceSearch({
+  value,
+  onChange,
+  onPlaceSelected,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onPlaceSelected: (p: { lat: number; lng: number; address?: string }) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const acRef = useRef<google.maps.places.Autocomplete | null>(null);
+
+  useEffect(() => {
+    if (!inputRef.current) return;
+    if (!window.google?.maps?.places) return;
+    if (acRef.current) return;
+
+    const ac = new google.maps.places.Autocomplete(inputRef.current, {
+      fields: ["geometry", "formatted_address", "name"],
+    });
+    ac.addListener("place_changed", () => {
+      const place = ac.getPlace();
+      const loc = place.geometry?.location;
+      if (!loc) return;
+      const lat = typeof loc.lat === "function" ? loc.lat() : (loc as any).lat;
+      const lng = typeof loc.lng === "function" ? loc.lng() : (loc as any).lng;
+      if (typeof lat !== "number" || typeof lng !== "number") return;
+      onPlaceSelected({
+        lat,
+        lng,
+        address: place.formatted_address || place.name || undefined,
+      });
+    });
+
+    acRef.current = ac;
+  }, [onPlaceSelected]);
+
+  return (
+    <input
+      ref={inputRef}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder="Search location…"
+      className="w-full rounded-md border border-black/20 bg-white px-3 py-2 text-sm text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 shadow-sm"
+    />
+  );
+}
+
 /* ---------------- Geofence Circle ---------------- */
 function GeofenceCircle({
   center,
@@ -101,8 +149,10 @@ export default function FleetCreateHub() {
   const handleMapClick = async (e: any) => {
     if (!e.detail?.latLng) return;
 
-    const lat = e.detail.latLng.lat;
-    const lng = e.detail.latLng.lng;
+    const ll = e.detail.latLng;
+    const lat = typeof ll.lat === "function" ? ll.lat() : ll.lat;
+    const lng = typeof ll.lng === "function" ? ll.lng() : ll.lng;
+    if (typeof lat !== "number" || typeof lng !== "number") return;
 
     setLocation({ lat, lng });
     await fetchAddress(lat, lng);
@@ -156,19 +206,32 @@ export default function FleetCreateHub() {
         {/* ---------- Map ---------- */}
         <div className="lg:col-span-2 h-[520px] rounded-lg overflow-hidden border">
           {hasGoogleKey ? (
-            <APIProvider apiKey={apiKey!}>
-              <Map
-                defaultZoom={13}
-                defaultCenter={location as google.maps.LatLngLiteral}
-                onClick={handleMapClick}
-              >
-                <GoogleRecenter center={location as google.maps.LatLngLiteral} />
-                <AdvancedMarker position={location as google.maps.LatLngLiteral}>
-                  <Pin background="#facc15" />
-                </AdvancedMarker>
+            <APIProvider apiKey={apiKey!} libraries={["places"]}>
+              <div className="relative h-full w-full">
+                <div className="absolute top-3 left-3 right-3 z-10 max-w-xl">
+                  <PlaceSearch
+                    value={address}
+                    onChange={setAddress}
+                    onPlaceSelected={async ({ lat, lng, address }) => {
+                      setLocation({ lat, lng });
+                      if (address) setAddress(address);
+                      else await fetchAddress(lat, lng);
+                    }}
+                  />
+                </div>
+                <Map
+                  defaultZoom={13}
+                  defaultCenter={location as google.maps.LatLngLiteral}
+                  onClick={handleMapClick}
+                >
+                  <GoogleRecenter center={location as google.maps.LatLngLiteral} />
+                  <AdvancedMarker position={location as google.maps.LatLngLiteral}>
+                    <Pin background="#facc15" />
+                  </AdvancedMarker>
 
-                <GeofenceCircle center={location as google.maps.LatLngLiteral} radius={radius} />
-              </Map>
+                  <GeofenceCircle center={location as google.maps.LatLngLiteral} radius={radius} />
+                </Map>
+              </div>
             </APIProvider>
           ) : (
             <div className="h-full w-full">
