@@ -34,13 +34,17 @@ app.get("/", (req, res) => {
 });
 
 // Proxy Config
+// On Windows, `localhost` can resolve to IPv6 (::1) and cause proxy timeouts when
+// upstream services are listening on IPv4. Prefer explicit IPv4 loopback.
+const LOCALHOST = process.env.SERVICE_HOST || "127.0.0.1";
+
 const services = {
-    auth: "http://localhost:3001",
-    driver: "http://localhost:3002",
-    vehicle: "http://localhost:3003",
-    assignment: "http://localhost:3004",
-    trip: "http://localhost:3005",
-    notification: "http://localhost:3006"
+    auth: `http://${LOCALHOST}:3001`,
+    driver: `http://${LOCALHOST}:3002`,
+    vehicle: `http://${LOCALHOST}:3003`,
+    assignment: `http://${LOCALHOST}:3004`,
+    trip: `http://${LOCALHOST}:3005`,
+    notification: `http://${LOCALHOST}:3006`
 };
 
 // Routes Mapping
