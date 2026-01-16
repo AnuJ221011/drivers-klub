@@ -19,7 +19,12 @@ export const createUser = async (req: Request, res: Response) => {
     throw new ApiError(400, "name, phone and role are required");
   }
 
-  const user = await userService.createUser(req.user, { name, phone, role, fleetId, hubIds, isActive });
+  const actor = req.user;
+  if (!actor?.role) {
+    throw new ApiError(401, "Unauthorized");
+  }
+
+  const user = await userService.createUser(actor, { name, phone, role, fleetId, hubIds, isActive });
   ApiResponse.send(res, 201, user, "User created successfully");
 };
 
@@ -32,11 +37,12 @@ export const updateUser = async (req: Request, res: Response) => {
     isActive?: boolean;
   };
 
-  if (!req.user?.role) {
+  const actor = req.user;
+  if (!actor?.role) {
     throw new ApiError(401, "Unauthorized");
   }
 
-  const user = await userService.updateUser(req.user, req.params.id, {
+  const user = await userService.updateUser(actor, req.params.id, {
     name,
     role,
     fleetId,
