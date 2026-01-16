@@ -1,5 +1,6 @@
 export enum UserRole {
     SUPER_ADMIN = "SUPER_ADMIN",
+    FLEET_ADMIN = "FLEET_ADMIN",
     OPERATIONS = "OPERATIONS",
     MANAGER = "MANAGER",
     DRIVER = "DRIVER",
