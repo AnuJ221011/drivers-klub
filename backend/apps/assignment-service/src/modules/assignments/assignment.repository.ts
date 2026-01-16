@@ -58,8 +58,25 @@ export class AssignmentRepository {
     return prisma.assignment.findMany({ where: { fleetId } });
   }
 
+  findByFleetAndHubs(fleetId: string, hubIds: string[]) {
+    return prisma.assignment.findMany({
+      where: {
+        fleetId,
+        driver: {
+          hubId: { in: hubIds },
+        },
+      },
+    });
+  }
+
   findById(id: string) {
-    return prisma.assignment.findUnique({ where: { id } });
+    return prisma.assignment.findUnique({
+      where: { id },
+      include: {
+        driver: { select: { fleetId: true, hubId: true } },
+        vehicle: { select: { fleetId: true, hubId: true } },
+      },
+    });
   }
 
   endAssignment(id: string) {
