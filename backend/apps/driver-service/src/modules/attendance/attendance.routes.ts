@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { AttendanceController } from "./attendance.controller.js";
 import { authenticate, authorizeRoles } from "@driversklub/common";
+import { hydrateUserScope } from "../../middlewares/hydrateUserScope.js";
 
 const router = Router();
 const controller = new AttendanceController();
 
 router.use(authenticate);
+router.use(hydrateUserScope);
 
 router.post("/check-in", controller.checkIn);
 router.post("/check-out", controller.checkOut);

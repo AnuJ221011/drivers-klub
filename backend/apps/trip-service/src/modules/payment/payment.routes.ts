@@ -31,12 +31,31 @@ import {
 } from './order.controller.js';
 import { authenticate, authorizeRoles } from '@driversklub/common';
 import multer from 'multer';
+import type { Request, Response, NextFunction } from 'express';
+import { prisma } from '@driversklub/database';
 
 const upload = multer({ storage: multer.memoryStorage() });
 const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
+
+// Hydrate scope from DB if token didn't include it (legacy/stale tokens)
+router.use(async (req: Request, _res: Response, next: NextFunction) => {
+    try {
+        const role = String((req.user as any)?.role || '');
+        if (!req.user || role === 'SUPER_ADMIN') return next();
+        if ((req.user as any).fleetId) return next();
+        const user = await prisma.user.findUnique({ where: { id: (req.user as any).id } });
+        if (user) {
+            (req.user as any).fleetId = user.fleetId ?? null;
+            (req.user as any).hubIds = Array.isArray(user.hubIds) ? user.hubIds : [];
+        }
+        return next();
+    } catch (e) {
+        return next(e);
+    }
+});
 
 // ============================================
 // DRIVER ROUTES
