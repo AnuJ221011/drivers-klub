@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import axios from "axios";
 import { OtpRepository } from "./otp.repository.js";
-import { ApiError, logger } from "@driversklub/common";
+import { ApiError } from "@driversklub/common";
 
 const repo = new OtpRepository();
 
@@ -19,21 +19,11 @@ export class OtpService {
         );
 
         // LOG FIRST (So we see it even if DB fails)
-        const shouldLogDevOtp =
-            process.env.SHOW_DEV_OTP_LOGS === "true" || process.env.NODE_ENV !== "production";
-        if (shouldLogDevOtp) {
-            // Use BOTH console + logger:
-            // - console.log: always visible in typical dev terminals (even if LOG_LEVEL is warn/error)
-            // - logger: visible in structured log collectors
+        if (!process.env.EXOTEL_ACCOUNT_SID || process.env.NODE_ENV !== "production") {
             console.log("==========================================");
             console.log(`[DEV OTP] Phone: ${phone}`);
             console.log(`[DEV OTP] Code : ${otp}`);
             console.log("==========================================");
-
-            logger.warn("==========================================");
-            logger.warn(`[DEV OTP] Phone: ${phone}`);
-            logger.warn(`[DEV OTP] Code : ${otp}`);
-            logger.warn("==========================================");
         }
 
         try {
