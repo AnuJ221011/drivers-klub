@@ -57,6 +57,19 @@ export const verifyOtp = async (req: Request, res: Response) => {
         return res.status(404).json({ message: "User not registered" });
     }
 
+    // Enforce scope setup for fleet-scoped admin roles to avoid "login works but everything 403s".
+    if (user.role === "FLEET_ADMIN" || user.role === "MANAGER") {
+        if (!user.fleetId) {
+            return res.status(403).json({ message: "Fleet scope not set for this user" });
+        }
+    }
+    if (user.role === "OPERATIONS") {
+        const hubIds = Array.isArray(user.hubIds) ? user.hubIds : [];
+        if (!user.fleetId || hubIds.length === 0) {
+            return res.status(403).json({ message: "Fleet/hub scope not set for this user" });
+        }
+    }
+
     const tokens = await issueTokens(user.id);
 
     // Sync Rapido Status on Login

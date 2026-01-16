@@ -1,15 +1,10 @@
 import { prisma } from "@driversklub/database";
 import { generateTokens, verifyRefreshToken, ApiError } from "@driversklub/common";
 
-export const issueTokens = async (userId: string) => {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-        throw new ApiError(404, "User not found");
-    }
-
+async function resolveScope(user: { id: string; role: string; fleetId: string | null; hubIds: unknown }) {
     // Resolve scope for token payload from stored user fields (no mapping tables)
     let fleetId: string | null = user.fleetId ?? null;
-    let hubIds: string[] = Array.isArray(user.hubIds) ? user.hubIds : [];
+    let hubIds: string[] = Array.isArray(user.hubIds) ? (user.hubIds as string[]) : [];
 
     // Driver scope is derived from Driver table (profile is separate)
     if (user.role === "DRIVER") {
@@ -22,6 +17,17 @@ export const issueTokens = async (userId: string) => {
             hubIds = [];
         }
     }
+
+    return { fleetId, hubIds };
+}
+
+export const issueTokens = async (userId: string) => {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    const { fleetId, hubIds } = await resolveScope(user as any);
 
     const tokens = generateTokens({
         sub: user.id,
@@ -61,12 +67,19 @@ export const refresh = async (refreshTokenInput: string) => {
         // Ignore delete error (idempotent)
     }
 
+    // Always re-resolve scope from DB so tokens reflect latest fleet/hub assignments.
+    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+    const { fleetId, hubIds } = await resolveScope(user as any);
+
     const tokens = generateTokens({
-        sub: payload.sub,
-        role: payload.role,
-        phone: payload.phone,
-        fleetId: payload.fleetId ?? null,
-        hubIds: payload.hubIds ?? []
+        sub: user.id,
+        role: user.role,
+        phone: user.phone,
+        fleetId,
+        hubIds
     });
 
     await prisma.refreshToken.create({
