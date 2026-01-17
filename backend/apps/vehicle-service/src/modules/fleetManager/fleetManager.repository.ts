@@ -33,9 +33,9 @@ export class FleetManagerRepository {
 
   async findByFleet(fleetId: string): Promise<FleetManagerEntity[]> {
     const users = await prisma.user.findMany({
-      where: { role: "MANAGER", fleetId },
+      where: { role: { in: ["MANAGER", "FLEET_ADMIN"] }, fleetId },
       include: { fleet: { select: { city: true } } },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ role: "asc" }, { createdAt: "desc" }],
     });
 
     return users.map((u) => ({
@@ -76,7 +76,7 @@ export class FleetManagerRepository {
       where: { phone: mobile },
       include: { fleet: { select: { city: true } } },
     });
-    if (!user || user.role !== "MANAGER" || !user.fleetId) return null;
+    if (!user || !["MANAGER", "FLEET_ADMIN"].includes(user.role) || !user.fleetId) return null;
 
     return {
       id: user.id,
