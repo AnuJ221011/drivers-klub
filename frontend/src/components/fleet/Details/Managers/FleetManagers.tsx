@@ -53,6 +53,16 @@ export default function FleetManagers() {
           columns={[
             { key: "index", label: "S.No", render: (_m, i) => i + 1 },
             { key: "name", label: "Name" },
+            {
+              key: "role",
+              label: "Role",
+              render: (m) => {
+                const r = (m.role || "").toUpperCase();
+                if (r === "FLEET_ADMIN") return "Fleet Admin";
+                if (r === "MANAGER") return "Manager";
+                return m.role || "-";
+              },
+            },
             { key: "mobile", label: "Phone" },
             { key: "city", label: "City" },
             { key: "status", label: "Status" },

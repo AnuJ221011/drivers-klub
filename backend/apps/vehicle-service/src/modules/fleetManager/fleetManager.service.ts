@@ -20,6 +20,7 @@ export class FleetManagerService {
       throw new ApiError(409, "Fleet manager with this mobile already exists");
     }
 
+    // We store managers in the User table (role=MANAGER). City/profilePicture are not persisted on User.
     return this.repo.create(data);
   }
 
@@ -37,6 +38,6 @@ export class FleetManagerService {
 
   async deactivateFleetManager(id: string) {
     await this.getFleetManagerById(id);
-    return this.repo.updateStatus(id, { status: "INACTIVE" });
+    return this.repo.deactivate(id);
   }
 }

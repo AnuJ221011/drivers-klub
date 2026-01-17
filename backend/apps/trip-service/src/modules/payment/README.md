@@ -85,6 +85,8 @@ EASEBUZZ_MERCHANT_KEY=your-merchant-key
 EASEBUZZ_SALT_KEY=your-salt-key
 EASEBUZZ_ENV=test
 EASEBUZZ_BASE_URL=https://testpay.easebuzz.in
+EASEBUZZ_WIRE_BASE_URL=https://testwire.easebuzz.in
+EASEBUZZ_API_BASE_URL=https://testapi.easebuzz.in
 
 # Payment Configuration
 DEFAULT_REV_SHARE_PERCENTAGE=70

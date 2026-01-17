@@ -11,6 +11,20 @@ The backend **must** enforce access control. The frontend additionally hides/red
 
 ---
 
+## What “role + scope” means
+
+### Role (what you can do)
+Role gates are applied at the route level using `authorizeRoles(...)`.
+
+### Scope (what data you can see)
+Scope gates are applied in controllers/services via:
+- **assertions** like “requested fleetId must equal `req.user.fleetId`”
+- **query filtering** like “hubId IN `req.user.hubIds`” for `OPERATIONS`
+
+This prevents users from accessing other fleets/hubs even if they guess IDs.
+
+---
+
 ## Source of truth: JWT claims
 
 ### Claims
@@ -22,6 +36,16 @@ The backend **must** enforce access control. The frontend additionally hides/red
 - **JWT payload type**: `backend/packages/common/src/types/auth.types.ts`
 - **JWT issuance**: `backend/apps/auth-service/src/modules/auth/token.service.ts`
 - **Attach to req.user**: `backend/packages/common/src/middlewares/authenticate.ts` and `backend/packages/common/src/types/express.d.ts`
+
+### Scope hydration (self-healing for stale tokens)
+Some services include a `hydrateUserScope` middleware that loads `fleetId/hubIds` from DB if the JWT is missing them (older/stale tokens).
+
+**Where it exists**
+- `backend/apps/vehicle-service/src/middlewares/hydrateUserScope.ts`
+- `backend/apps/driver-service/src/middlewares/hydrateUserScope.ts`
+- `backend/apps/assignment-service/src/middlewares/hydrateUserScope.ts`
+- `backend/apps/trip-service/src/middlewares/hydrateUserScope.ts` (admin trips)
+- `backend/apps/trip-service/src/modules/payment/payment.routes.ts` (inline middleware)
 
 ---
 
@@ -47,6 +71,13 @@ The backend **must** enforce access control. The frontend additionally hides/red
 ---
 
 ## Admin UI behavior (frontend)
+
+### Dashboard
+- `SUPER_ADMIN`: sees global overview (trips overview).
+- `FLEET_ADMIN / MANAGER / OPERATIONS`: redirected to their fleet details page (`/admin/fleets/:fleetId`).
+
+**Frontend file**
+- Dashboard redirect + conditional trip refresh: `frontend/src/pages/AdminHome.tsx`
 
 ### Fleets
 - **Route**:
@@ -76,6 +107,11 @@ The backend **must** enforce access control. The frontend additionally hides/red
 
 **Frontend file**
 - Tab list is filtered by role: `frontend/src/pages/PaymentPricing.tsx`
+
+### Trips
+- Trips list uses `/admin/trips` and details use `/trips/:id`.
+- Backend is the enforcement layer; UI uses the same pages for all roles but:
+  - non-super roles will only see trips that match their scope (see backend section).
 
 ---
 
@@ -153,6 +189,21 @@ Backend enforces both:
 - `backend/apps/trip-service/src/modules/payment/payment.routes.ts`
 - `backend/apps/trip-service/src/modules/payment/payment.controller.ts`
 - `backend/apps/trip-service/src/core/payment/payout.service.ts`
+
+### Trips (trip-service)
+
+#### Admin trips list + dispatch actions
+- `GET /admin/trips`
+  - `SUPER_ADMIN`: sees all trips (optionally filtered by status).
+  - `FLEET_ADMIN / MANAGER`: only trips that have an active assignment to a driver in their `fleetId`.
+  - `OPERATIONS`: only trips that have an active assignment to a driver in their `fleetId` AND `hubId IN req.user.hubIds`.
+- `POST /admin/trips/assign|unassign|reassign`
+  - role-gated + driver-scope-validated for non-super roles.
+
+**Backend files**
+- Routes (roles): `backend/apps/trip-service/src/modules/trips/admin-trip.routes.ts`
+- Scoping/filtering: `backend/apps/trip-service/src/modules/trips/admin-trip.controller.ts`
+- Scope hydration: `backend/apps/trip-service/src/middlewares/hydrateUserScope.ts`
 
 ---
 

@@ -540,9 +540,14 @@ export const generateVehicleQR = async (req: Request, res: Response) => {
         return res.status(code).json({ message: msg });
     }
 
-    const qr = await virtualQRService.generateVehicleQR(vehicleId);
-
-    ApiResponse.send(res, 201, qr, 'Virtual QR generated successfully');
+    try {
+        const qr = await virtualQRService.generateVehicleQR(vehicleId);
+        ApiResponse.send(res, 201, qr, 'Virtual QR generated successfully');
+    } catch (e: any) {
+        const statusCode = Number(e?.statusCode) || 500;
+        const message = e?.message || 'Internal Server Error';
+        return res.status(statusCode).json({ message });
+    }
 };
 
 /**

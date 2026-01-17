@@ -6,6 +6,9 @@ export * from './middlewares/authorize';
 export * from './middlewares/basicAuth';
 // Add authMiddleware export if it exists (need to check file list later)
 
+// Types (module augmentation)
+export * from './types/express';
+
 // Utils
 export * from './utils/apiError';
 export * from './utils/apiResponse';
