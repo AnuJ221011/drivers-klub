@@ -25,6 +25,7 @@ export class FleetManagerRepository {
       city: user.fleet?.city || "",
       profilePicture: null,
       fleetId: user.fleetId || data.fleetId,
+      role: "MANAGER",
       status: user.isActive ? "ACTIVE" : "INACTIVE",
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -45,6 +46,7 @@ export class FleetManagerRepository {
       city: u.fleet?.city || "",
       profilePicture: null,
       fleetId: u.fleetId || fleetId,
+      role: u.role === "FLEET_ADMIN" ? "FLEET_ADMIN" : "MANAGER",
       status: u.isActive ? "ACTIVE" : "INACTIVE",
       createdAt: u.createdAt,
       updatedAt: u.updatedAt,
@@ -56,7 +58,7 @@ export class FleetManagerRepository {
       where: { id },
       include: { fleet: { select: { city: true } } },
     });
-    if (!user || user.role !== "MANAGER" || !user.fleetId) return null;
+    if (!user || !["MANAGER", "FLEET_ADMIN"].includes(user.role) || !user.fleetId) return null;
 
     return {
       id: user.id,
@@ -65,6 +67,7 @@ export class FleetManagerRepository {
       city: user.fleet?.city || "",
       profilePicture: null,
       fleetId: user.fleetId,
+      role: user.role === "FLEET_ADMIN" ? "FLEET_ADMIN" : "MANAGER",
       status: user.isActive ? "ACTIVE" : "INACTIVE",
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -85,6 +88,7 @@ export class FleetManagerRepository {
       city: user.fleet?.city || "",
       profilePicture: null,
       fleetId: user.fleetId,
+      role: user.role === "FLEET_ADMIN" ? "FLEET_ADMIN" : "MANAGER",
       status: user.isActive ? "ACTIVE" : "INACTIVE",
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -105,6 +109,7 @@ export class FleetManagerRepository {
       city: user.fleet?.city || "",
       profilePicture: null,
       fleetId: user.fleetId || "",
+      role: user.role === "FLEET_ADMIN" ? "FLEET_ADMIN" : "MANAGER",
       status: user.isActive ? "ACTIVE" : "INACTIVE",
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,

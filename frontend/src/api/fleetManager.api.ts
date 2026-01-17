@@ -7,6 +7,7 @@ export type FleetManagerEntity = {
   city: string;
   profilePicture?: string | null;
   fleetId: string;
+  role?: 'MANAGER' | 'FLEET_ADMIN' | (string & {});
   status: 'ACTIVE' | 'INACTIVE';
   createdAt: string;
   updatedAt: string;

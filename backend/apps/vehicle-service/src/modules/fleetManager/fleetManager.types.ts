@@ -14,6 +14,8 @@ export type CreateFleetManagerInput = {
 
 export type FleetManagerStatus = "ACTIVE" | "INACTIVE";
 
+export type FleetManagerRole = "MANAGER" | "FLEET_ADMIN";
+
 export type FleetManagerEntity = {
   id: string;
   name: string;
@@ -21,6 +23,7 @@ export type FleetManagerEntity = {
   city: string;
   profilePicture?: string | null;
   fleetId: string;
+  role: FleetManagerRole;
   status: FleetManagerStatus;
   createdAt: Date;
   updatedAt: Date;
