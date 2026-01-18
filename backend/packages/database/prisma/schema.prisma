@@ -74,7 +74,6 @@ model Fleet {
   updatedAt     DateTime       @updatedAt
   assignments   Assignment[]
   drivers       Driver[]
-  fleetManagers FleetManager[]
   vehicles      Vehicle[]
   hubManagers   HubManager[]
   rentalPlans   RentalPlan[]
@@ -83,23 +82,6 @@ model Fleet {
 
   @@index([mobile])
   @@index([city])
-}
-
-model FleetManager {
-  id             String             @id @default(uuid())
-  name           String
-  mobile         String
-  city           String
-  profilePicture String?
-  status         FleetManagerStatus @default(ACTIVE)
-  remarks        String?
-  fleetId        String
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  fleet          Fleet              @relation(fields: [fleetId], references: [id], onDelete: Cascade)
-
-  @@index([fleetId])
-  @@index([mobile])
 }
 
 model Vehicle {
@@ -601,11 +583,6 @@ enum FleetType {
 }
 
 enum FleetStatus {
-  ACTIVE
-  INACTIVE
-}
-
-enum FleetManagerStatus {
   ACTIVE
   INACTIVE
 }

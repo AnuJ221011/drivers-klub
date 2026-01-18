@@ -19,6 +19,7 @@ import {
   formatAmount,
   parseAmount,
 } from './easebuzz.utils.js';
+import { ApiError } from '@driversklub/common';
 
 export class EasebuzzAdapter {
   private client: AxiosInstance;
@@ -31,10 +32,7 @@ export class EasebuzzAdapter {
     this.saltKey = (process.env.EASEBUZZ_SALT_KEY || '').trim();
     this.environment = (process.env.EASEBUZZ_ENV as 'test' | 'production') || 'test';
 
-    const baseURL =
-      this.environment === 'production'
-        ? 'https://pay.easebuzz.in'
-        : 'https://testpay.easebuzz.in';
+    const baseURL = this.getPayBaseUrl();
 
     this.client = axios.create({
       baseURL,
@@ -48,6 +46,49 @@ export class EasebuzzAdapter {
     if (!this.merchantKey || !this.saltKey) {
       throw new Error('Easebuzz credentials not configured. Set EASEBUZZ_MERCHANT_KEY and EASEBUZZ_SALT_KEY');
     }
+  }
+
+  private getPayBaseUrl(): string {
+    const override = (process.env.EASEBUZZ_BASE_URL || '').trim();
+    if (override) return override;
+    return this.environment === 'production'
+      ? 'https://pay.easebuzz.in'
+      : 'https://testpay.easebuzz.in';
+  }
+
+  private getApiBaseUrl(): string {
+    const override = (process.env.EASEBUZZ_API_BASE_URL || '').trim();
+    if (override) return override;
+    return this.environment === 'production'
+      ? 'https://api.easebuzz.in'
+      : 'https://testapi.easebuzz.in';
+  }
+
+  private getWireBaseUrl(): string {
+    const override = (process.env.EASEBUZZ_WIRE_BASE_URL || '').trim();
+    if (override) return override;
+    return this.environment === 'production'
+      ? 'https://wire.easebuzz.in'
+      : 'https://testwire.easebuzz.in';
+  }
+
+  private formatNetworkErrorMessage(prefix: string, error: any, baseURL?: string): string {
+    const code = String(error?.code || '').trim();
+    const msg = String(error?.message || '').trim();
+    const host = baseURL ? ` (${baseURL})` : '';
+
+    // Common network/DNS failures
+    if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+      return `${prefix}: DNS lookup failed${host}. (${code}) ${msg}`;
+    }
+    if (code === 'ECONNREFUSED') {
+      return `${prefix}: connection refused${host}. (${code}) ${msg}`;
+    }
+    if (code === 'ETIMEDOUT' || code === 'ECONNABORTED') {
+      return `${prefix}: request timed out${host}. (${code}) ${msg}`;
+    }
+
+    return `${prefix}${host}: ${msg || 'request failed'}`;
   }
 
   // ============================================
@@ -202,10 +243,7 @@ export class EasebuzzAdapter {
         '/payout/v1/create',
         requestData,
         {
-          baseURL:
-            this.environment === 'production'
-              ? 'https://api.easebuzz.in'
-              : 'https://testapi.easebuzz.in',
+          baseURL: this.getApiBaseUrl(),
         }
       );
 
@@ -220,7 +258,7 @@ export class EasebuzzAdapter {
         throw new Error(`Payout creation failed: ${response.data.msg}`);
       }
     } catch (error: any) {
-      throw new Error(`Easebuzz payout error: ${error.message}`);
+      throw new ApiError(502, this.formatNetworkErrorMessage('Easebuzz payout error', error, this.getApiBaseUrl()));
     }
   }
 
@@ -248,10 +286,7 @@ export class EasebuzzAdapter {
           hash,
         },
         {
-          baseURL:
-            this.environment === 'production'
-              ? 'https://api.easebuzz.in'
-              : 'https://testapi.easebuzz.in',
+          baseURL: this.getApiBaseUrl(),
         }
       );
 
@@ -267,7 +302,7 @@ export class EasebuzzAdapter {
         throw new Error(`Payout status check failed: ${response.data.msg}`);
       }
     } catch (error: any) {
-      throw new Error(`Easebuzz payout status error: ${error.message}`);
+      throw new ApiError(502, this.formatNetworkErrorMessage('Easebuzz payout status error', error, this.getApiBaseUrl()));
     }
   }
 
@@ -318,10 +353,7 @@ export class EasebuzzAdapter {
         '/instacollect/v1/create',
         requestData,
         {
-          baseURL:
-            this.environment === 'production'
-              ? 'https://wire.easebuzz.in'
-              : 'https://testwire.easebuzz.in',  // Use test endpoint for test mode
+          baseURL: this.getWireBaseUrl(),
         }
       );
 
@@ -340,7 +372,15 @@ export class EasebuzzAdapter {
       }
     } catch (error: any) {
       console.error('Easebuzz VA Error:', error);
-      throw new Error(`Easebuzz virtual account error: ${error.message}`);
+      // Return a clear integration-level error (e.g. DNS/network/env config)
+      throw new ApiError(
+        502,
+        this.formatNetworkErrorMessage(
+          'Easebuzz virtual account error',
+          error,
+          this.getWireBaseUrl()
+        )
+      );
     }
   }
 
@@ -379,10 +419,7 @@ export class EasebuzzAdapter {
           hash,
         },
         {
-          baseURL:
-            this.environment === 'production'
-              ? 'https://api.easebuzz.in'
-              : 'https://testapi.easebuzz.in',
+          baseURL: this.getApiBaseUrl(),
         }
       );
 
@@ -392,7 +429,7 @@ export class EasebuzzAdapter {
         throw new Error(`Failed to fetch transactions: ${response.data.msg}`);
       }
     } catch (error: any) {
-      throw new Error(`Easebuzz transaction fetch error: ${error.message}`);
+      throw new ApiError(502, this.formatNetworkErrorMessage('Easebuzz transaction fetch error', error, this.getApiBaseUrl()));
     }
   }
 

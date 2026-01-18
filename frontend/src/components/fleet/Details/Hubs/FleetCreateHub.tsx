@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -13,6 +13,7 @@ import Input from "../../../ui/Input";
 import Select from "../../../ui/Select";
 import Button from "../../../ui/Button";
 import { createFleetHub } from "../../../../api/fleetHub.api";
+import { geocodeAddress, getMapAutocomplete, type MapAutocompleteItem } from "../../../../api/maps.api";
 
 type LatLng = { lat: number; lng: number };
 
@@ -25,42 +26,117 @@ function PlaceSearch({
   onChange: (v: string) => void;
   onPlaceSelected: (p: { lat: number; lng: number; address?: string }) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const acRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [items, setItems] = useState<MapAutocompleteItem[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const lastQueryRef = useRef<string>("");
+  const blurTimeoutRef = useRef<number | null>(null);
+
+  const runSearch = useCallback(async () => {
+    const q = (value || "").trim();
+    if (q.length < 2) {
+      setItems([]);
+      setOpen(false);
+      return;
+    }
+
+    lastQueryRef.current = q;
+    setLoading(true);
+    try {
+      const res = await getMapAutocomplete(q);
+      // Guard against race conditions
+      if (lastQueryRef.current !== q) return;
+      setItems(res || []);
+      setOpen(true);
+    } catch {
+      // Non-blocking: keep input usable even if suggestions fail
+      setItems([]);
+      setOpen(false);
+    } finally {
+      if (lastQueryRef.current === q) setLoading(false);
+    }
+  }, [value]);
 
   useEffect(() => {
-    if (!inputRef.current) return;
-    if (!window.google?.maps?.places) return;
-    if (acRef.current) return;
+    const q = (value || "").trim();
+    // Debounce to reduce API calls
+    const t = window.setTimeout(() => {
+      void runSearch();
+    }, q.length < 2 ? 0 : 250);
+    return () => window.clearTimeout(t);
+  }, [runSearch, value]);
 
-    const ac = new google.maps.places.Autocomplete(inputRef.current, {
-      fields: ["geometry", "formatted_address", "name"],
-    });
-    ac.addListener("place_changed", () => {
-      const place = ac.getPlace();
-      const loc = place.geometry?.location;
-      if (!loc) return;
-      const lat = typeof loc.lat === "function" ? loc.lat() : (loc as any).lat;
-      const lng = typeof loc.lng === "function" ? loc.lng() : (loc as any).lng;
-      if (typeof lat !== "number" || typeof lng !== "number") return;
-      onPlaceSelected({
-        lat,
-        lng,
-        address: place.formatted_address || place.name || undefined,
-      });
-    });
-
-    acRef.current = ac;
-  }, [onPlaceSelected]);
+  const onPick = useCallback(
+    async (item: MapAutocompleteItem) => {
+      try {
+        setOpen(false);
+        setItems([]);
+        setLoading(true);
+        const geo = await geocodeAddress(item.description);
+        onPlaceSelected({ lat: geo.lat, lng: geo.lng, address: geo.formattedAddress || item.description });
+      } catch (err: unknown) {
+        const maybeAny = err as { response?: { data?: unknown } };
+        const data = maybeAny.response?.data;
+        const msg =
+          data && typeof data === "object" && "message" in data
+            ? String((data as Record<string, unknown>).message)
+            : "Failed to geocode address";
+        toast.error(msg);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [onPlaceSelected]
+  );
 
   return (
-    <input
-      ref={inputRef}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="Search location…"
-      className="w-full rounded-md border border-black/20 bg-white px-3 py-2 text-sm text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 shadow-sm"
-    />
+    <div
+      className="relative"
+      onMouseDown={() => {
+        // Prevent blur-close when clicking inside dropdown
+        if (blurTimeoutRef.current) {
+          window.clearTimeout(blurTimeoutRef.current);
+          blurTimeoutRef.current = null;
+        }
+      }}
+    >
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => {
+          if (items.length > 0) setOpen(true);
+        }}
+        onBlur={() => {
+          // Delay close to allow click selection
+          blurTimeoutRef.current = window.setTimeout(() => setOpen(false), 150);
+        }}
+        placeholder="Search location…"
+        className="w-full rounded-md border border-black/20 bg-white px-3 py-2 text-sm text-black placeholder:text-black/40 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 shadow-sm"
+      />
+
+      {open && (items.length > 0 || loading) ? (
+        <div className="absolute mt-1 w-full rounded-md border border-black/10 bg-white shadow-lg overflow-hidden">
+          {loading ? (
+            <div className="px-3 py-2 text-xs text-black/60">Searching…</div>
+          ) : null}
+          {items.slice(0, 8).map((it) => (
+            <button
+              key={it.place_id}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-yellow-50"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => void onPick(it)}
+              title={it.description}
+            >
+              {it.description}
+            </button>
+          ))}
+          {!loading && items.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-black/60">No results</div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -206,7 +282,7 @@ export default function FleetCreateHub() {
         {/* ---------- Map ---------- */}
         <div className="lg:col-span-2 h-[520px] rounded-lg overflow-hidden border">
           {hasGoogleKey ? (
-            <APIProvider apiKey={apiKey!} libraries={["places"]}>
+            <APIProvider apiKey={apiKey!}>
               <div className="relative h-full w-full">
                 <div className="absolute top-3 left-3 right-3 z-10 max-w-xl">
                   <PlaceSearch

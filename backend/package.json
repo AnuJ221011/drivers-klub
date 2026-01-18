@@ -12,7 +12,8 @@
     "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
     "test": "npm test --workspaces",
-    "eb:init": "tsx scripts/create-eb-init-bundle.ts"
+    "eb:init": "tsx scripts/create-eb-init-bundle.ts",
+    "drivers:bulk-upload": "tsx scripts/bulk-upload-drivers.ts"
   },
   "repository": {
     "type": "git",
