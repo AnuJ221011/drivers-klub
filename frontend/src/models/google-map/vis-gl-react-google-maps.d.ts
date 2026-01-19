@@ -5,6 +5,8 @@ declare module '@vis.gl/react-google-maps' {
     apiKey: string;
     /** Google Maps JS API libraries (e.g. ['places']) */
     libraries?: string[];
+    onLoad?: () => void;
+    onError?: (error: Error) => void;
     children?: React.ReactNode;
   }
   export const APIProvider: React.FC<APIProviderProps>;

@@ -68,6 +68,33 @@ export default function FleetHubDetails() {
 
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   const hasGoogleKey = Boolean((apiKey || "").trim());
+  const [mapAuthFailed, setMapAuthFailed] = useState(false);
+  const [mapLoadTimeout, setMapLoadTimeout] = useState(false);
+  const [googleMapsReady, setGoogleMapsReady] = useState(false);
+
+  useEffect(() => {
+    setMapAuthFailed(false);
+    setMapLoadTimeout(false);
+    setGoogleMapsReady(false);
+    if (!hasGoogleKey) return;
+
+    const previous = window.gm_authFailure;
+    window.gm_authFailure = () => {
+      setMapAuthFailed(true);
+    };
+
+    setGoogleMapsReady(true);
+    const timeoutId = window.setTimeout(() => {
+      if (!window.google?.maps) {
+        setMapLoadTimeout(true);
+      }
+    }, 7000);
+
+    return () => {
+      window.gm_authFailure = previous;
+      window.clearTimeout(timeoutId);
+    };
+  }, [hasGoogleKey]);
 
   const location = hub?.location || { lat: 28.6139, lng: 77.209 };
   const googleEmbedSrc = useMemo(() => {
@@ -75,6 +102,14 @@ export default function FleetHubDetails() {
     const z = 13;
     return `https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`;
   }, [location.lat, location.lng]);
+  const showInteractiveMap = hasGoogleKey && googleMapsReady && !mapAuthFailed && !mapLoadTimeout;
+  const mapFallbackMessage = !hasGoogleKey
+    ? "Google map is shown in embed mode (no API key). Configure VITE_GOOGLE_MAPS_API_KEY to enable the interactive map."
+    : mapAuthFailed
+      ? "Google Maps authentication failed. Check API key, billing, and HTTP referrer restrictions."
+      : mapLoadTimeout
+        ? "Google Maps failed to load. Check network access or API key settings."
+        : "";
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -98,8 +133,12 @@ export default function FleetHubDetails() {
 
       {/* Map */}
       <div className="rounded-lg overflow-hidden border border-black/10 h-[420px] bg-white">
-        {hasGoogleKey ? (
-          <APIProvider apiKey={apiKey!}>
+        {showInteractiveMap ? (
+          <APIProvider
+            apiKey={apiKey!}
+            libraries={["marker"]}
+            onError={() => setMapLoadTimeout(true)}
+          >
             <Map
               defaultZoom={13}
               defaultCenter={location as google.maps.LatLngLiteral}
@@ -119,6 +158,9 @@ export default function FleetHubDetails() {
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
             />
+            {mapFallbackMessage ? (
+              <div className="p-2 text-xs text-black/60 border-t bg-white">{mapFallbackMessage}</div>
+            ) : null}
           </div>
         )}
       </div>
