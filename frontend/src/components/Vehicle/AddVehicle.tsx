@@ -159,7 +159,7 @@ import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
 
-import { createVehicle } from '../../api/vehicle.api';
+import { createVehicle, updateVehicleDocs } from '../../api/vehicle.api';
 import { useFleet } from '../../context/FleetContext';
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -197,24 +197,35 @@ export default function AddVehicle({ onClose, onCreated }: Props) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!number.trim()) return toast.error('Please enter vehicle number');
+    const trimmedNumber = number.trim();
+    const trimmedBrand = brand.trim();
+    const trimmedModel = model.trim();
+
+    if (!trimmedNumber) return toast.error('Please enter vehicle number');
+    if (!trimmedBrand) return toast.error('Please enter vehicle name');
+    if (!trimmedModel) return toast.error('Please enter vehicle model');
+    if (!ownership) return toast.error('Please select ownership');
+    if (!fuelType) return toast.error('Please select fuel type');
     if (!effectiveFleetId) return toast.error('No fleet selected/available');
 
     setSaving(true);
     try {
-      await createVehicle({
-        number: number.trim(),
-        brand: brand.trim() || undefined,
-        model: model.trim() || undefined,
+      const created = await createVehicle({
+        number: trimmedNumber,
+        brand: trimmedBrand,
+        model: trimmedModel,
         vehicleColor: vehicleColor.trim() || undefined,
-        ownership: ownership || undefined,
-        fuelType: fuelType || undefined,
-        permitExpiry: permitExpiry || undefined,
-        insuranceExpiry: insuranceExpiry || undefined,
-        fleetMobileNumber: fleetMobileNumber.trim() || undefined,
+        ownership: ownership as Ownership,
+        fuelType: fuelType as FuelType,
         isActive: status === 'Active',
         fleetId: effectiveFleetId,
       });
+      if (permitExpiry || insuranceExpiry) {
+        await updateVehicleDocs(created.id, {
+          permitExpiry: permitExpiry || undefined,
+          insuranceExpiry: insuranceExpiry || undefined,
+        });
+      }
       toast.success('Vehicle created');
       onCreated?.();
       onClose();

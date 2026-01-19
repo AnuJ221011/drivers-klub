@@ -231,20 +231,30 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
   };
 
   const handleSubmit = async () => {
+    const trimmedName = form.name.trim();
+    const trimmedMobile = form.mobile.trim();
+    const trimmedCity = form.city.trim();
+    const trimmedPan = form.panNumber.trim();
+    const trimmedModeId = form.modeId.trim();
+
+    if (!trimmedName || !trimmedMobile || !trimmedCity || !form.fleetType || !trimmedPan || !trimmedModeId) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+
     try {
       setLoading(true);
 
       await createFleet({
-        name: form.name.trim() || undefined,
-        mobile: form.mobile.trim() || undefined,
-        city: form.city.trim() || undefined,
-        fleetType: form.fleetType || undefined,
-        panNumber: form.panNumber.trim() || undefined,
-        
+        name: trimmedName,
+        mobile: trimmedMobile,
+        city: trimmedCity,
+        fleetType: form.fleetType,
+        panNumber: trimmedPan,
+        modeId: trimmedModeId,
         email: form.email.trim() || undefined,
         gstNumber: form.gstNumber.trim() || undefined,
         dob: form.dob || undefined,
-        panCardFile,
       });
 
       toast.success("Fleet onboarded successfully");
@@ -313,6 +323,11 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
         label="PAN Number"
         value={form.panNumber}
         onChange={(e) => handleChange("panNumber", e.target.value)}
+      />
+      <Input
+        label="Mode ID"
+        value={form.modeId}
+        onChange={(e) => handleChange("modeId", e.target.value)}
       />
       <Input
         label="PAN Card File"

@@ -26,10 +26,11 @@ export default function AddVehiclesModal({ open, onClose, fleetId, onAdded }: Pr
     try {
       await createVehicle({
         fleetId,
-        number,
-        brand,
-        model,
-        bodyType,
+        number: number.trim(),
+        brand: brand.trim(),
+        model: model.trim(),
+        vehicleColor: bodyType,
+        ownership: "OWNED",
         fuelType,
         isActive: true,
       });

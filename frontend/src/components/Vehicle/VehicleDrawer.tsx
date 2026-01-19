@@ -395,6 +395,7 @@ import Button from "../ui/Button";
 
 import {
   updateVehicleDetails,
+  updateVehicleDocs,
   updateVehicleStatus,
 } from '../../api/vehicle.api';
 
@@ -509,11 +510,14 @@ export default function VehicleDrawer({
         model: model.trim() || undefined,
         vehicleColor: vehicleColor.trim() || undefined,
         fuelType,
-        fleetMobileNumber: fleetMobileNumber.trim() || undefined,
         ownership: ownership || undefined,
-        permitExpiry: permitExpiry || undefined,
-        insuranceExpiry: insuranceExpiry || undefined,
       });
+      if (permitExpiry || insuranceExpiry) {
+        await updateVehicleDocs(vehicleId, {
+          permitExpiry: permitExpiry || undefined,
+          insuranceExpiry: insuranceExpiry || undefined,
+        });
+      }
 
       await updateVehicleStatus(vehicleId, status === 'Active');
 
