@@ -207,10 +207,12 @@ export default function FleetCreateHub() {
   const hasGoogleKey = Boolean((apiKey || "").trim());
   const [mapAuthFailed, setMapAuthFailed] = useState(false);
   const [mapLoadTimeout, setMapLoadTimeout] = useState(false);
+  const [googleMapsReady, setGoogleMapsReady] = useState(false);
 
   useEffect(() => {
     setMapAuthFailed(false);
     setMapLoadTimeout(false);
+    setGoogleMapsReady(false);
     if (!hasGoogleKey) return;
 
     const previous = window.gm_authFailure;
@@ -218,6 +220,7 @@ export default function FleetCreateHub() {
       setMapAuthFailed(true);
     };
 
+    setGoogleMapsReady(true);
     const timeoutId = window.setTimeout(() => {
       if (!window.google?.maps) {
         setMapLoadTimeout(true);
@@ -235,7 +238,7 @@ export default function FleetCreateHub() {
     const z = 13;
     return `https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`;
   }, [location.lat, location.lng]);
-  const showInteractiveMap = hasGoogleKey && !mapAuthFailed && !mapLoadTimeout;
+  const showInteractiveMap = hasGoogleKey && googleMapsReady && !mapAuthFailed && !mapLoadTimeout;
   const mapFallbackMessage = !hasGoogleKey
     ? "Google map is shown in embed mode (no API key). To enable map clicks + geofence drawing, configure VITE_GOOGLE_MAPS_API_KEY."
     : mapAuthFailed
@@ -326,7 +329,11 @@ export default function FleetCreateHub() {
               />
             </div>
             {showInteractiveMap ? (
-              <APIProvider apiKey={apiKey!} libraries={["marker"]}>
+              <APIProvider
+                apiKey={apiKey!}
+                libraries={["marker"]}
+                onError={() => setMapLoadTimeout(true)}
+              >
                 <Map
                   defaultZoom={13}
                   defaultCenter={location as google.maps.LatLngLiteral}
