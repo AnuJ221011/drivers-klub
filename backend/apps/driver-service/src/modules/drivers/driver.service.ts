@@ -65,12 +65,15 @@ export class DriverService {
     }
 
     const { additionalDocuments, providerMetadata, ...rest } = data;
-    const meta: Prisma.InputJsonObject =
+    let meta: Prisma.InputJsonObject =
       providerMetadata && typeof providerMetadata === "object"
         ? { ...(providerMetadata as Prisma.InputJsonObject) }
         : {};
     if (Array.isArray(additionalDocuments) && additionalDocuments.length > 0) {
-      meta.additionalDocuments = additionalDocuments as Prisma.InputJsonArray;
+      meta = {
+        ...meta,
+        additionalDocuments: additionalDocuments as Prisma.InputJsonArray,
+      };
     }
     const payload =
       Object.keys(meta).length > 0
@@ -198,12 +201,15 @@ export class DriverService {
     if (typeof data.livePhoto === "string") update.livePhoto = data.livePhoto;
     if (typeof data.bankIdProof === "string") update.bankIdProof = data.bankIdProof;
 
-    const meta: Prisma.InputJsonObject =
+    let meta: Prisma.InputJsonObject =
       data.providerMetadata && typeof data.providerMetadata === "object"
         ? { ...(data.providerMetadata as Prisma.InputJsonObject) }
         : {};
     if (Array.isArray(data.additionalDocuments) && data.additionalDocuments.length > 0) {
-      meta.additionalDocuments = data.additionalDocuments as Prisma.InputJsonArray;
+      meta = {
+        ...meta,
+        additionalDocuments: data.additionalDocuments as Prisma.InputJsonArray,
+      };
     }
     if (Object.keys(meta).length > 0) {
       update.providerMetadata = meta;
