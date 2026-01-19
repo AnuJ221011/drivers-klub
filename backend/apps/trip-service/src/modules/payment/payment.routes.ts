@@ -9,6 +9,7 @@ import {
     initiateDeposit,
     initiateRental,
     getDriverRentalPlans,
+    getWeeklyEarnings,
     // Admin endpoints
     createRentalPlan,
     getRentalPlans,
@@ -84,6 +85,9 @@ router.post('/rental', authorizeRoles('DRIVER'), initiateRental);
 
 // Get available rental plans
 router.get('/rental/plans', authorizeRoles('DRIVER'), getDriverRentalPlans);
+
+// Get weekly earnings summary
+router.get('/earnings/weekly', authorizeRoles('DRIVER'), getWeeklyEarnings);
 
 // ============================================
 // ADMIN ROUTES

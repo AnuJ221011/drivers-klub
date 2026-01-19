@@ -9,6 +9,37 @@ export type CreateDriverInput = {
   profilePic?: string;
 };
 
+export type CreateNewDriverInput = {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  mobile: string;
+  email: string;
+  dob: Date;
+  address: string;
+  city: string;
+  pincode: number;
+
+  aadharNumber: number;
+  panNumber: string;
+  drivingLicenceNumber: string;
+  aadharFront: string;
+  aadharBack: string;
+  panPhoto: string;
+  gstNumber?: string;
+
+  haveVehicle: boolean;
+  vehicleModel: string;
+  vehicleType: string;
+  registrationNumber: string;
+  fuelType: string;
+  ownerName: string;
+  rcFrontImage: string;
+  rcBackImage: string;
+
+  referralCode?: string;
+};
+
 export type UpdateDriverKycInput = {
   licenseFront?: string;
   licenseBack?: string;

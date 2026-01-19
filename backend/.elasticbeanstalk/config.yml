@@ -1,8 +1,8 @@
 branch-defaults:
-  backend-v1.0:
+  master:
     environment: driversklub-backend-env
-  v2-monorepo-migration:
-    environment: driversklub-backend-env
+  staging:
+    environment: driversklub-backend-staging-env
 environment-defaults:
   driversklub-backend-prod:
     branch: null

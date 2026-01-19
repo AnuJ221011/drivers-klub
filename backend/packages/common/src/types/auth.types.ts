@@ -6,6 +6,7 @@ export type JwtPayload = {
     phone: string;
     fleetId?: string | null;
     hubIds?: string[];
+    clientType?: 'web' | 'app';
 };
 
 export type TokenPair = {

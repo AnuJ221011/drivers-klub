@@ -49,7 +49,7 @@ export async function run() {
                 amount: 100
             };
 
-            const createRes = await apiCall("POST", "/payment/admin/orders", orderInput, globalContext.adminToken);
+            const createRes = await apiCall("POST", "/payment/orders", orderInput, globalContext.adminToken);
 
             if (createRes.success) {
                 console.log(`      ✅ Order Created: ${createRes.data.id} (${createRes.data.status})`);
@@ -63,7 +63,7 @@ export async function run() {
                 });
 
                 // 3.3 Verify Status (Admin API)
-                const getRes = await apiCall("GET", `/payment/admin/orders/${createRes.data.id}`, null, globalContext.adminToken);
+                const getRes = await apiCall("GET", `/payment/orders/${createRes.data.id}`, null, globalContext.adminToken);
                 if (getRes.success && getRes.data.status === "PARTIAL" && getRes.data.collectedAmount === 40) {
                     console.log(`      ✅ Partial Payment Verified (Collected: ${getRes.data.collectedAmount})`);
                 } else {
@@ -77,6 +77,42 @@ export async function run() {
         } catch (e: any) {
             console.error(`   ❌ InstaCollect Test Failed: ${e.message}`);
         }
+    }
+
+    // 4. Test Virtual QR (Independent Vehicle)
+    try {
+        console.log("   🧪 Testing Independent Vehicle QR...");
+
+        // Create Independent Vehicle
+        const indVehicle = await prisma.vehicle.create({
+            data: {
+                vehicleNumber: `DL10IND${Math.floor(Math.random() * 1000)}`,
+                vehicleName: "Independent Auto",
+                vehicleModel: "Bajaj RE",
+                vehicleColor: "Black",
+                fuelType: "CNG",
+                ownership: "OWNED",
+                status: "ACTIVE",
+                ownerName: "Independent Owner"
+            }
+        });
+
+        // Generate QR
+        const qrRes = await apiCall("POST", `/payment/admin/vehicle/${indVehicle.id}/qr`, {}, globalContext.adminToken);
+
+        if (qrRes.success && qrRes.data.virtualAccountId) {
+            console.log(`      ✅ QR Generated for Independent Vehicle: ${indVehicle.vehicleNumber}`);
+        } else {
+            console.error(`      ❌ Independent QR Generation Failed: ${qrRes.error || JSON.stringify(qrRes.data)}`);
+            // Check if it's the specific error we expect if testing locally without full Easebuzz env
+        }
+
+        // Cleanup
+        await prisma.virtualQR.deleteMany({ where: { vehicleId: indVehicle.id } });
+        await prisma.vehicle.delete({ where: { id: indVehicle.id } });
+
+    } catch (e: any) {
+        console.error(`   ❌ Independent QR Test Failed: ${e.message}`);
     }
 
     if (process.argv[1] === import.meta.filename) {

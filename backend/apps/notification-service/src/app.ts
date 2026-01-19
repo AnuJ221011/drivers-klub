@@ -11,10 +11,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
 // Health check
-app.get("/health", (req, res) => {
+app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok", service: "notification-service" });
 });
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
     res.status(200).send("Notification Service is running");
 });
 

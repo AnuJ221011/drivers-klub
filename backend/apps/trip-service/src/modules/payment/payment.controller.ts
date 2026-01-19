@@ -258,23 +258,42 @@ export const initiateDeposit = async (req: Request, res: Response) => {
  * POST /payment/rental
  */
 export const initiateRental = async (req: Request, res: Response) => {
-    const { id: userId } = req.user as any;
-    const { rentalPlanId } = req.body;
+    try {
+        const { id: userId } = req.user as any;
+        const { rentalPlanId } = req.body;
 
-    const driver = await prisma.driver.findFirst({
-        where: { userId },
-    });
+        // Validate required field
+        if (!rentalPlanId) {
+            return res.status(400).json({
+                success: false,
+                message: 'rentalPlanId is required'
+            });
+        }
 
-    if (!driver) {
-        return res.status(404).json({ message: 'Driver not found' });
+        const driver = await prisma.driver.findFirst({
+            where: { userId },
+        });
+
+        if (!driver) {
+            return res.status(404).json({
+                success: false,
+                message: 'Driver not found'
+            });
+        }
+
+        const payment = await rentalService.initiateRentalPayment({
+            driverId: driver.id,
+            rentalPlanId,
+        });
+
+        ApiResponse.send(res, 200, payment, 'Rental payment initiated');
+    } catch (error: any) {
+        logger.error('[PaymentController] Initiate Rental Error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to initiate rental payment',
+        });
     }
-
-    const payment = await rentalService.initiateRentalPayment({
-        driverId: driver.id,
-        rentalPlanId,
-    });
-
-    ApiResponse.send(res, 200, payment, 'Rental payment initiated');
 };
 
 /**
@@ -292,10 +311,149 @@ export const getDriverRentalPlans = async (req: Request, res: Response) => {
         return res.status(404).json({ message: 'Driver not found' });
     }
 
-    const plans = await rentalService.getRentalPlans(driver.fleetId, true);
+    const plans = driver.fleetId
+        ? await rentalService.getRentalPlans(driver.fleetId, true)
+        : [];
 
     ApiResponse.send(res, 200, plans, 'Rental plans retrieved successfully');
 };
+
+/**
+ * Get weekly earnings summary
+ * GET /payments/earnings/weekly
+ */
+export const getWeeklyEarnings = async (req: Request, res: Response) => {
+    try {
+        const { id: userId } = req.user as any;
+        const { weeks = 5 } = req.query;
+
+        const driver = await prisma.driver.findFirst({
+            where: { userId },
+        });
+
+        if (!driver) {
+            return res.status(404).json({ message: 'Driver not found' });
+        }
+
+        const numWeeks = Math.min(Math.max(1, Number(weeks)), 12); // 1-12 weeks
+        const weeklyData = [];
+        let totalEarnings = 0;
+
+        // Get current date in IST
+        const now = new Date();
+        const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+        const istNow = new Date(now.getTime() + istOffset);
+
+        // Calculate Monday of current week
+        const dayOfWeek = istNow.getUTCDay();
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const currentMonday = new Date(istNow);
+        currentMonday.setUTCDate(istNow.getUTCDate() - daysToMonday);
+        currentMonday.setUTCHours(0, 0, 0, 0);
+
+        for (let i = 0; i < numWeeks; i++) {
+            const weekStart = new Date(currentMonday);
+            weekStart.setUTCDate(currentMonday.getUTCDate() - (i * 7));
+
+            const weekEnd = new Date(weekStart);
+            weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+            weekEnd.setUTCHours(23, 59, 59, 999);
+
+            // Get completed rides (trips) count & earnings
+            const completedRides = await prisma.ride.findMany({
+                where: {
+                    status: 'COMPLETED',
+                    completedAt: {
+                        gte: weekStart,
+                        lte: weekEnd,
+                    },
+                    tripAssignments: {
+                        some: { driverId: driver.id },
+                    },
+                },
+                select: { price: true },
+            });
+            const tripCount = completedRides.length;
+            const tripEarningsSum = completedRides.reduce((sum, r) => sum + (r.price || 0), 0);
+
+            // Get incentives
+            const incentiveAgg = await prisma.incentive.aggregate({
+                where: {
+                    driverId: driver.id,
+                    createdAt: {
+                        gte: weekStart,
+                        lte: weekEnd,
+                    },
+                },
+                _sum: { amount: true },
+            });
+
+            // Get penalties (deductions)
+            const penaltyAgg = await prisma.penalty.aggregate({
+                where: {
+                    driverId: driver.id,
+                    type: 'MONETARY',
+                    isWaived: false,
+                    createdAt: {
+                        gte: weekStart,
+                        lte: weekEnd,
+                    },
+                },
+                _sum: { amount: true },
+            });
+
+            const tripEarnings = tripEarningsSum;
+            const incentives = incentiveAgg._sum.amount || 0;
+            const penalties = penaltyAgg._sum.amount || 0;
+            const netEarnings = tripEarnings + incentives - penalties;
+
+            const weekData = {
+                weekNumber: getWeekNumber(weekStart),
+                startDate: weekStart.toISOString().split('T')[0],
+                endDate: weekEnd.toISOString().split('T')[0],
+                tripCount,
+                tripEarnings,
+                incentives,
+                penalties,
+                netEarnings,
+            };
+
+            if (i === 0) {
+                weeklyData.push({ type: 'current', ...weekData });
+            } else {
+                weeklyData.push(weekData);
+            }
+
+            totalEarnings += netEarnings;
+        }
+
+        ApiResponse.send(
+            res,
+            200,
+            {
+                currentWeek: weeklyData[0],
+                previousWeeks: weeklyData.slice(1),
+                totalEarnings,
+            },
+            'Weekly earnings retrieved successfully'
+        );
+    } catch (error: any) {
+        logger.error('[PaymentController] Get Weekly Earnings Error:', error);
+        res.status(500).json({
+            message: 'Internal server error',
+            error: error.message,
+        });
+    }
+};
+
+// Helper function to get ISO week number
+function getWeekNumber(date: Date): number {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
 
 // ============================================
 // ADMIN ENDPOINTS
@@ -530,19 +688,51 @@ export const getPendingPayouts = async (req: Request, res: Response) => {
  * POST /admin/payment/vehicle/:id/qr
  */
 export const generateVehicleQR = async (req: Request, res: Response) => {
-    const { id: vehicleId } = req.params;
-
     try {
-        await assertVehicleInScope(req, vehicleId);
-    } catch (e: any) {
-        const msg = e?.message || 'Access denied';
-        const code = msg === 'Vehicle not found' ? 404 : msg === 'Fleet scope not set' ? 403 : 403;
-        return res.status(code).json({ message: msg });
+        const { id: vehicleId } = req.params;
+
+        try {
+            await assertVehicleInScope(req, vehicleId);
+        } catch (e: any) {
+            const msg = e?.message || 'Access denied';
+            const code = msg === 'Vehicle not found' ? 404 : msg === 'Fleet scope not set' ? 403 : 403;
+            return res.status(code).json({ message: msg });
+        }
+
+        const qr = await virtualQRService.generateVehicleQR(vehicleId);
+        if (!vehicleId) {
+            return res.status(400).json({
+                success: false,
+                message: 'vehicleId is required'
+            });
+        }
+
+
+        ApiResponse.send(res, 201, qr, 'Virtual QR generated successfully');
+    } catch (error: any) {
+        logger.error('[PaymentController] Generate Vehicle QR Error:', error);
+
+        // Handle specific errors
+        if (error.message?.includes('not found')) {
+            return res.status(404).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        if (error.message?.includes('Easebuzz')) {
+            return res.status(502).json({
+                success: false,
+                message: 'Payment gateway error. Please try again later.',
+                details: error.message
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to generate QR code',
+        });
     }
-
-    const qr = await virtualQRService.generateVehicleQR(vehicleId);
-
-    ApiResponse.send(res, 201, qr, 'Virtual QR generated successfully');
 };
 
 /**
@@ -550,23 +740,34 @@ export const generateVehicleQR = async (req: Request, res: Response) => {
  * GET /admin/payment/vehicle/:id/qr
  */
 export const getVehicleQR = async (_req: Request, res: Response) => {
-    const { id: vehicleId } = _req.params;
-
     try {
-        await assertVehicleInScope(_req, vehicleId);
-    } catch (e: any) {
-        const msg = e?.message || 'Access denied';
-        const code = msg === 'Vehicle not found' ? 404 : msg === 'Fleet scope not set' ? 403 : 403;
-        return res.status(code).json({ message: msg });
+        const { id: vehicleId } = _req.params;
+
+        try {
+            await assertVehicleInScope(_req, vehicleId);
+        } catch (e: any) {
+            const msg = e?.message || 'Access denied';
+            const code = msg === 'Vehicle not found' ? 404 : msg === 'Fleet scope not set' ? 403 : 403;
+            return res.status(code).json({ message: msg });
+        }
+
+        const qr = await virtualQRService.getVehicleQR(vehicleId);
+
+        if (!qr) {
+            return res.status(404).json({
+                success: false,
+                message: 'Virtual QR not found. Generate one first using POST method.'
+            });
+        }
+
+        ApiResponse.send(res, 200, qr, 'Virtual QR retrieved successfully');
+    } catch (error: any) {
+        logger.error('[PaymentController] Get Vehicle QR Error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to retrieve QR code',
+        });
     }
-
-    const qr = await virtualQRService.getVehicleQR(vehicleId);
-
-    if (!qr) {
-        return res.status(404).json({ message: 'Virtual QR not found' });
-    }
-
-    ApiResponse.send(res, 200, qr, 'Virtual QR retrieved successfully');
 };
 
 /**

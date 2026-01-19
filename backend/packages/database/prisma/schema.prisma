@@ -26,10 +26,21 @@ model User {
    */
   hubIds        String[]       @default([])
   isActive      Boolean        @default(true)
+
+  driver        Driver?
+  
+  referralCode  String?        @unique
+  referredById  String?
+
+  referredBy      User?          @relation("UserReferralParent", fields: [referredById], references: [id])
+  referredUsers   User[]         @relation("UserReferralParent")
+  referralsGiven  Referral[]     @relation("Referrer")
+  referralTaken   Referral?      @relation("ReferredUser")
+  
+  refreshTokens RefreshToken[]
+
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  driver        Driver?
-  refreshTokens RefreshToken[]
 
   @@index([role])
   @@index([fleetId])
@@ -74,7 +85,7 @@ model Fleet {
   updatedAt     DateTime       @updatedAt
   assignments   Assignment[]
   drivers       Driver[]
-  fleetManagers FleetManager[]
+
   vehicles      Vehicle[]
   hubManagers   HubManager[]
   rentalPlans   RentalPlan[]
@@ -85,32 +96,18 @@ model Fleet {
   @@index([city])
 }
 
-model FleetManager {
-  id             String             @id @default(uuid())
-  name           String
-  mobile         String
-  city           String
-  profilePicture String?
-  status         FleetManagerStatus @default(ACTIVE)
-  remarks        String?
-  fleetId        String
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  fleet          Fleet              @relation(fields: [fleetId], references: [id], onDelete: Cascade)
 
-  @@index([fleetId])
-  @@index([mobile])
-}
 
 model Vehicle {
   id               String             @id @default(uuid())
-  fleetId          String
+  fleetId          String?
   hubId            String?
   vehicleNumber    String             @unique
   vehicleName      String
   vehicleModel     String
   vehicleColor     String?
   ownership        VehicleOwnership
+  ownerName        String?
   fuelType         FuelType
   rcFrontImage     String?
   rcBackImage      String?
@@ -124,7 +121,7 @@ model Vehicle {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   assignments      Assignment[]
-  fleet            Fleet              @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+  fleet            Fleet?              @relation(fields: [fleetId], references: [id], onDelete: Cascade)
   virtualQR        VirtualQR?
   dailyCollections DailyCollection[]
 
@@ -134,13 +131,23 @@ model Vehicle {
 model Driver {
   id                 String           @id @default(uuid())
   userId             String           @unique
-  fleetId            String
+  fleetId            String?
   hubId              String?
   isAvailable        Boolean          @default(true)
   firstName          String
   lastName           String
   mobile             String
   profilePic         String?
+  dob                DateTime?
+  vehicleId          String?
+  email              String?
+  address            String?
+  pincode            String?
+  city               String?
+  aadharNumber       String?
+  panNumber          String?
+  dlNumber           String?
+  gstNumber          String?
   licenseFront       String?
   licenseBack        String?
   aadharFront        String?
@@ -167,7 +174,7 @@ model Driver {
   // Relations
   assignments        Assignment[]
   attendance         Attendance[]
-  fleet              Fleet            @relation(fields: [fleetId], references: [id], onDelete: Cascade)
+  fleet              Fleet?            @relation(fields: [fleetId], references: [id], onDelete: Cascade)
   user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   tripAssignments    TripAssignment[]
   driverRentals      DriverRental[]
@@ -284,6 +291,7 @@ model Attendance {
   selfieUrl    String?
   odometerStart Int?
   odometerEnd  Int?
+  odometerImageUrl String?
   cashDeposited Float?   @default(0)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
@@ -605,10 +613,7 @@ enum FleetStatus {
   INACTIVE
 }
 
-enum FleetManagerStatus {
-  ACTIVE
-  INACTIVE
-}
+
 
 model FleetHub {
   id           String  @id @default(uuid())
@@ -822,4 +827,31 @@ enum PreferencesRequestStatus {
   PENDING
   REJECTED
   APPROVED
+}
+
+
+model Referral {
+
+id            String         @id @default(uuid())
+
+referredById  String
+referredToId  String         @unique
+
+referredBy    User           @relation("Referrer", fields:[referredById], references:[id])
+referredTo    User           @relation("ReferredUser", fields:[referredToId], references:[id])
+
+status        ReferralStatus @default(PENDING)
+
+rewardedAt    DateTime?
+
+createdAt     DateTime       @default(now())
+updatedAt     DateTime       @updatedAt
+
+}
+
+enum ReferralStatus {
+PENDING
+COMPLETED
+CANCELLED
+EXPIRED
 }

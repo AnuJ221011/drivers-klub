@@ -18,7 +18,7 @@ export class VehicleService {
     if (scopedFleetId !== fleetId) throw new ApiError(403, "Access denied");
   }
 
-  private assertVehicleScope(user: any, vehicle: { fleetId: string; hubId?: string | null }) {
+  private assertVehicleScope(user: any, vehicle: { fleetId: string | null; hubId?: string | null }) {
     const role = String(user?.role || "");
     if (role === "SUPER_ADMIN") return;
     const scopedFleetId = user?.fleetId;

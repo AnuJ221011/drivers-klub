@@ -7,14 +7,17 @@ Production-ready Backend for Driver's Klub Mobility Platform built on modern mic
 **✅ PRODUCTION-READY** - Microservices architecture deployed and running
 
 - ✅ **Microservices Architecture** - 6 independent services + API Gateway
-- ✅ **103 API Endpoints** - Fully tested and documented
+- ✅ **106 API Endpoints** - Fully tested and documented
 - ✅ **Scalable Design** - Handles 500-10,000+ concurrent users
 - ✅ **Role-Based Access Control** - SUPER_ADMIN, OPERATIONS, MANAGER, DRIVER
-- ✅ **Payment System Complete** - Easebuzz integration, InstaCollect, Bulk Payouts
-- ✅ **Partner Integrations** - Rapido, MMT, MojoBoxx
+- ✅ **Payment System Complete** - Easebuzz integration, InstaCollect, Bulk Payouts, **Virtual QRs (Independent Drivers)**
+- ✅ **Partner Integrations** - Rapido, MMT, MojoBoxx, Google Maps
 - ✅ **Attendance System** - Check-in/out with cash collection tracking
-- ✅ **CI/CD Pipeline** - Automated testing and deployment
-- ✅ **Multi-Cloud Deployment** - Render (staging) + AWS EB (production)
+- ✅ **S3 Image Upload** - Presigned URLs for selfies and odometer images
+- ✅ **Dynamic Token Expiry** - Client-based refresh token duration (Web: 1d, App: 30d)
+- ✅ **Driver Onboarding** - Public signup flow & Referral System
+- ✅ **CI/CD Pipeline** - Automated testing and deployment (master + staging)
+- ✅ **Multi-Cloud Deployment** - Render (staging) + AWS EB (production + staging)
 
 ---
 
@@ -24,7 +27,7 @@ Production-ready Backend for Driver's Klub Mobility Platform built on modern mic
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    API Gateway (Port 5000)               │
+│                    API Gateway (Port 3000)               │
 │              Routes all requests to services             │
 └─────────────────────────────────────────────────────────┘
                             │
@@ -36,7 +39,7 @@ Production-ready Backend for Driver's Klub Mobility Platform built on modern mic
 │                │  │ (Port 3002) │   │  (Port 3003)   │
 │ • Login/OTP    │  │ • Drivers   │   │ • Vehicles     │
 │ • Users        │  │ • Attendance│   │ • Fleets       │
-│ • JWT Tokens   │  │ • Breaks    │   │ • Managers     │
+│ • JWT Tokens   │  │ • Breaks    │   │                │
 └────────────────┘  └─────────────┘   └────────────────┘
         │                   │                   │
         └───────────────────┼───────────────────┘
@@ -59,15 +62,15 @@ Production-ready Backend for Driver's Klub Mobility Platform built on modern mic
 
 | Service | Port | Endpoints | Responsibility |
 |---------|------|-----------|----------------|
-| **API Gateway** | 5000 | - | Routes requests, health checks |
-| **Auth Service** | 3001 | 8 | Authentication, user management |
+| **API Gateway** | 3000 | - | Routes requests, health checks |
+| **Auth Service** | 3001 | 11 | Authentication, user management, public signup |
 | **Driver Service** | 3002 | 20 | Driver profiles, attendance tracking |
-| **Vehicle Service** | 3003 | 26 | Vehicles, fleets, fleet managers |
+| **Vehicle Service** | 3003 | 26 | Vehicles, fleets |
 | **Assignment Service** | 3004 | 4 | Driver-vehicle assignments |
 | **Trip Service** | 3005 | 44 | Trips, payments, pricing, partners |
 | **Notification Service** | 3006 | 1 | Real-time notifications |
 
-**Total: 103 Endpoints**
+**Total: 106 Endpoints**
 
 ---
 
@@ -77,11 +80,12 @@ Production-ready Backend for Driver's Klub Mobility Platform built on modern mic
 
 - **[API Reference](./docs/API_REFERENCE.md)** - Complete endpoint documentation
 - **[Project Details](./docs/PROJECT_DETAILS.md)** - Architecture & database schema
+- **[Pricing Engine](./docs/PRICING_ENGINE_DOCUMENTATION.md)** - Fare calculation logic
 - **[Payment System](./docs/PAYMENT_SYSTEM_DOCUMENTATION.md)** - Payment workflows
 
 ### Team-Specific Guides
 
-- **[Flutter Driver App Guide](./docs/FLUTTER_DRIVER_API_GUIDE.md)** - Mobile integration
+- **[Flutter Driver App Guide](./docs/FLUTTER_DRIVER_API_GUIDE.md)** - Mobile integration (Includes Onboarding)
 - **[React Admin Dashboard Guide](./docs/REACT_ADMIN_API_GUIDE.md)** - Web integration
 
 ---
@@ -222,12 +226,24 @@ OTP_BYPASS_KEY="dev_bypass_key"
 # Payment Gateway (Easebuzz)
 EASEBUZZ_MERCHANT_KEY="your-key"
 EASEBUZZ_SALT_KEY="your-salt"
-EASEBUZZ_ENV="test"
+EASEBUZZ_ENV="test" # or "production"
+PAYMENT_SUCCESS_URL="https://api.driversklub.in/webhooks/payment/success"
+PAYMENT_FAILURE_URL="https://api.driversklub.in/webhooks/payment/failure"
+
+# AWS S3 (Image Uploads)
+AWS_ACCESS_KEY_ID="your-access-key"
+AWS_SECRET_ACCESS_KEY="your-secret-key"
+AWS_DEFAULT_REGION="ap-south-1"
+AWS_S3_BUCKET_NAME="driversklub-assets"
 
 # Partner APIs
 RAPIDO_API_KEY="your-rapido-key"
 RAPIDO_BASE_URL="https://api.rapido.bike"
+RAPIDO_BASE_URL="https://api.rapido.bike"
 MMT_WEBHOOK_URL="https://api.mmt.com/webhook"
+
+# Google Maps (Pricing Engine)
+GOOGLE_MAPS_API_KEY="your-google-maps-key"
 
 # Redis (for scaling)
 REDIS_URL="redis://localhost:6379"
@@ -246,17 +262,20 @@ See `.env.example` for complete list.
 ### Run All Tests
 
 ```bash
-npm run test
+npx tsx scripts/test-project.ts
 ```
+
+> **Note:** This master test suite validates Auth, Drivers, Trips, Payments, MMT, Rapido, and Google Maps integration in a single run.
 
 ### Test Coverage
 
 - ✅ Authentication (OTP, JWT, Refresh)
-- ✅ Driver Management (CRUD, Attendance)
-- ✅ Vehicle Management (CRUD, Fleet ops)
+- ✅ Driver Management (CRUD, Attendance, **Referrals**)
+- ✅ Vehicle Management (CRUD, Fleet ops, **Independent Owners**)
 - ✅ Trip Lifecycle (Create, Assign, Complete)
-- ✅ Payment System (Rental, Deposits, Payouts)
+- ✅ Payment System (Rental, Deposits, Payouts, **Virtual QR**)
 - ✅ Partner Integrations (Rapido, MMT)
+- ✅ **Google Maps Suite** (Geocoding, Autocomplete, Routes)
 
 ---
 
@@ -278,6 +297,7 @@ POST /attendance/check-out
 {
   "driverId": "uuid",
   "odometer": 1250,
+  "odometerImageUrl": "https://s3.aws.com/bucket/odometer.jpg",
   "cashDeposited": 5000  # Amount collected during shift
 }
 ```
@@ -296,7 +316,7 @@ POST /attendance/check-out
 - **Security Deposits** - Easebuzz integration
 - **Bulk Payouts** - CSV upload for mass disbursement
 - **InstaCollect Orders** - Ad-hoc payment links
-- **Virtual QR Codes** - Per-vehicle payment collection
+- **Virtual QR Codes** - Per-vehicle payment collection (Fleets & Independent)
 
 ### Partner Integrations
 
@@ -308,7 +328,7 @@ POST /attendance/check-out
 
 ## 📊 API Endpoints Summary
 
-### Authentication (8 endpoints)
+### Authentication (11 endpoints)
 
 ```
 POST /auth/send-otp
@@ -316,7 +336,7 @@ POST /auth/verify-otp
 POST /auth/refresh
 POST /auth/logout
 GET  /users
-POST /users
+POST /users/drivers/signup  (Public)
 GET  /users/:id
 PATCH /users/:id/deactivate
 ```
@@ -375,7 +395,11 @@ POST /webhooks/easebuzz/payment
 ```
 driversklub-backend/
 ├── apps/
-│   ├── api-gateway/          # Routes all requests
+│   ├── api-gateway/          # Central Gateway (Modular)
+│   │   ├── src/
+│   │   │   ├── config/       # Env & Service Config
+│   │   │   ├── routes/       # Domain Routes (Auth, Trip, etc.)
+│   │   │   └── middleware/   # Security & Logging
 │   ├── auth-service/         # Authentication
 │   ├── driver-service/       # Drivers & attendance
 │   ├── vehicle-service/      # Vehicles & fleets
@@ -384,7 +408,7 @@ driversklub-backend/
 │   └── notification-service/ # Notifications
 ├── packages/
 │   ├── database/             # Prisma schema & client
-│   └── common/               # Shared utilities
+│   ├── common/               # Shared utilities
 ├── scripts/
 │   ├── test-project.ts       # Integration tests
 │   └── build-eb-bundle.ts    # AWS deployment bundle
@@ -433,4 +457,4 @@ Proprietary - Driver's Klub
 
 ---
 
-**Status:** ✅ **PRODUCTION-READY** | **Last Updated:** January 12, 2026 | **Version:** 4.0.0 (Microservices)
+**Status:** ✅ **PRODUCTION-READY** | **Last Updated:** January 17, 2026 | **Version:** 4.1.0 (Microservices + S3)

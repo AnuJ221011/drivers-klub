@@ -5,10 +5,17 @@ import {
   getAllUsers,
   getUserById,
   deactivateUser,
+  verifyDriver,
+  verifyDriverOtp,
+  createUserAsDriver,
 } from "./user.controller.js";
 import { authenticate, authorizeRoles } from "@driversklub/common";
 
 const router = Router();
+
+router.post("/drivers/verify", verifyDriver);
+router.post("/drivers/verifyOtp", verifyDriverOtp);
+router.post("/drivers/signup", createUserAsDriver);
 
 // All routes below require authentication
 router.use(authenticate);

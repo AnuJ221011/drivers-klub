@@ -1,8 +1,9 @@
 # 📘 Driver's Klub Backend - Production Documentation
 
-**Version:** 4.0.0 (Microservices Architecture)
-**Date:** January 12, 2026
-**Authors:** Driver's Klub Engineering Team
+**Version:** 4.0.0 (Microservices Architecture)  
+**Date:** January 14, 2026  
+**Last Verified:** January 15, 2026  
+**Authors:** Driver's Klub Engineering Team  
 **Status:** **LIVE / PRODUCTION**
 
 ---
@@ -38,7 +39,7 @@ The system is engineered for **high availability**, **strict consistency** (ACID
 * **Rapido Integration**: Automated status synchronization to manage driver availability across platforms.
 * **Compliance-First**: Enforces strict constraints (T-1 Booking, KYC validation, Vehicle Fitness).
 * **Authentication**: Secure **OTP-based login** (No passwords) for all user roles.
-* **Dynamic Pricing**: Rule-based pricing engine supporting multipliers for Airport/Rental/Outstation trips.
+* **Dynamic Pricing**: Hybrid pricing engine using **Google Distance Matrix** for accurate fare calculation with fallback to client estimates.
 * **Granular RBAC**: Role-Based Access Control for Super Admins, Ops, Managers, and Drivers.
 * **Regional Enforcement**: Strict `Origin City` validation (e.g., DELHI NCR).
 * **Payment System**: Complete payment & payout system with Easebuzz integration, supporting rental and payout models.
@@ -122,31 +123,22 @@ The system normalizes external provider statuses to internal states:
 The project follows a **Feature-Based** structure:
 
 ```bash
-src/
-├── app.ts                  # Entry Point & Middleware Chain
-├── server.ts               # Server startup
-├── worker.ts               # Background worker for provider sync
-├── core/                   # Shared Business Logic
-│   ├── constraints/        # Trip validation rules
-│   ├── payment/            # Payment System (Rental, Payout, Penalties, Incentives, Virtual QR)
-│   ├── pricing/            # Pricing Engine
-│   ├── provider/           # Provider integrations
-│   └── trip/               # Trip Orchestration & Validators
-├── middlewares/            # Auth, Logging, Rate Limiting
-├── modules/                # Feature Modules (Routes/Controllers)
-│   ├── auth/               # OTP Logic (No Registration)
-│   ├── users/              # User Management (Admin-Only Creation)
-│   ├── drivers/            # Driver Profiles (Admin-Only Creation)
-│   ├── fleets/             # Fleet Onboarding
-│   ├── fleetManager/       # Fleet Manager Management
-│   ├── vehicles/           # Asset Management
-│   ├── assignments/        # Driver-Vehicle Assignments
-│   ├── attendance/         # Driver Attendance & Check-in/out
-│   ├── trips/              # Driver App APIs
-│   ├── payment/            # Payment & Payout Endpoints (Driver & Admin)
-│   ├── pricing/            # Pricing Calculator
-│   ├── partner/mmt/        # MakeMyTrip Integration
-│   └── webhooks/           # Easebuzz Webhooks (Payment Gateway & Virtual Accounts)
+driversklub-backend/
+├── apps/
+│   ├── api-gateway/          # Central Gateway (Modular)
+│   │   ├── src/
+│   │   │   ├── config/       # Env & Service Config
+│   │   │   ├── routes/       # Domain Routes (Auth, Trip, etc.)
+│   │   │   └── middleware/   # Security & Logging
+│   ├── auth-service/         # Authentication
+│   ├── driver-service/       # Drivers & attendance
+│   ├── vehicle-service/      # Vehicles & fleets
+│   ├── assignment-service/   # Driver-vehicle assignments
+│   ├── trip-service/         # Trips, payments, partners
+│   └── notification-service/ # Notifications
+├── packages/
+│   ├── database/             # Prisma schema & client
+│   └── common/               # Shared utilities
 ├── adapters/               # External Integrations
 │   ├── easebuzz/           # Easebuzz Payment Gateway Integration
 │   └── providers/          # Provider adapters (MojoBoxx, MMT)
@@ -162,30 +154,31 @@ src/
 
 The schema (`prisma/schema.prisma`) revolves around the **Ride** (Unified Trip) entity. A major refactor (Dec 2025) consolidated all legacy `Trip` logic into `Ride`.
 
-1. **User**: Identity layer (Phone + Role). No public registration - created by admins only.
-2. **Driver**: Profile linked to User and Fleet.
-3. **Fleet**: The supply partner (Vendor).
-4. **FleetManager**: Managers who oversee fleet operations.
-5. **HubManager**: Managers who oversee specific fleet hubs/locations.
-6. **FleetHub**: Physical hub locations for fleet operations.
-7. **Vehicle**: Physical asset managed by Fleet.
-8. **Ride**: The central transaction unit (formerly Trip).
-    * **Fields**: `pickupLocation`, `dropLocation`, `tripType`, `status`, `price`, `distanceKm`.
+1. **User**: Identity layer (Phone + Role). Includes Referral Code (`referralCode`) and Referral Tracking (`referredById`). Supports public registration for Drivers.
+2. **Driver**: Profile linked to User and (Optional) Fleet. Now includes comprehensive KYC fields (`aadhar`, `pan`, `dl`, `email`, `address`) for verification.
+3. **Fleet**: The supply partner (Vendor). Optional for independent drivers.
+4. **HubManager**: Managers who oversee specific fleet hubs/locations.
+5. **FleetHub**: Physical hub locations for fleet operations.
+6. **Vehicle**: Physical asset. `fleetId` is optional (for independent owners). Added `ownerName` for independent vehicles.
+7. **Ride**: The central transaction unit (formerly Trip). Status tracked via `OrderStatus` enum.
+    ***Fields**: `pickupLocation`, `dropLocation`, `tripType`, `status`, `price`, `distanceKm`.
     * **Geofencing**: `pickupLat` (Float), `pickupLng` (Float) added for granular location validation.
     * **Orchestration**: Linked to `RideProviderMapping` for External Providers (MMT).
-9. **TripAssignment**: The specific link between a `Ride` and a `Driver`.
-    * One Ride can have multiple assignments (history), but only one ACTIVE assignment.
+8. **TripAssignment**: The specific link between a `Ride` and a `Driver`.
+    *One Ride can have multiple assignments (history), but only one ACTIVE assignment.
     * Tracks `bookingAttempted` and `status` (`ASSIGNED`, `COMPLETED`).
-10. **Assignment**: Daily driver-vehicle assignments (roster).
-11. **Attendance**: Tracks Driver Check-In/Check-Out and Duty Status.
-    * Fields: `checkInTime`, `checkOutTime`, `status`, `selfieUrl`, `odometerStart`, `odometerEnd`, `cashDeposited`
+9. **Assignment**: Daily driver-vehicle assignments (roster).
+10. **Attendance**: Tracks Driver Check-In/Check-Out and Duty Status.
+    *Fields: `checkInTime`, `checkOutTime`, `status`, `selfieUrl`, `odometerStart`, `odometerEnd`, `cashDeposited`
     * Statuses: `PENDING`, `APPROVED`, `REJECTED`, `CHECKED_OUT`
-12. **Break**: Tracks driver breaks during active attendance.
-    * Fields: `id`, `attendanceId`, `startTime`, `endTime`
+11. **Break**: Tracks driver breaks during active attendance.
+    *Fields: `id`, `attendanceId`, `startTime`, `endTime`
     * Linked to Attendance model
-13. **RideProviderMapping**: Links internal rides with external provider bookings.
-14. **Otp**: OTP verification records.
-15. **RefreshToken**: JWT refresh tokens.
+12. **RideProviderMapping**: Links internal rides with external provider bookings.
+13. **Otp**: OTP verification records.
+14. **RefreshToken**: JWT refresh tokens.
+15. **Referral**: Tracks the referral lifecycle between users (New).
+    * Fields: `referrerId`, `refereeId`, `status` (PENDING/COMPLETED), `rewardedAt`.
 16. **DriverPreference**: Stores active, admin-approved preferences.
     * Fields: `id`, `driverId`, `preferences` (Json), `approvedBy`, `approvedAt`, `createdAt`, `updatedAt`
 17. **DriverPreferenceRequest**: Tracks all preference change requests (Approval Workflow).
@@ -211,7 +204,7 @@ The schema (`prisma/schema.prisma`) revolves around the **Ride** (Unified Trip) 
 
 ### B. Partner Fulfillment (MMT)
 
-1. **Search**: MMT polls `/partner/mmt/search` for inventory.
+1. **Search**: MMT polls `/partners/mmt/search` for inventory.
 2. **Block**: MMT reserves a car (`BLOCKED` status).
 3. **Confirm**: MMT confirms payment (`CREATED` status).
 4. **Webhooks**: Backend pushes status updates (Driver Assigned, Started, Completed) to MMT automatically.
@@ -219,8 +212,8 @@ The schema (`prisma/schema.prisma`) revolves around the **Ride** (Unified Trip) 
 ### C. Rental Model Flow (Financial)
 
 1. **Plan Creation**: Fleet Manager creates `RentalPlan` (e.g., Weekly, ₹3000).
-2. **Plan View**: Driver views available plans via `GET /payment/rental/plans`.
-3. **Subscription**: Driver initiates payment (`POST /payment/rental`).
+2. **Plan View**: Driver views available plans via `GET /payments/rental/plans`.
+3. **Subscription**: Driver initiates payment (`POST /payments/rental`).
 4. **Payment**: Driver pays via Easebuzz PG.
 5. **Activation**:
     * System validates payment.
@@ -298,6 +291,34 @@ The **Single Source of Truth** for all API endpoints, request/response schemas, 
 
 ## 8. Setup, Testing & Operations
 
+### A. Environment Configuration
+
+#### Payment Gateway (Easebuzz)
+
+Required environment variables for payment integration:
+
+```bash
+# Easebuzz Credentials
+EASEBUZZ_KEY=your_merchant_key
+EASEBUZZ_SALT=your_salt_key
+EASEBUZZ_ENV=production  # or 'test'
+
+# Payment Redirect URLs (Public Webhook Pages)
+PAYMENT_SUCCESS_URL=https://api.driversklub.in/webhooks/payment/success
+PAYMENT_FAILURE_URL=https://api.driversklub.in/webhooks/payment/failure
+```
+
+#### Easebuzz Dashboard Setup
+
+You MUST configure the Transaction Webhook in the Easebuzz Dashboard:
+
+* **URL:** `https://api.driversklub.in/webhooks/easebuzz/payment`
+* **Events:** Enable "Transaction Webhook"
+
+---
+
+### B. Setup & Installation
+
 ### Local Development
 
 1. `npm install`
@@ -307,7 +328,7 @@ The **Single Source of Truth** for all API endpoints, request/response schemas, 
 ### Testing
 
 * **Unit Tests**: `npm test`
-* **API Tests**: `npm run test:api` (Runs Dredd/Supertest against endpoints)
+* **Master Integration Suite**: `npx tsx scripts/test-project.ts` (Runs all checks)
 
 ### Deployment
 
@@ -327,7 +348,7 @@ WORKER_SYNC_INTERVAL_MS=300000
 
 ---
 
-# 9. Production Readiness & Validation (Dec 2025)
+# 9. Production Readiness & Validation (Jan 2026)
 
 ### ✅ Stability & Integrity Checks
 
@@ -337,12 +358,14 @@ WORKER_SYNC_INTERVAL_MS=300000
 
 ### ✅ End-to-End Verification
 
-The system has passed the **Full Flow Test Protocol** (`npm run test:full`):
+The system has passed the **Consolidated Master Test Protocol** (`npx tsx scripts/test-project.ts`):
 
 1. **Auth**: Admin & Driver Login (OTP Bypass).
-2. **Attendance**: Driver Check-in/out + Admin Approval.
-3. **Dispatch**: Admin Create -> Assign -> MMT Webhook Trigger.
-4. **Execution**: Driver Start -> MMT Webhook -> Complete -> MMT Webhook.
+2. **Driver**: Profile fetching and availability.
+3. **Trip Lifecycle**: Create -> Assign -> Payment -> Complete.
+4. **Payment**: Rental Plans, Deposits, and Payout Logic.
+5. **Partners**: MMT (V3 Flow) and Rapido (Queue/Status) fully verified.
+6. **Maps**: Geocoding and Autocomplete verified.
 
 ### ✅ Partner Integration (MMT)
 

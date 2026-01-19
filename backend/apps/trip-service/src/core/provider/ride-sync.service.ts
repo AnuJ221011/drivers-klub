@@ -26,11 +26,7 @@ export class RideSyncService {
 
         try {
             const adapter = ProviderFactory.getProvider(trip.provider);
-            // Adapter needs to expose getRideStatus. MojoBoxx and MMT are updated to have it.
-            // TS might complain if ProviderFactory returns different classes that don't share an interface with getRideStatus.
-            // I need to ensure they do.
-
-            const rawStatus = await (adapter as any).getRideStatus(
+            const rawStatus = await adapter.getRideStatus(
                 trip.providerBookingId
             );
 

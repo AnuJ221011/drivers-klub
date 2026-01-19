@@ -15,6 +15,6 @@ router.post("/partnerrescheduleblockendpoint", basicAuth, controller.rescheduleB
 router.post("/partnerrescheduleconfirmendpoint", basicAuth, controller.rescheduleConfirm);
 
 // Booking Details (Query Params based)
-router.get("/booking/details", controller.getBookingDetails);
+router.get("/booking/details", basicAuth, controller.getBookingDetails);
 
 export default router;

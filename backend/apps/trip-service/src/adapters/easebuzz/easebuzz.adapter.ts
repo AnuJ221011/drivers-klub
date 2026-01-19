@@ -71,7 +71,7 @@ export class EasebuzzAdapter {
     udf3?: string;
     udf4?: string;
     udf5?: string;
-  }): Promise<{ paymentUrl: string; txnId: string }> {
+  }): Promise<{ paymentUrl: string; accessKey?: string; txnId: string }> {
     const txnId = generateTransactionId();
     const amountStr = formatAmount(params.amount);
 
@@ -128,8 +128,15 @@ export class EasebuzzAdapter {
       );
 
       if (response.data.status === 1) {
+        // Easebuzz returns access key, construct full payment URL
+        const accessKey = response.data.data;
+        const paymentBaseUrl = this.environment === 'production'
+          ? 'https://pay.easebuzz.in/pay'
+          : 'https://testpay.easebuzz.in/pay';
+
         return {
-          paymentUrl: response.data.data,
+          paymentUrl: `${paymentBaseUrl}/${accessKey}`,
+          accessKey, // Include raw key for SDK integration if needed
           txnId,
         };
       } else {
@@ -314,26 +321,39 @@ export class EasebuzzAdapter {
     };
 
     try {
+      // Note: Easebuzz InstaCollect uses wire.easebuzz.in for both test and production modes
+      // Test mode is determined by the merchant key/credentials, not the URL
       const response = await this.client.post<VirtualAccountResponse>(
         '/instacollect/v1/create',
         requestData,
         {
-          baseURL:
-            this.environment === 'production'
-              ? 'https://wire.easebuzz.in'
-              : 'https://testwire.easebuzz.in',  // Use test endpoint for test mode
+          baseURL: 'https://wire.easebuzz.in',
         }
       );
 
       console.log('Easebuzz VA Response:', JSON.stringify(response.data, null, 2));
 
       if (response.data.status === 1) {
+        const data = response.data.data;
+
+        // Get QR code - Easebuzz returns upi_qrcode_url (URL) or qr_code
+        // Check multiple possible fields
+        let qrCode = data.upi_qrcode_url || data.qr_code_url || data.qr_code || data.upi_qr_code || '';
+
+        // In test mode, if no QR is returned, generate a placeholder QR URL
+        if (!qrCode && this.environment === 'test') {
+          // Use a QR code generator API to create a QR from the UPI ID
+          const upiId = data.upi_id || `${params.vehicleNumber}@easebuzz`;
+          qrCode = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(params.fleetName)}`;
+          console.log('Test mode: Generated fallback QR URL:', qrCode);
+        }
+
         return {
-          virtualAccountId: response.data.data.virtual_account_id,
-          virtualAccountNumber: response.data.data.virtual_account_number,
-          ifscCode: response.data.data.ifsc_code,
-          qrCodeBase64: response.data.data.qr_code,
-          upiId: response.data.data.upi_id,
+          virtualAccountId: data.virtual_account_id,
+          virtualAccountNumber: data.virtual_account_number,
+          ifscCode: data.ifsc_code,
+          qrCodeBase64: qrCode, // This is actually a URL now
+          upiId: data.upi_id,
         };
       } else {
         throw new Error(`Virtual account creation failed: ${JSON.stringify(response.data)}`);

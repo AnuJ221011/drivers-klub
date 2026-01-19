@@ -63,4 +63,21 @@ export class MojoBoxxAdapter implements ExternalRideProvider {
             }
         };
     }
+
+    async getRideStatus(providerBookingId: string): Promise<string> {
+        try {
+            // TODO: Uncomment this when real API integration is enabled
+            // const response = await mojoRequest(
+            //     "GET",
+            //     `/api/v1/booking/bookingDetails?bookingId=${providerBookingId}`
+            // );
+            // return response.data?.status || "UNKNOWN";
+
+            // Mock Implementation to match prebook
+            return "COMPLETED";
+        } catch (error: any) {
+            console.error(`Failed to get ride status for ${providerBookingId}:`, error.message);
+            throw new Error(error.message || "Failed to get ride status from MojoBoxx");
+        }
+    }
 }

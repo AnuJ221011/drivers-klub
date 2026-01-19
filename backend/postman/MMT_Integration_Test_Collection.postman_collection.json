@@ -1,0 +1,1543 @@
+{
+    "info": {
+        "_postman_id": "mmt-integration-test-v3",
+        "name": "MMT Partner Integration Tests",
+        "description": "# MMT Partner Integration Test Collection\n\n## Overview\nComplete test collection for MakeMyTrip (MMT) Cab Booking integration with DriversKlub.\n\n## Authentication\nAll endpoints use **HTTP Basic Authentication**.\n- Username: Provided by DriversKlub\n- Password: Provided by DriversKlub\n\n## V1 Constraints\n- **Vehicle Type**: Only `TATA_TIGOR_EV` is supported\n- **Trip Type**: Only `AIRPORT` transfers are accepted\n- **Advance Booking**: Pickup time must be >24 hours from now\n- **City**: Defaults to `DELHI` if missing\n\n## Base URL\n- Both `/partners/mmt/...` and `/partner/mmt/...` are supported\n\n## Testing Flow\n1. Search Fare → Check availability\n2. Block Ride → Reserve the trip\n3. Confirm Paid → Confirm booking after payment\n4. Get Details → Verify booking status\n5. (Optional) Reschedule → Change pickup time\n6. (Optional) Cancel → Cancel the booking",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "basic",
+        "basic": [
+            {
+                "key": "username",
+                "value": "{{mmt_username}}",
+                "type": "string"
+            },
+            {
+                "key": "password",
+                "value": "{{mmt_password}}",
+                "type": "string"
+            }
+        ]
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3000",
+            "type": "string"
+        },
+        {
+            "key": "mmt_username",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "mmt_password",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "🔐 Setup & Authentication",
+            "item": [
+                {
+                    "name": "Health Check (No Auth)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Server is running', function() {",
+                                    "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Server is reachable at: ' + pm.request.url.toString());"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/health",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["health"]
+                        },
+                        "description": "Quick check to verify server connectivity before running MMT tests."
+                    }
+                },
+                {
+                    "name": "Test Basic Auth",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Basic Auth is working', function() {",
+                                    "    pm.expect(pm.response.code).to.not.equal(401);",
+                                    "});",
+                                    "",
+                                    "if (pm.response.code === 401) {",
+                                    "    console.error('❌ Authentication failed! Check mmt_username and mmt_password variables.');",
+                                    "} else {",
+                                    "    console.log('✅ Authentication successful');",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"start_time\": \"2030-01-20T10:00:00.000Z\",\n    \"source\": { \"city\": \"DELHI\" },\n    \"destination\": { \"city\": \"GURGAON\" },\n    \"trip_type_details\": {\n        \"basic_trip_type\": \"AIRPORT\",\n        \"airport_type\": \"PICKUP\"\n    },\n    \"one_way_distance\": 45\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnersearchendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnersearchendpoint"]
+                        },
+                        "description": "Tests if Basic Authentication credentials are correctly configured."
+                    }
+                }
+            ],
+            "description": "Setup requests to verify connectivity and authentication before running the main test flow."
+        },
+        {
+            "name": "📍 1. Search Fare (Availability)",
+            "item": [
+                {
+                    "name": "Search - Delhi to Gurgaon (Happy Path)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "// Set pickup time to 26 hours from now (>24h requirement)",
+                                    "const futureDate = new Date();",
+                                    "futureDate.setHours(futureDate.getHours() + 26);",
+                                    "pm.collectionVariables.set('pickupTime', futureDate.toISOString());",
+                                    "",
+                                    "// Generate unique search ID",
+                                    "pm.collectionVariables.set('searchId', 'SEARCH_' + Date.now());"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has car_types array', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response).to.have.property('car_types');",
+                                    "    pm.expect(jsonData.response.car_types).to.be.an('array');",
+                                    "    pm.expect(jsonData.response.car_types.length).to.be.greaterThan(0);",
+                                    "});",
+                                    "",
+                                    "pm.test('Car type has required fields', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    const carType = jsonData.response.car_types[0];",
+                                    "    pm.expect(carType).to.have.property('sku_id');",
+                                    "    pm.expect(carType).to.have.property('fare_details');",
+                                    "    pm.expect(carType.fare_details).to.have.property('base_fare');",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has zero_payment flag', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    const carType = jsonData.response.car_types[0];",
+                                    "    pm.expect(carType).to.have.property('zero_payment');",
+                                    "});",
+                                    "",
+                                    "pm.test('Distance is correctly returned', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.distance_booked).to.equal(45);",
+                                    "});",
+                                    "",
+                                    "// Log results",
+                                    "const response = pm.response.json();",
+                                    "if (response.response && response.response.car_types) {",
+                                    "    console.log('✅ Search successful!');",
+                                    "    console.log('📊 Found ' + response.response.car_types.length + ' car type(s)');",
+                                    "    console.log('💰 Base Fare: ₹' + response.response.car_types[0].fare_details.base_fare);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"source\": {\n        \"address\": \"Terminal 1, Indira Gandhi International Airport (DEL), New Delhi\",\n        \"latitude\": 28.5550838,\n        \"longitude\": 77.0844015,\n        \"city\": \"DELHI\"\n    },\n    \"destination\": {\n        \"address\": \"Cyber City, Gurgaon, Haryana, India\",\n        \"latitude\": 28.4949,\n        \"longitude\": 77.0889,\n        \"city\": \"GURGAON\"\n    },\n    \"trip_type\": \"ONE_WAY\",\n    \"start_time\": \"{{pickupTime}}\",\n    \"one_way_distance\": 45,\n    \"partner_name\": \"GOMMT\",\n    \"search_id\": \"{{searchId}}\",\n    \"trip_type_details\": {\n        \"basic_trip_type\": \"AIRPORT\",\n        \"airport_type\": \"PICKUP\"\n    }\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnersearchendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnersearchendpoint"]
+                        },
+                        "description": "**Search Fare API**\n\nChecks availability and returns pricing for the requested route.\n\n**V1 Requirements:**\n- Pickup time must be >24 hours from now\n- Trip type must be AIRPORT\n- Vehicle will always be TATA_TIGOR_EV\n\n**Expected Response:**\n- 200 OK with car_types array containing fare details"
+                    }
+                },
+                {
+                    "name": "Search - Delhi to Noida (Alternate Route)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "const futureDate = new Date();",
+                                    "futureDate.setHours(futureDate.getHours() + 30);",
+                                    "pm.collectionVariables.set('pickupTime', futureDate.toISOString());"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has car_types array', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.car_types).to.be.an('array');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"source\": {\n        \"address\": \"Terminal 1, IGI Airport, New Delhi\",\n        \"latitude\": 28.5550838,\n        \"longitude\": 77.0844015,\n        \"city\": \"DELHI\"\n    },\n    \"destination\": {\n        \"address\": \"Sector 62, Noida, Uttar Pradesh\",\n        \"latitude\": 28.6205,\n        \"longitude\": 77.3577,\n        \"city\": \"NOIDA\"\n    },\n    \"trip_type\": \"ONE_WAY\",\n    \"start_time\": \"{{pickupTime}}\",\n    \"one_way_distance\": 39,\n    \"partner_name\": \"GOMMT\",\n    \"trip_type_details\": {\n        \"basic_trip_type\": \"AIRPORT\",\n        \"airport_type\": \"PICKUP\"\n    }\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnersearchendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnersearchendpoint"]
+                        },
+                        "description": "Test search with an alternate route (Delhi Airport → Noida)."
+                    }
+                },
+                {
+                    "name": "Search - Minimal Payload",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "const futureDate = new Date();",
+                                    "futureDate.setHours(futureDate.getHours() + 48);",
+                                    "pm.collectionVariables.set('pickupTime', futureDate.toISOString());"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response works with minimal payload', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.car_types).to.be.an('array');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"start_time\": \"{{pickupTime}}\",\n    \"source\": { \"city\": \"DELHI\" },\n    \"destination\": { \"city\": \"GURGAON\" },\n    \"trip_type_details\": {\n        \"basic_trip_type\": \"AIRPORT\"\n    },\n    \"one_way_distance\": 40\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnersearchendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnersearchendpoint"]
+                        },
+                        "description": "Test search with minimum required fields only."
+                    }
+                }
+            ],
+            "description": "## Search Fare Endpoint\n\n`POST /partnersearchendpoint`\n\nChecks availability and returns pricing for the requested route.\n\n### Key Fields\n- `start_time`: ISO 8601 datetime (must be >24h from now)\n- `source.city`: Pickup city\n- `destination.city`: Drop city\n- `trip_type_details.basic_trip_type`: Must be \"AIRPORT\"\n- `one_way_distance`: Distance in km"
+        },
+        {
+            "name": "🚗 2. Block Ride (Pre-book)",
+            "item": [
+                {
+                    "name": "Block - Create Booking",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "// Set pickup time to 26 hours from now",
+                                    "const futureDate = new Date();",
+                                    "futureDate.setHours(futureDate.getHours() + 26);",
+                                    "pm.collectionVariables.set('pickupTime', futureDate.toISOString());",
+                                    "",
+                                    "// Generate unique MMT reference ID",
+                                    "const mmtRefId = 'MMT_TEST_' + Date.now();",
+                                    "pm.collectionVariables.set('mmtRefId', mmtRefId);",
+                                    "console.log('📝 Generated MMT Reference ID: ' + mmtRefId);"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has success: true', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.success).to.equal(true);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has order_reference_number', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response).to.have.property('order_reference_number');",
+                                    "    pm.expect(jsonData.response.order_reference_number).to.be.a('string');",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has verification_code (OTP)', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response).to.have.property('verification_code');",
+                                    "});",
+                                    "",
+                                    "pm.test('Status is BLOCKED', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.status).to.equal('BLOCKED');",
+                                    "});",
+                                    "",
+                                    "// Save booking ID for subsequent requests",
+                                    "const response = pm.response.json();",
+                                    "if (response.response && response.response.order_reference_number) {",
+                                    "    pm.collectionVariables.set('bookingId', response.response.order_reference_number);",
+                                    "    pm.collectionVariables.set('verificationCode', response.response.verification_code);",
+                                    "    console.log('✅ Block successful!');",
+                                    "    console.log('🎫 Booking ID: ' + response.response.order_reference_number);",
+                                    "    console.log('🔐 OTP: ' + response.response.verification_code);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"sku_id\": \"TATA_TIGOR_EV\",\n    \"mmt_ref_id\": \"{{mmtRefId}}\",\n    \"start_time\": \"{{pickupTime}}\",\n    \"source\": {\n        \"city\": \"DELHI\",\n        \"address\": \"IGI Airport Terminal 1\",\n        \"latitude\": 28.5550838,\n        \"longitude\": 77.0844015\n    },\n    \"destination\": {\n        \"city\": \"GURGAON\",\n        \"address\": \"Cyber City\",\n        \"latitude\": 28.4949,\n        \"longitude\": 77.0889\n    },\n    \"one_way_distance\": 45,\n    \"trip_type_details\": {\n        \"basic_trip_type\": \"AIRPORT\",\n        \"airport_type\": \"PICKUP\"\n    },\n    \"customer_name\": \"Test Customer\",\n    \"customer_mobile\": \"9876543210\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnerblockendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnerblockendpoint"]
+                        },
+                        "description": "**Block Ride API**\n\nTemporarily holds inventory for the specified route and time.\n\n**Important:**\n- Save the `order_reference_number` (Booking ID) for subsequent steps\n- Save the `verification_code` (OTP) for customer verification\n- Status will be `BLOCKED` until payment confirmation\n\n**Required Fields:**\n- `sku_id`: Must be `TATA_TIGOR_EV` for V1\n- `mmt_ref_id`: MMT's unique reference ID\n- `start_time`: Pickup time (>24h from now)\n- `source.city`, `destination.city`: Route cities"
+                    }
+                },
+                {
+                    "name": "Block - With Full Details",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "const futureDate = new Date();",
+                                    "futureDate.setHours(futureDate.getHours() + 30);",
+                                    "pm.collectionVariables.set('pickupTime2', futureDate.toISOString());",
+                                    "pm.collectionVariables.set('mmtRefId2', 'MMT_FULL_' + Date.now());"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "const response = pm.response.json();",
+                                    "if (response.response && response.response.order_reference_number) {",
+                                    "    pm.collectionVariables.set('bookingId2', response.response.order_reference_number);",
+                                    "    console.log('✅ Secondary booking created: ' + response.response.order_reference_number);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"sku_id\": \"TATA_TIGOR_EV\",\n    \"mmt_ref_id\": \"{{mmtRefId2}}\",\n    \"order_reference_number\": \"{{mmtRefId2}}\",\n    \"start_time\": \"{{pickupTime2}}\",\n    \"source\": {\n        \"city\": \"DELHI\",\n        \"address\": \"Terminal 3, IGI Airport, New Delhi\",\n        \"latitude\": 28.5550838,\n        \"longitude\": 77.0844015\n    },\n    \"destination\": {\n        \"city\": \"NOIDA\",\n        \"address\": \"Sector 18, Noida, UP\",\n        \"latitude\": 28.5706,\n        \"longitude\": 77.3261\n    },\n    \"one_way_distance\": 42,\n    \"trip_type_details\": {\n        \"basic_trip_type\": \"AIRPORT\",\n        \"airport_type\": \"PICKUP\"\n    },\n    \"vehicle_details\": {\n        \"sku_id\": \"TATA_TIGOR_EV\"\n    },\n    \"customer_name\": \"John Doe\",\n    \"customer_mobile\": \"9876543210\",\n    \"customer_email\": \"john@example.com\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnerblockendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnerblockendpoint"]
+                        },
+                        "description": "Block request with all available fields including customer details."
+                    }
+                }
+            ],
+            "description": "## Block Ride Endpoint\n\n`POST /partnerblockendpoint`\n\nTemporarily holds inventory. Creates a booking in BLOCKED state.\n\n### Response Fields\n- `order_reference_number`: DriversKlub Booking ID (starts with `DK-` prefix)\n- `verification_code`: 4-digit OTP for customer verification\n- `status`: Will be \"BLOCKED\""
+        },
+        {
+            "name": "✅ 3. Confirm Paid (Confirm Booking)",
+            "item": [
+                {
+                    "name": "Confirm - Payment Received",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has success: true', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.success).to.equal(true);",
+                                    "});",
+                                    "",
+                                    "pm.test('Status is CONFIRMED', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.status).to.equal('CONFIRMED');",
+                                    "});",
+                                    "",
+                                    "const response = pm.response.json();",
+                                    "if (response.response && response.response.success) {",
+                                    "    console.log('✅ Booking confirmed!');",
+                                    "    console.log('📋 Status: ' + response.response.status);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"order_reference_number\": \"{{bookingId}}\",\n    \"partner_reference_number\": \"{{mmtRefId}}\",\n    \"amount_to_be_collected\": 1250\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnerpaidendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnerpaidendpoint"]
+                        },
+                        "description": "**Confirm Paid API**\n\nConfirms the booking after MMT collects payment from the user.\n\n**Required Fields:**\n- `order_reference_number`: DriversKlub Booking ID (from Block response)\n- `partner_reference_number`: MMT's reference ID\n- `amount_to_be_collected`: Payment amount in INR\n\n**Note:** Booking status changes from BLOCKED → CONFIRMED"
+                    }
+                },
+                {
+                    "name": "Confirm - Using bookingId Field",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "// This tests the alternate field name 'bookingId'",
+                                    "pm.test('Request is accepted (may fail if already confirmed)', function() {",
+                                    "    pm.expect(pm.response.code).to.be.oneOf([200, 400]);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"bookingId\": \"{{bookingId2}}\",\n    \"amountPaid\": 1100,\n    \"paymentRef\": \"PAY_{{$timestamp}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnerpaidendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnerpaidendpoint"]
+                        },
+                        "description": "Tests the alternate field names (bookingId, amountPaid, paymentRef)."
+                    }
+                }
+            ],
+            "description": "## Confirm Paid Endpoint\n\n`POST /partnerpaidendpoint`\n\nConfirms the booking after payment collection.\n\n### Response\n- `success`: true/false\n- `status`: \"CONFIRMED\"\n- `order_reference_number`: Booking ID"
+        },
+        {
+            "name": "📋 4. Get Booking Details",
+            "item": [
+                {
+                    "name": "Details - By Booking ID",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has booking_id', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response).to.have.property('booking_id');",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has status', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response).to.have.property('status');",
+                                    "});",
+                                    "",
+                                    "const response = pm.response.json();",
+                                    "if (response.response) {",
+                                    "    console.log('📋 Booking Details:');",
+                                    "    console.log('   ID: ' + response.response.booking_id);",
+                                    "    console.log('   Status: ' + response.response.status);",
+                                    "    console.log('   OTP: ' + response.response.verification_code);",
+                                    "    if (response.response.driver) {",
+                                    "        console.log('   Driver: ' + response.response.driver.name);",
+                                    "    } else {",
+                                    "        console.log('   Driver: Not assigned yet');",
+                                    "    }",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/booking/details?booking_id={{bookingId}}",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "booking", "details"],
+                            "query": [
+                                {
+                                    "key": "booking_id",
+                                    "value": "{{bookingId}}",
+                                    "description": "DriversKlub internal booking ID"
+                                }
+                            ]
+                        },
+                        "description": "**Get Booking Details API**\n\nRetrieves the current status of a booking using DriversKlub's internal booking ID.\n\n**Query Parameters:**\n- `booking_id`: DriversKlub Booking ID (e.g., `DK-XXXXXXXX`)\n\n**Response includes:**\n- Current status\n- Verification code (OTP)\n- Driver details (if assigned)"
+                    }
+                },
+                {
+                    "name": "Details - By Partner Reference",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 404', function() {",
+                                    "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                                    "});",
+                                    "",
+                                    "if (pm.response.code === 200) {",
+                                    "    const response = pm.response.json();",
+                                    "    console.log('✅ Found booking by partner reference');",
+                                    "    console.log('   Status: ' + response.response.status);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/booking/details?partner_reference_number={{mmtRefId}}",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "booking", "details"],
+                            "query": [
+                                {
+                                    "key": "partner_reference_number",
+                                    "value": "{{mmtRefId}}",
+                                    "description": "MMT's external reference ID"
+                                }
+                            ]
+                        },
+                        "description": "Get booking details using MMT's external reference ID.\n\n**Query Parameters:**\n- `partner_reference_number`: MMT's reference ID (e.g., `MMT-1234567890`)"
+                    }
+                },
+                {
+                    "name": "Details - By Order Reference Number",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 404', function() {",
+                                    "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/booking/details?order_reference_number={{bookingId}}",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "booking", "details"],
+                            "query": [
+                                {
+                                    "key": "order_reference_number",
+                                    "value": "{{bookingId}}",
+                                    "description": "Our internal booking ID (same as booking_id)"
+                                }
+                            ]
+                        },
+                        "description": "Alternative query parameter name for fetching booking details."
+                    }
+                }
+            ],
+            "description": "## Get Booking Details Endpoint\n\n`GET /booking/details`\n\nRetrieves current booking status.\n\n### Query Parameters (use ONE)\n- `booking_id`: DriversKlub internal ID\n- `partner_reference_number`: MMT external ID\n- `order_reference_number`: Same as booking_id\n\n### Status Values\n- `HOLD`: Blocked but not confirmed\n- `CONFIRMED`: Payment confirmed\n- `TRAVELLED`: Trip completed\n- `NOT_TRAVELLED`: No-show\n- `CANCELLED`: Cancelled"
+        },
+        {
+            "name": "🔄 5. Reschedule",
+            "item": [
+                {
+                    "name": "Reschedule Block - Check Availability",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "// Set new pickup time to 48 hours from now",
+                                    "const futureDate = new Date();",
+                                    "futureDate.setHours(futureDate.getHours() + 48);",
+                                    "pm.collectionVariables.set('newPickupTime', futureDate.toISOString());",
+                                    "console.log('📅 New pickup time: ' + futureDate.toISOString());"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has success: true', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.success).to.equal(true);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has new verification_code', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response).to.have.property('verification_code');",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has fare_details', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response).to.have.property('fare_details');",
+                                    "});",
+                                    "",
+                                    "const response = pm.response.json();",
+                                    "if (response.response && response.response.success) {",
+                                    "    console.log('✅ Reschedule block successful!');",
+                                    "    console.log('🔐 New OTP: ' + response.response.verification_code);",
+                                    "    console.log('💰 Fare: ₹' + response.response.fare_details.total_amount);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"order_reference_number\": \"{{bookingId}}\",\n    \"start_time\": \"{{newPickupTime}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnerrescheduleblockendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnerrescheduleblockendpoint"]
+                        },
+                        "description": "**Reschedule Block API**\n\nValidates if a reschedule is possible for the new time.\n\n**Required Fields:**\n- `order_reference_number`: Booking ID to reschedule\n- `start_time`: New pickup time (ISO 8601)\n\n**Response includes:**\n- New `verification_code` (OTP)\n- `fare_details` with updated pricing\n- `driver_details` if a driver is assigned\n\n**Note:** This does NOT commit the reschedule. Call Reschedule Confirm to finalize."
+                    }
+                },
+                {
+                    "name": "Reschedule Confirm - Apply Changes",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response indicates success', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    // Check for success at root level or inside response",
+                                    "    const success = jsonData.success || (jsonData.response && jsonData.response.success);",
+                                    "    pm.expect(success).to.equal(true);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Reschedule confirmed!');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"order_reference_number\": \"{{bookingId}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnerrescheduleconfirmendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnerrescheduleconfirmendpoint"]
+                        },
+                        "description": "**Reschedule Confirm API**\n\nCommits the reschedule. Uses the time validated in the Reschedule Block step.\n\n**Required Fields:**\n- `order_reference_number`: Booking ID\n\n**Important:** Must call Reschedule Block first!"
+                    }
+                }
+            ],
+            "description": "## Reschedule Endpoints\n\n### Reschedule Block\n`POST /partnerrescheduleblockendpoint`\n- Validates new pickup time\n- Returns updated fare and new OTP\n- Does NOT commit the change\n\n### Reschedule Confirm\n`POST /partnerrescheduleconfirmendpoint`\n- Commits the reschedule\n- Uses time from Block step"
+        },
+        {
+            "name": "❌ 6. Cancel Ride",
+            "item": [
+                {
+                    "name": "Cancel - Customer Requested",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test('Response has success: true', function() {",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.success).to.equal(true);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Booking cancelled successfully!');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"order_reference_number\": \"{{bookingId}}\",\n    \"cancelled_by\": \"Customer\",\n    \"cancellation_reason\": \"Change of plans\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnercancelendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnercancelendpoint"]
+                        },
+                        "description": "**Cancel Ride API**\n\nCancels a confirmed or blocked booking.\n\n**Required Fields:**\n- `order_reference_number`: Booking ID to cancel\n- `cancelled_by`: Who initiated (Customer/Partner/System)\n- `cancellation_reason`: Reason for cancellation\n\n**Note:** Cancellation policies may apply based on timing."
+                    }
+                },
+                {
+                    "name": "Cancel - Alternate Booking",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Status code is 200 or 404', function() {",
+                                    "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"order_reference_number\": \"{{bookingId2}}\",\n    \"cancelled_by\": \"Partner\",\n    \"cancellation_reason\": \"Test cleanup\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnercancelendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnercancelendpoint"]
+                        },
+                        "description": "Cancel the secondary test booking."
+                    }
+                }
+            ],
+            "description": "## Cancel Ride Endpoint\n\n`POST /partnercancelendpoint`\n\nCancels a booking.\n\n### Cancellation Values for cancelled_by\n- `Customer`: Customer requested\n- `Partner`: MMT initiated\n- `System`: Automated cancellation"
+        },
+        {
+            "name": "⚠️ Error Scenarios",
+            "item": [
+                {
+                    "name": "Error - Missing Auth",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Should return 401 Unauthorized', function() {",
+                                    "    pm.response.to.have.status(401);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Correctly rejected unauthenticated request');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"start_time\": \"2030-01-20T10:00:00.000Z\",\n    \"source\": { \"city\": \"DELHI\" },\n    \"destination\": { \"city\": \"GURGAON\" },\n    \"trip_type_details\": { \"basic_trip_type\": \"AIRPORT\" },\n    \"one_way_distance\": 45\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnersearchendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnersearchendpoint"]
+                        },
+                        "description": "Tests that unauthenticated requests are rejected with 401."
+                    }
+                },
+                {
+                    "name": "Error - Invalid Credentials",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Should return 401 Unauthorized', function() {",
+                                    "    pm.response.to.have.status(401);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Correctly rejected invalid credentials');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "basic",
+                            "basic": [
+                                {
+                                    "key": "username",
+                                    "value": "wrong_user",
+                                    "type": "string"
+                                },
+                                {
+                                    "key": "password",
+                                    "value": "wrong_pass",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"start_time\": \"2030-01-20T10:00:00.000Z\",\n    \"source\": { \"city\": \"DELHI\" },\n    \"destination\": { \"city\": \"GURGAON\" },\n    \"trip_type_details\": { \"basic_trip_type\": \"AIRPORT\" },\n    \"one_way_distance\": 45\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnersearchendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnersearchendpoint"]
+                        },
+                        "description": "Tests that invalid credentials are rejected."
+                    }
+                },
+                {
+                    "name": "Error - Pickup Time < 24h",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "// Set pickup time to only 2 hours from now (< 24h)",
+                                    "const futureDate = new Date();",
+                                    "futureDate.setHours(futureDate.getHours() + 2);",
+                                    "pm.collectionVariables.set('invalidPickupTime', futureDate.toISOString());"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Should return 400 Bad Request', function() {",
+                                    "    pm.response.to.have.status(400);",
+                                    "});",
+                                    "",
+                                    "pm.test('Error message mentions 24 hours', function() {",
+                                    "    const responseText = pm.response.text();",
+                                    "    pm.expect(responseText.toLowerCase()).to.include('24');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Correctly rejected booking < 24h advance');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"start_time\": \"{{invalidPickupTime}}\",\n    \"source\": { \"city\": \"DELHI\" },\n    \"destination\": { \"city\": \"GURGAON\" },\n    \"trip_type_details\": { \"basic_trip_type\": \"AIRPORT\" },\n    \"one_way_distance\": 45\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnersearchendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnersearchendpoint"]
+                        },
+                        "description": "Tests V1 restriction: Booking must be >24 hours in advance."
+                    }
+                },
+                {
+                    "name": "Error - Invalid Trip Type",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "const futureDate = new Date();",
+                                    "futureDate.setHours(futureDate.getHours() + 30);",
+                                    "pm.collectionVariables.set('validPickupTime', futureDate.toISOString());"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Should return 400 Bad Request', function() {",
+                                    "    pm.response.to.have.status(400);",
+                                    "});",
+                                    "",
+                                    "pm.test('Error message mentions AIRPORT', function() {",
+                                    "    const responseText = pm.response.text();",
+                                    "    pm.expect(responseText.toLowerCase()).to.include('airport');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Correctly rejected non-AIRPORT trip type');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"start_time\": \"{{validPickupTime}}\",\n    \"source\": { \"city\": \"DELHI\" },\n    \"destination\": { \"city\": \"GURGAON\" },\n    \"trip_type_details\": { \"basic_trip_type\": \"OUTSTATION\" },\n    \"one_way_distance\": 300\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnersearchendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnersearchendpoint"]
+                        },
+                        "description": "Tests V1 restriction: Only AIRPORT trip type is supported."
+                    }
+                },
+                {
+                    "name": "Error - Invalid SKU (Block)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "const futureDate = new Date();",
+                                    "futureDate.setHours(futureDate.getHours() + 30);",
+                                    "pm.collectionVariables.set('validPickupTime', futureDate.toISOString());"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Should return 400 Bad Request', function() {",
+                                    "    pm.response.to.have.status(400);",
+                                    "});",
+                                    "",
+                                    "pm.test('Error message mentions SKU', function() {",
+                                    "    const responseText = pm.response.text();",
+                                    "    pm.expect(responseText.toLowerCase()).to.include('sku');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Correctly rejected invalid SKU');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"sku_id\": \"INVALID_SKU\",\n    \"mmt_ref_id\": \"MMT_INVALID_TEST\",\n    \"start_time\": \"{{validPickupTime}}\",\n    \"source\": { \"city\": \"DELHI\" },\n    \"destination\": { \"city\": \"GURGAON\" },\n    \"one_way_distance\": 45\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnerblockendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnerblockendpoint"]
+                        },
+                        "description": "Tests V1 restriction: Only TATA_TIGOR_EV SKU is supported."
+                    }
+                },
+                {
+                    "name": "Error - Booking Not Found",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Should return 404 Not Found', function() {",
+                                    "    pm.response.to.have.status(404);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Correctly returned 404 for non-existent booking');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/booking/details?booking_id=INVALID-BOOKING-ID-12345",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "booking", "details"],
+                            "query": [
+                                {
+                                    "key": "booking_id",
+                                    "value": "INVALID-BOOKING-ID-12345"
+                                }
+                            ]
+                        },
+                        "description": "Tests that non-existent booking IDs return 404."
+                    }
+                },
+                {
+                    "name": "Error - Missing Required Field",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Should return 400 Bad Request', function() {",
+                                    "    pm.response.to.have.status(400);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Correctly rejected request with missing required field');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"source\": { \"city\": \"DELHI\" },\n    \"destination\": { \"city\": \"GURGAON\" },\n    \"trip_type_details\": { \"basic_trip_type\": \"AIRPORT\" }\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnersearchendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnersearchendpoint"]
+                        },
+                        "description": "Tests that missing required fields (start_time) return 400."
+                    }
+                }
+            ],
+            "description": "## Error Scenario Tests\n\nTests various error conditions to verify proper error handling.\n\n### Expected Errors\n- 401: Missing/invalid authentication\n- 400: Invalid request data (time, trip type, SKU)\n- 404: Booking not found"
+        },
+        {
+            "name": "🔁 Complete Flow (Run in Order)",
+            "item": [
+                {
+                    "name": "1. Search Available Rides",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "// Set pickup time to 36 hours from now",
+                                    "const futureDate = new Date();",
+                                    "futureDate.setHours(futureDate.getHours() + 36);",
+                                    "pm.collectionVariables.set('flowPickupTime', futureDate.toISOString());",
+                                    "",
+                                    "// Generate unique reference IDs for this flow",
+                                    "const flowId = Date.now();",
+                                    "pm.collectionVariables.set('flowMmtRefId', 'MMT_FLOW_' + flowId);",
+                                    "pm.collectionVariables.set('flowSearchId', 'SEARCH_FLOW_' + flowId);",
+                                    "",
+                                    "console.log('🚀 Starting Complete Flow Test');",
+                                    "console.log('📅 Pickup Time: ' + futureDate.toISOString());"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Search successful', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.car_types.length).to.be.greaterThan(0);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Step 1: Search completed');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"start_time\": \"{{flowPickupTime}}\",\n    \"source\": {\n        \"city\": \"DELHI\",\n        \"address\": \"IGI Airport Terminal 3\",\n        \"latitude\": 28.5550838,\n        \"longitude\": 77.0844015\n    },\n    \"destination\": {\n        \"city\": \"GURGAON\",\n        \"address\": \"Cyber Hub, Gurgaon\",\n        \"latitude\": 28.4949,\n        \"longitude\": 77.0889\n    },\n    \"trip_type_details\": {\n        \"basic_trip_type\": \"AIRPORT\",\n        \"airport_type\": \"PICKUP\"\n    },\n    \"one_way_distance\": 35,\n    \"search_id\": \"{{flowSearchId}}\",\n    \"partner_name\": \"GOMMT\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnersearchendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnersearchendpoint"]
+                        }
+                    }
+                },
+                {
+                    "name": "2. Block the Ride",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Block successful', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.success).to.equal(true);",
+                                    "    pm.expect(jsonData.response.order_reference_number).to.be.a('string');",
+                                    "});",
+                                    "",
+                                    "const response = pm.response.json();",
+                                    "if (response.response && response.response.order_reference_number) {",
+                                    "    pm.collectionVariables.set('flowBookingId', response.response.order_reference_number);",
+                                    "    pm.collectionVariables.set('flowOtp', response.response.verification_code);",
+                                    "    console.log('✅ Step 2: Block completed');",
+                                    "    console.log('🎫 Booking ID: ' + response.response.order_reference_number);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"sku_id\": \"TATA_TIGOR_EV\",\n    \"mmt_ref_id\": \"{{flowMmtRefId}}\",\n    \"start_time\": \"{{flowPickupTime}}\",\n    \"source\": {\n        \"city\": \"DELHI\",\n        \"address\": \"IGI Airport Terminal 3\",\n        \"latitude\": 28.5550838,\n        \"longitude\": 77.0844015\n    },\n    \"destination\": {\n        \"city\": \"GURGAON\",\n        \"address\": \"Cyber Hub, Gurgaon\",\n        \"latitude\": 28.4949,\n        \"longitude\": 77.0889\n    },\n    \"trip_type_details\": {\n        \"basic_trip_type\": \"AIRPORT\"\n    },\n    \"one_way_distance\": 35,\n    \"customer_name\": \"Flow Test User\",\n    \"customer_mobile\": \"9876543210\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnerblockendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnerblockendpoint"]
+                        }
+                    }
+                },
+                {
+                    "name": "3. Confirm Payment",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Confirm successful', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.success).to.equal(true);",
+                                    "    pm.expect(jsonData.response.status).to.equal('CONFIRMED');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Step 3: Payment confirmed');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"order_reference_number\": \"{{flowBookingId}}\",\n    \"partner_reference_number\": \"{{flowMmtRefId}}\",\n    \"amount_to_be_collected\": 950\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnerpaidendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnerpaidendpoint"]
+                        }
+                    }
+                },
+                {
+                    "name": "4. Get Booking Details",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Details retrieved', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.status).to.equal('CONFIRMED');",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Step 4: Details retrieved');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/booking/details?booking_id={{flowBookingId}}",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "booking", "details"],
+                            "query": [
+                                {
+                                    "key": "booking_id",
+                                    "value": "{{flowBookingId}}"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "5. Reschedule (Block)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "// Set new time to 48 hours from now",
+                                    "const newDate = new Date();",
+                                    "newDate.setHours(newDate.getHours() + 48);",
+                                    "pm.collectionVariables.set('flowNewPickupTime', newDate.toISOString());"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Reschedule block successful', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.success).to.equal(true);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Step 5a: Reschedule block completed');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"order_reference_number\": \"{{flowBookingId}}\",\n    \"start_time\": \"{{flowNewPickupTime}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnerrescheduleblockendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnerrescheduleblockendpoint"]
+                        }
+                    }
+                },
+                {
+                    "name": "6. Reschedule (Confirm)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Reschedule confirm successful', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Step 5b: Reschedule confirmed');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"order_reference_number\": \"{{flowBookingId}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnerrescheduleconfirmendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnerrescheduleconfirmendpoint"]
+                        }
+                    }
+                },
+                {
+                    "name": "7. Cancel Booking",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test('Cancel successful', function() {",
+                                    "    pm.response.to.have.status(200);",
+                                    "    const jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.response.success).to.equal(true);",
+                                    "});",
+                                    "",
+                                    "console.log('✅ Step 6: Booking cancelled');",
+                                    "console.log('🎉 Complete Flow Test PASSED!');"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"order_reference_number\": \"{{flowBookingId}}\",\n    \"cancelled_by\": \"Customer\",\n    \"cancellation_reason\": \"Flow test complete - cleanup\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/partners/mmt/partnercancelendpoint",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["partners", "mmt", "partnercancelendpoint"]
+                        }
+                    }
+                }
+            ],
+            "description": "## Complete Integration Flow\n\n**Run these requests in order to test the full booking lifecycle:**\n\n1. **Search** - Find available vehicles\n2. **Block** - Reserve the ride\n3. **Confirm** - Payment confirmation\n4. **Details** - Verify booking status\n5. **Reschedule** - Change pickup time\n6. **Cancel** - Clean up test booking\n\n### Usage\n1. Use Postman's \"Run collection\" feature\n2. Select this folder only\n3. Run requests sequentially"
+        }
+    ],
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "// Collection-level pre-request script",
+                    "// Logs can be viewed in Postman Console (View > Show Postman Console)"
+                ]
+            }
+        },
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "// Collection-level test script",
+                    "// Runs after every request in this collection"
+                ]
+            }
+        }
+    ]
+}

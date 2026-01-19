@@ -50,7 +50,7 @@ These endpoints allow MMT to search, book, and manage rides.
 
 ### 2.1 Search Fare (Availability)
 
-**POST** `/partner/mmt/partnersearchendpoint`
+**POST** `/partners/mmt/partnersearchendpoint`
 
 Checks availability and returns pricing for the requested route.
 
@@ -85,7 +85,7 @@ Checks availability and returns pricing for the requested route.
 
 ### 2.2 Block Ride (Pre-book)
 
-**POST** `/partner/mmt/partnerblockendpoint`
+**POST** `/partners/mmt/partnerblockendpoint`
 
 Temporarily holds the inventory.
 
@@ -105,7 +105,7 @@ Temporarily holds the inventory.
 
 ### 2.3 Confirm Paid (Confirm Booking)
 
-**POST** `/partner/mmt/partnerpaidendpoint`
+**POST** `/partners/mmt/partnerpaidendpoint`
 
 Confirms the booking after MMT collects payment from the user.
 
@@ -121,7 +121,7 @@ Confirms the booking after MMT collects payment from the user.
 
 ### 2.4 Cancel Ride
 
-**POST** `/partner/mmt/partnercancelendpoint`
+**POST** `/partners/mmt/partnercancelendpoint`
 
 Cancels a confirmed booking.
 
@@ -135,7 +135,7 @@ Cancels a confirmed booking.
 
 ### 2.5 Reschedule - Check (Block)
 
-**POST** `/partner/mmt/partnerrescheduleblockendpoint`
+**POST** `/partners/mmt/partnerrescheduleblockendpoint`
 
 Validates if a reschedule is possible for the new time.
 
@@ -163,7 +163,7 @@ Validates if a reschedule is possible for the new time.
 
 ### 2.6 Reschedule - Confirm
 
-**POST** `/partner/mmt/partnerrescheduleconfirmendpoint`
+**POST** `/partners/mmt/partnerrescheduleconfirmendpoint`
 
 Commits the reschedule. **Note**: Does not require time in body; uses the time validated in the Block step.
 
@@ -200,4 +200,4 @@ We will call your webhook endpoints to update trip status.
 - **UAT Environment**: [UAT URL]
 
 > [!TIP]
-> Use the endpoint `/partner/mmt/booking/details?partner_reference_number=...` to poll the status of any booking explicitly if webhooks are missed.
+> Use the endpoint `/partners/mmt/booking/details?partner_reference_number=...` to poll the status of any booking explicitly if webhooks are missed.

@@ -71,18 +71,18 @@ export class PenaltyService {
 
         if (availableDeposit >= amount) {
             // Full deduction from deposit
-            await prisma.$transaction([
+            await prisma.$transaction(async (tx) => {
                 // Deduct from deposit
-                prisma.driver.update({
+                await tx.driver.update({
                     where: { id: driverId },
                     data: {
                         depositBalance: {
                             decrement: amount,
                         },
                     },
-                }),
+                });
                 // Update penalty
-                prisma.penalty.update({
+                await tx.penalty.update({
                     where: { id: penaltyId },
                     data: {
                         deductedFromDeposit: true,
@@ -91,9 +91,9 @@ export class PenaltyService {
                         isPaid: true,
                         paidAt: new Date(),
                     },
-                }),
+                });
                 // Create transaction record
-                prisma.transaction.create({
+                await tx.transaction.create({
                     data: {
                         driverId,
                         type: TransactionType.PENALTY,
@@ -103,23 +103,23 @@ export class PenaltyService {
                         penaltyId,
                         description: `Penalty deducted from deposit`,
                     },
-                }),
-            ]);
+                });
+            }, { timeout: 20000 });
             return { message: 'Penalty deducted from deposit' };
         } else if (availableDeposit > 0) {
             // Partial deduction from deposit
             const remainingAmount = amount - availableDeposit;
 
-            await prisma.$transaction([
+            await prisma.$transaction(async (tx) => {
                 // Deduct available deposit
-                prisma.driver.update({
+                await tx.driver.update({
                     where: { id: driverId },
                     data: {
                         depositBalance: 0,
                     },
-                }),
+                });
                 // Update penalty
-                prisma.penalty.update({
+                await tx.penalty.update({
                     where: { id: penaltyId },
                     data: {
                         deductedFromDeposit: true,
@@ -127,9 +127,9 @@ export class PenaltyService {
                         depositDeductionAmount: availableDeposit,
                         isPaid: false, // Still needs payment for remaining
                     },
-                }),
+                });
                 // Create transaction for deducted amount
-                prisma.transaction.create({
+                await tx.transaction.create({
                     data: {
                         driverId,
                         type: TransactionType.PENALTY,
@@ -139,8 +139,8 @@ export class PenaltyService {
                         penaltyId,
                         description: `Partial penalty deduction from deposit (₹${availableDeposit} of ₹${amount})`,
                     },
-                }),
-            ]);
+                });
+            }, { timeout: 20000 });
 
             // Create payment link for remaining amount
             try {
@@ -274,7 +274,7 @@ export class PenaltyService {
             });
 
             logger.info(`[PenaltyService] Driver ${driverId} suspended from ${startDate.toISOString()} to ${endDate.toISOString()}. Cancelled ${cancelledTrips.count} trips.`);
-        });
+        }, { timeout: 20000 });
     }
 
     /**

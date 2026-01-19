@@ -5,8 +5,9 @@
 **Base URL (Development):** `http://localhost:3000` (API Gateway)  
 **Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
 **Auth:** Requires `Authorization: Bearer <TOKEN>` with Role `SUPER_ADMIN`, `OPERATIONS`, or `MANAGER`  
-**Version:** 4.0.0 (Microservices)  
-**Last Updated:** January 12, 2026
+**Version:** 4.1.0 (Microservices + S3 + Fleet Manager Migration)  
+**Last Updated:** January 17, 2026  
+**Last Verified:** January 17, 2026
 
 > **Note:** All requests route through the API Gateway to 6 microservices. The gateway handles authentication and routing automatically.
 
@@ -23,6 +24,7 @@
 7. [Payment & Financial Management](#7-payment--financial-management)
 8. [Frontend Implementation Notes](#8-frontend-implementation-notes)
 9. [Rapido Operational Monitoring](#9-rapido-operational-monitoring)
+10. [Maps Service](#10-maps-service)
 
 ---
 
@@ -51,6 +53,11 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```
 
 **Action:** Check `user.role`. Redirect to dashboard only if `SUPER_ADMIN` or `OPERATIONS`.
+
+**Token Expiry:**
+
+- **Access Token:** 15 minutes (all clients)
+- **Refresh Token:** 1 day (web clients default)
 
 ---
 
@@ -238,6 +245,30 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ---
 
+### 2.6 Partner Bookings (MMT)
+
+**Identification**:
+Trips originating from MakeMyTrip will have:
+
+- `tripType`: `AIRPORT`
+- `providerMapping`:
+
+```json
+{
+  "providerType": "MMT",
+  "externalBookingId": "MMT-XXXXXX",
+  "status": "CONFIRMED"
+}
+```
+
+**Operational Rules**:
+
+1. **Auto-Assignment**: These are often auto-assigned or require priority manual assignment.
+2. **Cancellation**: Cancelling an MMT trip here triggers the `/detach-trip` webhook to MMT.
+3. **Reassignment**: Reassigning triggers `/reassign-chauffeur` webhook.
+
+---
+
 ## 3. Fleet & Asset Management
 
 ### 3.1 Fleets (Operators)
@@ -299,16 +330,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 #### Get Fleet Details
 
----
-
-## 3. Fleet Management
-
-### 3.1 Fleets & Hubs
-
-#### Create Fleet
-
-**Endpoint:** `POST /fleets`
-**Role:** `SUPER_ADMIN`
+### 3.1.1 Hub Management
 
 #### Manage Hubs
 
@@ -318,7 +340,9 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 #### Manage Hub Managers
 
-**Create Manager:** `POST /fleets/:id/hub-managers`
+> **Note:** Hub Managers are regular Users with role `MANAGER` and a linked `fleetId`.
+
+**Create Manager:** `POST /fleets/:id/hub-managers` (Creates User with role MANAGER)
 **List Managers:** `GET /fleets/:id/hub-managers`
 **Assign Manager:** `POST /fleets/hubs/:hubId/assign-manager`
 
@@ -487,11 +511,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 **Endpoint:** `GET /drivers/:id`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
----
-
-## 4. Operations & Assignments
-
-### 3.4 Update Driver Status & Availability
+### 3.4 Driver Operations (Status & Availability)
 
 #### Update Status
 
@@ -521,6 +541,79 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ---
 
+### 3.5 Image Upload Service (S3 Presigned URLs)
+
+**Endpoint:** `GET /drivers/upload-url`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`, `DRIVER`
+
+**Description:** Generate secure presigned URLs for uploading images and documents directly to S3. This is used for driver documents, vehicle photos, and other assets.
+
+**Query Parameters:**
+
+- `folder` (required): `selfies`, `odometer`, `documents`, `profiles`, `vehicles`
+- `fileType` (required): `jpg`, `jpeg`, `png`, `pdf`
+
+**Request Example:**
+
+```http
+GET /drivers/upload-url?folder=documents&fileType=pdf
+Authorization: Bearer <ACCESS_TOKEN>
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "uploadUrl": "https://s3.amazonaws.com/driversklub-assets/documents/uuid.pdf?X-Amz-...",
+    "key": "documents/uuid.pdf",
+    "url": "https://driversklub-assets.s3.ap-south-1.amazonaws.com/documents/uuid.pdf"
+  },
+  "message": "Upload URL generated successfully"
+}
+```
+
+**Upload Flow:**
+
+1. **Request Upload URL**: Call this endpoint
+2. **Upload File**: Send `PUT` request to `uploadUrl` with file as binary body
+3. **Store URL**: Save the `url` field to database or send to other APIs
+
+**Example Upload (JavaScript/React):**
+
+```javascript
+// Step 1: Get presigned URL
+const response = await fetch(
+  `${baseUrl}/drivers/upload-url?folder=documents&fileType=pdf`,
+  {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }
+);
+const { data } = await response.json();
+
+// Step 2: Upload file to S3
+await fetch(data.uploadUrl, {
+  method: 'PUT',
+  body: file,
+  headers: { 'Content-Type': 'application/pdf' }
+});
+
+// Step 3: Use the final URL
+const documentUrl = data.url;
+```
+
+**Use Cases:**
+
+- Upload driver license/Aadhaar during onboarding
+- Upload vehicle RC/insurance documents
+- Upload odometer photos during attendance
+- Upload profile pictures
+
+**Note:** Presigned URLs expire in 5 minutes.
+
+---
+
 ## 4. Operations & Assignments
 
 ### 4.1 Attendance Management
@@ -547,10 +640,6 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 **Endpoint:** `GET /attendance/:id`
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
-
----
-
----
 
 ### 4.2 Daily Vehicle Assignment (Roster)
 
@@ -721,15 +810,24 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ### 6.1 Preview Pricing
 
 **Endpoint:** `POST /pricing/preview`  
-**Auth Required:** No  
-**Description:** "Get Estimate" button on Create Trip form
+**Auth Required:** Yes  
+**Description:** "Get Estimate" button on Create Trip form. Uses client-provided distance to calculate fare.
 
 **Request Body:**
 
 ```json
 {
-  "distanceKm": 45,
-  "tripType": "AIRPORT"
+  "pickup": "Connaught Place, New Delhi",
+  "drop": "Cyber City, Gurgaon",
+  "tripType": "INTER_CITY",
+  "tripDate": "2024-05-20T10:00:00.000Z",
+  "bookingDate": "2024-05-19T10:00:00.000Z",
+  
+  // Vehicle specification (choose one):
+  "vehicleType": "EV",              // Direct type
+  "vehicleSku": "TATA_TIGOR_EV",    // Or use SKU (auto-detected)
+  
+  "distanceKm": 25.5  // Optional: Fallback if Google Maps fails
 }
 ```
 
@@ -739,28 +837,31 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 {
   "success": true,
   "data": {
-    "baseFare": 800,
-    "distanceCharge": 400,
-    "totalFare": 1200,
+    "distanceSource": "GOOGLE_MAPS", // or "CLIENT_PROVIDED"
+    "billableDistanceKm": 25.5,
+    "ratePerKm": 25,
+    "baseFare": 637.5,
+    "totalFare": 765,
     "breakdown": {
-      "minBillableKm": 40,
-      "ratePerKm": 20
-    }
-  }
+      "distanceFare": 637.5,
+      "tripTypeMultiplier": 1.2,
+      "bookingTimeMultiplier": 1.0,
+      "vehicleMultiplier": 1.0
+    },
+    "currency": "INR"
+  },
+  "message": "Fare calculated successfully"
 }
 ```
 
-**Use Case:** Show fare before booking to set customer expectations.
-
----
-
----
+> [!NOTE]
+> **Distance Calculation:** The admin dashboard (or client app) should calculate the distance using Google Maps, Mapbox, or similar service before calling this API. The backend pricing engine uses the `distanceKm` value provided in the request to calculate the fare.
 
 ## 7. Payment & Financial Management
 
 ### 7.1 Create Rental Plan
 
-**Endpoint:** `POST /payment/admin/rental-plans`  
+**Endpoint:** `POST /payments/admin/rental-plans`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
@@ -797,7 +898,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ### 7.2 Get Rental Plans
 
-**Endpoint:** `GET /payment/admin/rental-plans/:fleetId`  
+**Endpoint:** `GET /payments/admin/rental-plans/:fleetId`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Query Parameters:**
@@ -808,7 +909,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ### 7.3 Create Penalty
 
-**Endpoint:** `POST /payment/admin/penalty`  
+**Endpoint:** `POST /payments/admin/penalty`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
@@ -853,7 +954,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ### 7.4 Waive Penalty
 
-**Endpoint:** `POST /payment/admin/penalty/:id/waive`  
+**Endpoint:** `POST /payments/admin/penalty/:id/waive`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
@@ -886,7 +987,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ### 7.5 Create Incentive
 
-**Endpoint:** `POST /payment/admin/incentive`  
+**Endpoint:** `POST /payments/admin/incentive`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request Body:**
@@ -916,7 +1017,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ### 7.6 Process Incentive Payout
 
-**Endpoint:** `POST /payment/admin/incentive/:id/payout`  
+**Endpoint:** `POST /payments/admin/incentive/:id/payout`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response (200):**
@@ -940,7 +1041,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ### 7.7 Reconcile Daily Collection
 
-**Endpoint:** `POST /payment/admin/collection/:id/reconcile`  
+**Endpoint:** `POST /payments/admin/collection/:id/reconcile`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Request Body:**
@@ -975,7 +1076,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ### 7.8 Process Daily Payout
 
-##### POST `/payment/admin/collection/:id/payout`
+#### POST `/payment/admin/collection/:id/payout`
 >
 > **DEPRECATED**: Use Bulk Payout instead.
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
@@ -984,7 +1085,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ### 7.9 Bulk Payout (Manual)
 
-**Endpoint:** `POST /payment/admin/bulk-payout`
+**Endpoint:** `POST /payments/admin/bulk-payout`
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Request:** `multipart/form-data`
@@ -1022,7 +1123,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
   "success": true,
   "data": {
     "virtualAccountId": "VA123456789",
-    "qrCodeBase64": "iVBORw0KGgoAAAANSUhEUgAA...",
+    "qrCodeBase64": "https://api.qrserver.com/v1/create-qr-code/...",
     "upiId": "vehicle@easebuzz"
   }
 }
@@ -1030,11 +1131,27 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
 
 **Get Existing QR:** `GET /payments/admin/vehicle/:vehicleId/qr`
 
+> [!NOTE]
+> **Field Name Clarification**: The `qrCodeBase64` field can contain either:
+>
+> - A **URL** (from Easebuzz or fallback QR generator)
+> - A **base64 string** (in some cases)
+>
+> In test mode, a fallback QR is generated using the UPI ID.
+
 **Frontend Usage:**
 
 ```javascript
-// Display QR code
-<img src={`data:image/png;base64,${qrCodeBase64}`} alt="Vehicle QR" />
+// Display QR code - works for both URL and base64
+<img 
+  src={qrCodeBase64?.startsWith('http') 
+    ? qrCodeBase64 
+    : `data:image/png;base64,${qrCodeBase64}`} 
+  alt="Vehicle QR" 
+/>
+
+// Simpler: If you're sure it's a URL (current implementation)
+<img src={qrCodeBase64} alt="Vehicle QR" />
 ```
 
 **Features:**
@@ -1042,12 +1159,13 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
 - Scannable with any UPI app
 - Payments tracked automatically
 - Print for vehicle placement
+- Fallback QR generated in test mode
 
 ---
 
 ### 7.10 Get Pending Reconciliations
 
-**Endpoint:** `GET /payment/admin/reconciliations/pending`  
+**Endpoint:** `GET /payments/admin/reconciliations/pending`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response (200):**
@@ -1077,7 +1195,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
 
 ### 7.11 Get Pending Payouts
 
-**Endpoint:** `GET /payment/admin/payouts/pending`  
+**Endpoint:** `GET /payments/admin/payouts/pending`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response (200):**
@@ -1108,7 +1226,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
 
 ### 7.12 Generate Vehicle QR Code
 
-**Endpoint:** `POST /payment/admin/vehicle/:id/qr`  
+**Endpoint:** `POST /payments/admin/vehicle/:id/qr`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`
 
 **Response (201):**
@@ -1134,7 +1252,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
 
 ### 7.13 Get Vehicle QR Code
 
-**Endpoint:** `GET /payment/admin/vehicle/:id/qr`  
+**Endpoint:** `GET /payments/admin/vehicle/:id/qr`  
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response (200):**
@@ -1159,7 +1277,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
 
 #### Create Order (Generate Dynamic QR)
 
-**Endpoint:** `POST /payment/orders`
+**Endpoint:** `POST /payments/orders`
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Request Body:**
@@ -1197,7 +1315,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
 
 #### Get Order Details
 
-**Endpoint:** `GET /payment/orders/:id`
+**Endpoint:** `GET /payments/orders/:id`
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Response (200):**
@@ -1231,7 +1349,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
 
 #### List Orders
 
-**Endpoint:** `GET /payment/orders`
+**Endpoint:** `GET /payments/orders`
 **Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Query Params:**
@@ -1412,3 +1530,54 @@ If a driver manually forces themselves ONLINE in the Rapido app:
 1. System detects `status: online` webhook.
 2. System checks assignments.
 3. If conflict exists, system forces OFFLINE immediately.
+
+---
+
+## 10. Maps Service
+
+### 10.1 Location Autocomplete
+
+**Endpoint:** `GET /maps/autocomplete`  
+**Auth Required:** Yes  
+**Role:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Query Parameters:**
+
+- `query` (required): Search text (e.g., "Airport")
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "description": "Indira Gandhi International Airport, New Delhi",
+      "place_id": "ChIJ..."
+    }
+  ]
+}
+```
+
+### 10.2 Geocode Address
+
+**Endpoint:** `GET /maps/geocode`  
+**Auth Required:** Yes  
+**Role:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Query Parameters:**
+
+- `address` (required): Address string
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "lat": 28.5562,
+    "lng": 77.1000,
+    "formattedAddress": "Indira Gandhi International Airport..."
+  }
+}
+```

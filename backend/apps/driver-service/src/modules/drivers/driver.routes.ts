@@ -12,6 +12,10 @@ import {
   createDriverPreferencesChangeRequest,
   getAllPreferenceChangePendingRequests,
   updatePreferenceChangeRequestStatus,
+  createNewDriver,
+  getActivePlan,
+  getPlanHistory,
+  getUploadUrl,
 } from "./driver.controller.js";
 import { authenticate, authorizeRoles } from "@driversklub/common";
 import { hydrateUserScope } from "../../middlewares/hydrateUserScope.js";
@@ -19,8 +23,13 @@ import { hydrateUserScope } from "../../middlewares/hydrateUserScope.js";
 const router = Router();
 
 
+router.post("/new-driver-onboard", createNewDriver);
+
 router.use(authenticate);
 router.use(hydrateUserScope);
+
+// Utility route for uploads (S3 Presigned URL)
+router.get("/upload-url", authorizeRoles("DRIVER", "SUPER_ADMIN", "FLEET_ADMIN", "OPERATIONS", "MANAGER"), getUploadUrl);
 
 router.post("/", authorizeRoles("SUPER_ADMIN", "FLEET_ADMIN", "OPERATIONS", "MANAGER"), createDriver);
 
@@ -86,4 +95,18 @@ router.post(
   updatePreferenceChangeRequestStatus
 );
 
+// Driver Rental Plan Routes
+router.get(
+  "/:id/active-plan",
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "DRIVER"),
+  getActivePlan
+);
+
+router.get(
+  "/:id/plan-history",
+  authorizeRoles("SUPER_ADMIN", "OPERATIONS", "MANAGER", "DRIVER"),
+  getPlanHistory
+);
+
 export default router;
+

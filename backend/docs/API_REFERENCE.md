@@ -1,10 +1,11 @@
 # 📚 Complete API Reference
 
-**Version:** 4.0.0 (Microservices Architecture)  
+**Version:** 4.1.0 (Microservices + S3 + Fleet Manager Migration)  
 **Base URL (Development):** `http://localhost:3000` (API Gateway)  
 **Base URL (Staging):** `https://driversklub-backend.onrender.com`  
 **Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
-**Last Updated:** January 12, 2026
+**Last Updated:** January 17, 2026  
+**Last Verified:** January 17, 2026
 
 ## Architecture Overview
 
@@ -18,7 +19,7 @@ This API is built on a **microservices architecture** with 6 independent service
 - **Trip Service** (Port 3005) - Trips, payments, pricing & partners
 - **Notification Service** (Port 3006) - Real-time notifications
 
-**Total Endpoints:** 103
+**Total Endpoints:** 104
 
 > **Note:** All requests should go through the API Gateway. Individual service ports are for internal communication only.
 
@@ -33,7 +34,7 @@ This API is built on a **microservices architecture** with 6 independent service
   - [Users](#users)
   - [Drivers](#drivers)
   - [Fleet Management](#fleet-management)
-  - [Fleet Managers](#fleet-managers)
+
   - [Vehicles](#vehicles)
   - [Assignments](#assignments)
   - [Attendance](#attendance)
@@ -164,6 +165,22 @@ Verify OTP and authenticate user.
 - OTP is deleted after successful verification (prevents reuse)
 - Dev bypass only works in non-production environments
 
+**Request Headers (Optional):**
+
+```http
+x-client-type: app
+```
+
+**Token Expiry:**
+
+- **Access Token:** 15 minutes (all clients)
+- **Refresh Token:**
+  - Mobile App (`x-client-type: app`): 30 days
+  - Web Client (`x-client-type: web`): 1 day
+  - Default (no header): 1 day
+
+**Note:** Set `x-client-type` header to control refresh token expiry duration.
+
 ---
 
 #### POST `/auth/refresh`
@@ -219,9 +236,182 @@ Logout user and revoke tokens.
 
 ---
 
+### Driver Onboarding (New)
+
+#### POST `/users/drivers/verify`
+
+Check if a driver phone number is already registered or eligible for signup.
+
+**Authentication:** None
+
+**Request Body:**
+
+```json
+{
+  "phone": "9876543210"
+}
+```
+
+**Response (Success):**
+
+```json
+{
+  "success": true,
+  "message": "OTP sent successfully"
+}
+```
+
+*Note: If user exists, returns 404/400 Conflict message.*
+
+---
+
+#### POST `/users/drivers/verifyOtp`
+
+Verify the OTP for driver registration.
+
+**Request Body:**
+
+```json
+{
+  "phone": "9876543210",
+  "otp": "123456",
+  "verifiedKey": "optional-bypass-key"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "OTP verified successfully"
+}
+```
+
+---
+
+#### POST `/users/drivers/signup`
+
+Create a new Driver account (User + Driver Profile).
+
+**Request Body:**
+
+```json
+{
+  "name": "New Driver",
+  "phone": "9876543210"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "user-uuid",
+    "name": "New Driver",
+    "role": "DRIVER",
+    "isActive": true
+  }
+}
+```
+
+---
+
 ### Users
 
-All user endpoints require authentication.
+All user endpoints require authentication (except Public Signup).
+
+#### POST `/users/drivers/verify`
+
+Check if a phone number is already registered.
+
+**Authentication:** None (Public)
+
+**Request Body:**
+
+```json
+{
+  "phone": "9876543210"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "OTP sent successfully",
+  "data": {
+    "message": "OTP sent successfully"
+  }
+}
+```
+
+**Note:** If user already exists, returns error `404` with message "User already registered".
+
+---
+
+#### POST `/users/drivers/verifyOtp`
+
+Verify OTP for signup (if different from Auth OTP).
+
+**Authentication:** None (Public)
+
+**Request Body:**
+
+```json
+{
+  "phone": "9876543210",
+  "otp": "123456"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "OTP Verified"
+}
+```
+
+---
+
+#### POST `/users/drivers/signup`
+
+Create a new Driver account (Public Self-Registration).
+
+**Authentication:** None (Public)
+
+**Request Body:**
+
+```json
+{
+  "name": "Raju Pilot",
+  "phone": "9876543210",
+  "referralCode": "REF123",  // Optional
+  "vehicleDetails": {        // Optional (if creating vehicle)
+     "vehicleNumber": "DL01ABC1234",
+     "model": "Tata Nexon EV"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "user": { "id": "...", "role": "DRIVER" },
+    "token": "..." // Auto-login token
+  }
+}
+```
+
+---
 
 #### POST `/users`
 
@@ -971,87 +1161,6 @@ Remove a driver from a hub.
 
 ---
 
-### Fleet Managers
-
-All fleet manager endpoints require authentication.
-
-#### POST `/fleet-managers`
-
-Create a fleet manager.
-
-**Authentication:** Required  
-**Roles:** `SUPER_ADMIN`, `OPERATIONS`
-
-**Request Body:**
-
-```json
-{
-  "userId": "uuid",
-  "fleetId": "uuid",
-  "name": "Manager Name",
-  "phone": "9876543210"
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "userId": "uuid",
-    "fleetId": "uuid",
-    "name": "Manager Name",
-    "phone": "9876543210"
-  }
-}
-```
-
----
-
-#### GET `/fleet-managers/fleet/:fleetId`
-
-Get all fleet managers for a fleet.
-
-**Authentication:** Required  
-**Roles:** `SUPER_ADMIN`, `OPERATIONS`
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "uuid",
-      "name": "Manager Name",
-      "phone": "9876543210"
-    }
-  ]
-}
-```
-
----
-
-#### PATCH `/fleet-managers/:id/deactivate`
-
-Deactivate a fleet manager.
-
-**Authentication:** Required  
-**Roles:** `SUPER_ADMIN`
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "Fleet manager deactivated successfully"
-}
-```
-
----
-
 #### GET `/drivers/:id/preference`
 
 Get current driver preferences.
@@ -1776,6 +1885,54 @@ Driver check-in.
 
 ---
 
+#### GET `/drivers/upload-url`
+
+Generate presigned S3 URL for secure file uploads.
+
+**Authentication:** Required  
+**Roles:** `DRIVER`, `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| folder | string | Yes | `selfies`, `odometer`, `documents`, `profiles`, `vehicles` |
+| fileType | string | Yes | `jpg`, `jpeg`, `png`, `pdf` |
+
+**Request Example:**
+
+```http
+GET /drivers/upload-url?folder=odometer&fileType=jpg
+Authorization: Bearer <ACCESS_TOKEN>
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "uploadUrl": "https://s3.amazonaws.com/driversklub-assets/odometer/uuid.jpg?X-Amz-...",
+    "key": "odometer/uuid.jpg",
+    "url": "https://driversklub-assets.s3.ap-south-1.amazonaws.com/odometer/uuid.jpg"
+  },
+  "message": "Upload URL generated successfully"
+}
+```
+
+**Upload Flow:**
+
+1. Request presigned URL from this endpoint
+2. Upload file to `uploadUrl` using PUT request
+3. Use the `url` field in other APIs (e.g., `selfieUrl`, `odometerImageUrl`)
+
+**Notes:**
+
+- Presigned URLs expire in 5 minutes
+- Direct S3 upload - no file passes through backend
+
+---
+
 #### POST `/attendance/check-out`
 
 Driver check-out.
@@ -1793,10 +1950,13 @@ Driver check-out.
     "longitude": 77.0266
   },
   "odometer": 10500,
+  "odometerImageUrl": "https://s3.aws.com/bucket/odometer.jpg",
   "cashDeposited": 500,
   "timestamp": "2025-12-26T18:00:00.000Z"
 }
 ```
+
+**Note:** `odometerImageUrl` is optional. Upload image using `/drivers/upload-url` first.
 
 **Response:**
 
@@ -2515,7 +2675,7 @@ Get pricing preview for a trip.
 
 Partner integration endpoints for MakeMyTrip.
 
-#### POST `/partner/mmt/partnersearchendpoint`
+#### POST `/partners/mmt/partnersearchendpoint`
 
 Search for available vehicles (MMT → Driver's Klub).
 
@@ -2552,7 +2712,7 @@ Search for available vehicles (MMT → Driver's Klub).
 
 ---
 
-#### POST `/partner/mmt/partnerblockendpoint`
+#### POST `/partners/mmt/partnerblockendpoint`
 
 Block a vehicle for booking (MMT → Driver's Klub).
 
@@ -2584,7 +2744,7 @@ Block a vehicle for booking (MMT → Driver's Klub).
 
 ---
 
-#### POST `/partner/mmt/partnerpaidendpoint`
+#### POST `/partners/mmt/partnerpaidendpoint`
 
 Confirm booking payment (MMT → Driver's Klub).
 
@@ -2614,7 +2774,7 @@ Confirm booking payment (MMT → Driver's Klub).
 
 ---
 
-#### POST `/partner/mmt/partnercancelendpoint`
+#### POST `/partners/mmt/partnercancelendpoint`
 
 Cancel a booking (MMT → Driver's Klub).
 
@@ -2640,7 +2800,7 @@ Cancel a booking (MMT → Driver's Klub).
 
 ---
 
-#### GET `/partner/mmt/booking/details`
+#### GET `/partners/mmt/booking/details`
 
 Get booking details (MMT → Driver's Klub).
 
@@ -2673,7 +2833,7 @@ Get booking details (MMT → Driver's Klub).
 
 ---
 
-#### POST `/partner/mmt/partnerrescheduleblockendpoint`
+#### POST `/partners/mmt/partnerrescheduleblockendpoint`
 
 Validate logic for reschedule request (MMT → Driver's Klub).
 
@@ -2709,7 +2869,7 @@ Validate logic for reschedule request (MMT → Driver's Klub).
 
 ---
 
-#### POST `/partner/mmt/partnerrescheduleconfirmendpoint`
+#### POST `/partners/mmt/partnerrescheduleconfirmendpoint`
 
 Confirm reschedule request (MMT → Driver's Klub).
 
@@ -2888,8 +3048,6 @@ Endpoints returning lists support pagination:
 
 ---
 
----
-
 ### Vehicle QR Generation
 
 #### POST `/payments/admin/vehicle/:id/qr`
@@ -2906,11 +3064,13 @@ Generate Easebuzz virtual account QR code for a vehicle.
   "success": true,
   "data": {
     "virtualAccountId": "VA123456789",
-    "qrCodeBase64": "iVBORw0KGgoAAAANSUhEUgAA...",
+    "qrCodeBase64": "https://api.qrserver.com/v1/create-qr-code/...",
     "upiId": "vehicle@easebuzz"
   }
 }
 ```
+
+> **Note:** The `qrCodeBase64` field may contain a URL (from Easebuzz or fallback generator) or base64 string. In test mode, a fallback QR URL is generated from the UPI ID.
 
 #### GET `/payments/admin/vehicle/:id/qr`
 
@@ -2947,15 +3107,23 @@ Get driver balance & rental status.
 
 ```json
 {
-  "depositBalance": 5000,
-  "paymentModel": "RENTAL",
-  "hasActiveRental": true,
-  "rental": {
-    "planName": "Weekly Plan",
-    "startDate": "2025-12-23T00:00:00.000Z",
-    "expiryDate": "2025-12-30T00:00:00.000Z",
-    "daysRemaining": 3,
-    "isExpired": false
+  "success": true,
+  "data": {
+    "depositBalance": 5000,
+    "paymentModel": "RENTAL",
+    "hasActiveRental": true,
+    "rental": {
+      "planName": "Weekly Plan",
+      "amount": 2500,
+      "startDate": "2025-12-23T00:00:00.000Z",
+      "expiryDate": "2025-12-30T00:00:00.000Z",
+      "daysRemaining": 3,
+      "isExpired": false,
+      "vehicle": {
+        "number": "KA01 AB 1234",
+        "model": "TATA Tigor EV"
+      }
+    }
   }
 }
 ```
@@ -3171,9 +3339,13 @@ Initiate deposit payment.
 
 ```json
 {
-  "transactionId": "uuid",
-  "paymentUrl": "https://testpay.easebuzz.in/pay/...",
-  "txnId": "TXN_1735123456_ABC123"
+  "success": true,
+  "data": {
+    "transactionId": "uuid",
+    "paymentUrl": "https://testpay.easebuzz.in/pay/0c4d0ab67...",
+    "accessKey": "0c4d0ab671a967784530587dbca8e2c8...",
+    "txnId": "TXN_1735123456_ABC123"
+  }
 }
 ```
 
@@ -3198,9 +3370,13 @@ Initiate rental payment.
 
 ```json
 {
-  "transactionId": "uuid",
-  "paymentUrl": "https://testpay.easebuzz.in/pay/...",
-  "txnId": "TXN_1735123456_XYZ789"
+  "success": true,
+  "data": {
+    "transactionId": "uuid",
+    "paymentUrl": "https://testpay.easebuzz.in/pay/0c4d0ab67...",
+    "accessKey": "0c4d0ab671a967784530587dbca8e2c8...",
+    "txnId": "TXN_1735123456_XYZ789"
+  }
 }
 ```
 
@@ -3552,6 +3728,26 @@ Get detailed order information including transaction history.
 }
 ```
 
+## Partner Integrations
+
+### MakeMyTrip (MMT)
+
+Full integration documentation is available in the dedicated guide: **[MMT Integration Guide](./MMT_INTEGRATION_COMPLETE.md)**.
+
+#### Summary of MMT Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/partners/mmt/partnersearchendpoint` | POST | Search availability |
+| `/partners/mmt/partnerblockendpoint` | POST | Block inventory |
+| `/partners/mmt/partnerpaidendpoint` | POST | Confirm booking |
+| `/partners/mmt/partnercancelendpoint` | POST | Cancel booking |
+| `/partners/mmt/partnerrescheduleblockendpoint` | POST | Reschedule check |
+| `/partners/mmt/partnerrescheduleconfirmendpoint` | POST | Reschedule confirm |
+| `/partners/mmt/booking/details` | GET | Check booking status |
+
+---
+
 ### Rapido (Fleet)
 
 Webhook callbacks from Rapido Fleet API.
@@ -3610,3 +3806,264 @@ Callback for Captain login/availability status.
 ```
 
 ---
+
+## Pricing Engine
+
+Pricing endpoints for fare calculation.
+
+### POST `/pricing/preview`
+
+Calculate fare estimate for a trip.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`, `DRIVER`
+
+**Request Body:**
+
+```json
+{
+  "pickup": "Connaught Place, New Delhi",
+  "drop": "Cyber City, Gurgaon",
+  "tripType": "INTER_CITY",
+  "tripDate": "2024-05-20T10:00:00.000Z",
+  "bookingDate": "2024-05-19T10:00:00.000Z",
+  
+  // Vehicle specification (use one of these):
+  "vehicleType": "EV",              // Option 1: Direct type
+  "vehicleSku": "TATA_TIGOR_EV",    // Option 2: Vehicle SKU (auto-detects type)
+  
+  "distanceKm": 25.5  // Optional: Used as fallback if Google Maps unavailable
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "distanceSource": "GOOGLE_MAPS",
+    "billableDistanceKm": 26,
+    "ratePerKm": 25,
+    "baseFare": 650,
+    "totalFare": 780,
+    "breakdown": {
+      "distanceFare": 650,
+      "tripTypeMultiplier": 1.2,
+      "bookingTimeMultiplier": 1.0,
+      "vehicleMultiplier": 1.0
+    },
+    "currency": "INR"
+  },
+  "message": "Fare calculated successfully"
+}
+```
+
+**Distance Calculation:**
+
+- If `pickup` and `drop` are provided AND `GOOGLE_MAPS_API_KEY` is set, the system uses Google Maps Distance Matrix API
+- Falls back to `distanceKm` if Google Maps fails or is not configured
+- Response includes `distanceSource` field indicating which source was used
+
+**See Also:** [Pricing Engine Documentation](./PRICING_ENGINE_DOCUMENTATION.md) for complete details.
+
+---
+
+## Complete Endpoint Reference - All Services
+
+This section provides a comprehensive reference for all 112+ endpoints across all 6 microservices.
+
+### Summary Table
+
+| Service | Endpoint Count |
+|---------|----------------|
+| Authentication | 8 |
+| Driver | 22 |
+| Vehicle | 23 |
+| Assignment | 4 |
+| Trip | 54 |
+| Notification | 1 |
+| **TOTAL** | **112** |
+
+---
+
+### Authentication Service (8 endpoints)
+
+| Method | Endpoint | Auth | Roles | Description |
+|--------|----------|------|-------|-------------|
+| POST | `/auth/send-otp` | No | - | Send OTP to phone number |
+| POST | `/auth/verify-otp` | No | - | Verify OTP and get tokens |
+| POST | `/auth/refresh` | No | - | Refresh access token |
+| POST | `/auth/logout` | No | - | Logout user |
+| POST | `/users` | Yes | SUPER_ADMIN | Create new user |
+| GET | `/users` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Get all users |
+| GET | `/users/:id` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Get user by ID |
+| PATCH | `/users/:id/deactivate` | Yes | SUPER_ADMIN | Deactivate user |
+
+---
+
+### Driver Service (22 endpoints)
+
+| Method | Endpoint | Auth | Roles | Description |
+|--------|----------|------|-------|-------------|
+| POST | `/drivers` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Create driver |
+| GET | `/drivers/fleet/:fleetId` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Get drivers by fleet |
+| GET | `/drivers/hub/:hubId` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Get drivers by hub |
+| GET | `/drivers/me` | Yes | DRIVER | Get my profile |
+| GET | `/drivers/:id` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Get driver by ID |
+| PATCH | `/drivers/:id` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Update driver |
+| PATCH | `/drivers/:id/status` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Update driver status |
+| PATCH | `/drivers/:id/availability` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Update availability |
+| GET | `/drivers/:id/preference` | Yes | SUPER_ADMIN, DRIVER, MANAGER | Get driver preferences |
+| POST | `/drivers/:id/preference/update` | Yes | SUPER_ADMIN, DRIVER, MANAGER | Update preference request |
+| GET | `/drivers/preference/pending-requests` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Get pending requests |
+| POST | `/drivers/preference/update-status` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Update request status |
+| GET | `/drivers/:id/active-plan` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER, DRIVER | Get active rental plan |
+| GET | `/drivers/:id/plan-history` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER, DRIVER | Get plan history |
+| POST | `/attendance/check-in` | Yes | All | Check in attendance |
+| POST | `/attendance/check-out` | Yes | All | Check out attendance |
+| POST | `/attendance/start-break` | Yes | All | Start break |
+| POST | `/attendance/end-break` | Yes | All | End break |
+| GET | `/attendance/history` | Yes | All | Get attendance history |
+| GET | `/attendance/:id` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Get attendance by ID |
+| POST | `/attendance/:id/approve` | Yes | SUPER_ADMIN, MANAGER | Approve attendance |
+| POST | `/attendance/:id/reject` | Yes | SUPER_ADMIN, MANAGER | Reject attendance |
+
+---
+
+### Vehicle Service (23 endpoints)
+
+| Method | Endpoint | Auth | Roles | Description |
+|--------|----------|------|-------|-------------|
+| POST | `/vehicles` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Create vehicle |
+| GET | `/vehicles/fleet/:fleetId` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Get vehicles by fleet |
+| GET | `/vehicles/hub/:hubId` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Get vehicles by hub |
+| GET | `/vehicles/:id` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Get vehicle by ID |
+| PATCH | `/vehicles/:id` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Update vehicle |
+| PATCH | `/vehicles/:id/docs` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Update vehicle documents |
+| PATCH | `/vehicles/:id/status` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Update vehicle status |
+| PATCH | `/vehicles/:id/deactivate` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Deactivate vehicle |
+| POST | `/fleets` | Yes | SUPER_ADMIN | Create fleet |
+| GET | `/fleets` | Yes | SUPER_ADMIN, OPERATIONS | Get all fleets |
+| GET | `/fleets/:id` | Yes | SUPER_ADMIN, OPERATIONS | Get fleet by ID |
+| PATCH | `/fleets/:id/deactivate` | Yes | SUPER_ADMIN | Deactivate fleet |
+| POST | `/fleets/:id/hubs` | Yes | SUPER_ADMIN, OPERATIONS | Create fleet hub |
+| GET | `/fleets/:id/hubs` | Yes | SUPER_ADMIN, OPERATIONS | Get all fleet hubs |
+| GET | `/fleets/hubs/:id` | Yes | SUPER_ADMIN, OPERATIONS | Get fleet hub by ID |
+| POST | `/fleets/:id/hub-managers` | Yes | SUPER_ADMIN, OPERATIONS | Create hub manager |
+| GET | `/fleets/:id/hub-managers` | Yes | SUPER_ADMIN, OPERATIONS | Get all hub managers |
+| GET | `/fleets/hub-manager/:id` | Yes | SUPER_ADMIN, OPERATIONS | Get hub manager by ID |
+| POST | `/fleets/hubs/:hubId/assign-manager` | Yes | SUPER_ADMIN, OPERATIONS | Assign manager to hub |
+| POST | `/fleets/hubs/:id/add-vehicle` | Yes | SUPER_ADMIN, OPERATIONS | Add vehicle to hub |
+| POST | `/fleets/hubs/:id/add-driver` | Yes | SUPER_ADMIN, OPERATIONS | Add driver to hub |
+| POST | `/fleets/hubs/:id/remove-vehicle` | Yes | SUPER_ADMIN, OPERATIONS | Remove vehicle from hub |
+| POST | `/fleets/hubs/:id/remove-driver` | Yes | SUPER_ADMIN, OPERATIONS | Remove driver from hub |
+
+---
+
+### Assignment Service (4 endpoints)
+
+| Method | Endpoint | Auth | Roles | Description |
+|--------|----------|------|-------|-------------|
+| POST | `/assignments` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Create assignment |
+| GET | `/assignments/fleet/:fleetId` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Get assignments by fleet |
+| GET | `/assignments/trip/:tripId` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | Get assignments by trip |
+| PATCH | `/assignments/:id/end` | Yes | SUPER_ADMIN, OPERATIONS, MANAGER | End assignment |
+
+---
+
+### Notification Service (1 endpoint)
+
+| Method | Endpoint | Auth | Roles | Description |
+|--------|----------|------|-------|-------------|
+| POST | `/notifications/send` | Yes | All | Send notification |
+
+---
+
+**Trip Service endpoints (54 total) are documented in previous sections including:**
+
+- Trip Operations (11 endpoints)
+- Admin Trip Operations (4 endpoints)
+- Pricing (1 endpoint)
+- Payment Driver Endpoints (8 endpoints)
+- Payment Admin Endpoints (13 endpoints)
+- InstaCollect Orders (3 endpoints)
+- MMT Partner Integration (7 endpoints)
+- Rapido Partner Integration (5 endpoints)
+- Webhooks (2 endpoints)
+
+---
+
+### Maps Service (2 endpoints)
+
+| Method | Endpoint | Auth | Roles | Description |
+|--------|----------|------|-------|-------------|
+| GET | `/maps/autocomplete` | Yes | DRIVER, OPS, MANAGER, SUPER_ADMIN | Get location suggestions |
+| GET | `/maps/geocode` | Yes | DRIVER, OPS, MANAGER, SUPER_ADMIN | Geocode address to lat/lng |
+
+---
+
+**Last Updated:** January 15, 2026  
+**Total Documented Endpoints:** 114 across 6 microservices
+
+---
+
+## Google Maps Service (2 endpoints)
+
+| Method | Endpoint | Auth | Roles | Description |
+|--------|----------|------|-------|-------------|
+| GET | `/maps/autocomplete` | Yes | DRIVER, OPS, MANAGER, SUPER_ADMIN | Get location suggestions |
+| GET | `/maps/geocode` | Yes | DRIVER, OPS, MANAGER, SUPER_ADMIN | Geocode address to lat/lng |
+
+### Autocomplete
+
+#### GET `/maps/autocomplete`
+
+Get location suggestions for a specific query string. Validates against Google Maps Places API.
+
+**Authentication:** Required
+
+**Query Parameters:**
+
+- `query`: String (Required) - The search text (e.g. "Airport")
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "description": "Indira Gandhi International Airport, New Delhi, Delhi 110037, India",
+      "place_id": "ChIJ..."
+    }
+  ]
+}
+```
+
+---
+
+### Geocoding
+
+#### GET `/maps/geocode`
+
+Convert an address string into latitude and longitude coordinates.
+
+**Authentication:** Required
+
+**Query Parameters:**
+
+- `address`: String (Required) - The address to geocode
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "lat": 28.5561624,
+    "lng": 77.1002807,
+    "formattedAddress": "Indira Gandhi International Airport, New Delhi, Delhi 110037, India"
+  }
+}
+```

@@ -55,4 +55,18 @@ export class MMTAdapter implements ExternalRideProvider {
             }
         };
     }
+
+    async getRideStatus(providerBookingId: string): Promise<string> {
+        try {
+            const response = await mmtRequest(
+                "GET",
+                `/api/v2/cabs/status/${providerBookingId}`
+            );
+            // Assuming the response contains a status field
+            return response.data?.status || "UNKNOWN";
+        } catch (error: any) {
+            console.error(`Failed to get ride status for ${providerBookingId}:`, error.message);
+            throw new Error(error.message || "Failed to get ride status from MMT");
+        }
+    }
 }

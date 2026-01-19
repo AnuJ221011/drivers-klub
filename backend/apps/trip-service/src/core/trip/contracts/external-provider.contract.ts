@@ -8,4 +8,5 @@ export interface ExternalRideProvider {
   cancelBooking(input: any): Promise<void>;
   getBookingDetails(input: any): Promise<any>;
   trackRide(input: any): Promise<any>;
+  getRideStatus(providerBookingId: string): Promise<string>;
 }

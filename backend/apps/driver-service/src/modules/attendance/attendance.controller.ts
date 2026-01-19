@@ -124,7 +124,7 @@ export class AttendanceController {
   // Driver Check-Out
   async checkOut(req: Request, res: Response) {
     try {
-      const { driverId, odometer, cashDeposited } = req.body;
+      const { driverId, odometer, cashDeposited, odometerImageUrl } = req.body;
 
       const active = await prisma.attendance.findFirst({
         where: {
@@ -162,6 +162,7 @@ export class AttendanceController {
           checkOutTime: new Date(),
           status: AttendanceStatus.CHECKED_OUT,
           odometerEnd: endOdometer,
+          odometerImageUrl,
           cashDeposited: cash,
         },
       });

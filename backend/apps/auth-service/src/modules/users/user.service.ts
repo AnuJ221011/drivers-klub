@@ -78,6 +78,20 @@ export class UserService {
         });
     }
 
+    async createPublicUser(data: CreateUserInput): Promise<UserEntity> {
+        if (!data?.phone) throw new ApiError(400, "Invalid user data");
+
+        // Strict role check: Public creation only allowed for DRIVER
+        if (data.role !== "DRIVER") {
+            throw new ApiError(403, "Public registration only allowed for Drivers");
+        }
+
+        const existingUser = await this.userRepo.findByPhone(data.phone);
+        if (existingUser) throw new ApiError(409, "User with this phone number already exists");
+
+        return this.userRepo.create(data);
+    }
+
     async updateUser(
         actor: { role: UserRole; fleetId?: string | null },
         userId: string,

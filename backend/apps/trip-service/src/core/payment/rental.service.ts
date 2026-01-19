@@ -80,7 +80,7 @@ export class RentalService {
     }) {
         const driver = await prisma.driver.findUnique({
             where: { id: params.driverId },
-            include: { user: true },
+            include: { user: true, fleet: true },
         });
 
         if (!driver) {
@@ -99,13 +99,19 @@ export class RentalService {
             },
         });
 
+        // Require real email - no fake emails
+        if (!driver.fleet?.email) {
+            throw new Error('Fleet email not configured. Please set fleet email in admin panel before initiating payments.');
+        }
+        const customerEmail = driver.fleet.email;
+
         // Initiate payment via Easebuzz
         const payment = await easebuzzAdapter.initiatePayment({
             amount: params.amount,
             productInfo: 'Security Deposit',
             firstName: driver.firstName,
             phone: driver.mobile,
-            email: driver.user.phone + '@driversklub.com', // Fallback email
+            email: customerEmail,
             successUrl:
                 params.successUrl || process.env.PAYMENT_SUCCESS_URL || 'http://localhost:3000/payment/success',
             failureUrl:
@@ -140,7 +146,7 @@ export class RentalService {
     }) {
         const driver = await prisma.driver.findUnique({
             where: { id: params.driverId },
-            include: { user: true },
+            include: { user: true, fleet: true },
         });
 
         if (!driver) {
@@ -183,13 +189,19 @@ export class RentalService {
             },
         });
 
+        // Require real email - no fake emails
+        if (!driver.fleet?.email) {
+            throw new Error('Fleet email not configured. Please set fleet email in admin panel before initiating payments.');
+        }
+        const customerEmail = driver.fleet.email;
+
         // Initiate payment via Easebuzz
         const payment = await easebuzzAdapter.initiatePayment({
             amount: rentalPlan.rentalAmount,
             productInfo: `Rental - ${rentalPlan.name}`,
             firstName: driver.firstName,
             phone: driver.mobile,
-            email: driver.user.phone + '@driversklub.com',
+            email: customerEmail,
             successUrl:
                 params.successUrl || process.env.PAYMENT_SUCCESS_URL || 'http://localhost:3000/payment/success',
             failureUrl:
@@ -399,16 +411,33 @@ export class RentalService {
             (activeRental.expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
         );
 
+        // Get active vehicle assignment
+        const activeAssignment = await prisma.assignment.findFirst({
+            where: {
+                driverId: driverId,
+                status: 'ACTIVE',
+                endTime: null,
+            },
+            include: {
+                vehicle: true,
+            },
+        });
+
         return {
             depositBalance: driver?.depositBalance || 0,
             paymentModel: driver?.paymentModel,
             hasActiveRental: true,
             rental: {
                 planName: activeRental.rentalPlan.name,
+                amount: activeRental.rentalPlan.rentalAmount,
                 startDate: activeRental.startDate,
                 expiryDate: activeRental.expiryDate,
                 daysRemaining,
                 isExpired: daysRemaining <= 0,
+                vehicle: activeAssignment ? {
+                    number: activeAssignment.vehicle.vehicleNumber,
+                    model: activeAssignment.vehicle.vehicleModel,
+                } : null,
             },
         };
     }

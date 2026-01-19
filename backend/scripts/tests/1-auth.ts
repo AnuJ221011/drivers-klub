@@ -23,6 +23,30 @@ export async function run() {
         throw new Error("Admin login failed");
     }
 
+    // 1.1 Public Driver Signup Flow
+    console.log("   Testing Public Signup Flow...");
+
+    // A. Verify Phone
+    const verifyPhoneRes = await apiCall("POST", "/users/drivers/verify", { phone: "9870000000" });
+    if (verifyPhoneRes.success) {
+        console.log("      ✅ Verify Phone Passed (New User)");
+    } else {
+        console.error("      ❌ Verify Phone Failed:", verifyPhoneRes.error || verifyPhoneRes.data);
+    }
+
+    // B. Public Signup
+    const publicSignupRes = await apiCall("POST", "/users/drivers/signup", {
+        name: "Public Driver Test",
+        phone: "9870000000"
+    });
+
+    if (publicSignupRes.success) {
+        const userId = publicSignupRes.data?.data?.user?.id || publicSignupRes.data?.user?.id;
+        console.log(`      ✅ Public Signup Passed. Driver ID: ${userId}`);
+    } else {
+        console.error("      ❌ Public Signup Failed:", publicSignupRes.error);
+    }
+
     // 2. Driver Login
     const driverRes = await apiCall("POST", "/auth/verify-otp", {
         phone: DRIVER_PHONE,
@@ -41,6 +65,7 @@ export async function run() {
         throw new Error("Driver login failed");
     }
 }
+
 
 // Standalone
 if (process.argv[1] === import.meta.filename) {

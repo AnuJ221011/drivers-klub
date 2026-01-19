@@ -21,27 +21,31 @@ async function resolveScope(user: { id: string; role: string; fleetId: string | 
     return { fleetId, hubIds };
 }
 
-export const issueTokens = async (userId: string) => {
+
+export const issueTokens = async (userId: string, clientType: 'web' | 'app' = 'web') => {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         throw new ApiError(404, "User not found");
     }
 
     const { fleetId, hubIds } = await resolveScope(user as any);
+    const refreshExpiryDuration = clientType === 'app' ? '30d' : '1d';
+    const refreshExpiryDays = clientType === 'app' ? 30 : 1;
 
     const tokens = generateTokens({
         sub: user.id,
         role: user.role,
         phone: user.phone,
         fleetId,
-        hubIds
-    });
+        hubIds,
+        clientType // Store in payload for rotation
+    }, refreshExpiryDuration);
 
     await prisma.refreshToken.create({
         data: {
             token: tokens.refreshToken,
             userId: user.id,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            expiresAt: new Date(Date.now() + refreshExpiryDays * 24 * 60 * 60 * 1000)
         }
     });
 
@@ -60,7 +64,6 @@ export const refresh = async (refreshTokenInput: string) => {
     }
 
     // rotate
-    // rotate
     try {
         await prisma.refreshToken.delete({ where: { token: refreshTokenInput } });
     } catch {
@@ -74,19 +77,26 @@ export const refresh = async (refreshTokenInput: string) => {
     }
     const { fleetId, hubIds } = await resolveScope(user as any);
 
+    // Preserve clientType or fallback to 'web'
+    const clientType = payload.clientType || 'web';
+    const refreshExpiryDuration = clientType === 'app' ? '30d' : '1d';
+    const refreshExpiryDays = clientType === 'app' ? 30 : 1;
+
     const tokens = generateTokens({
         sub: user.id,
         role: user.role,
         phone: user.phone,
         fleetId,
-        hubIds
-    });
+        hubIds,
+        clientType
+    }, refreshExpiryDuration);
+    
 
     await prisma.refreshToken.create({
         data: {
             token: tokens.refreshToken,
             userId: payload.sub,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            expiresAt: new Date(Date.now() + refreshExpiryDays * 24 * 60 * 60 * 1000)
         }
     });
 

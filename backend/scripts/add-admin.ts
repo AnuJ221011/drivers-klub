@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { UserRole } from "@prisma/client";
-import { prisma } from "../src/utils/prisma.js";
+import { prisma } from "@driversklub/database";
 
 async function main() {
     const phone = "9999999999";
@@ -23,9 +23,9 @@ async function main() {
             },
         });
 
-        console.log(`✅ Admin user ready: ${admin.name} - ${admin.phone} (ID: ${admin.id})`);
+        console.log(`Admin user ready: ${admin.name} - ${admin.phone} (ID: ${admin.id})`);
     } catch (e) {
-        console.error("❌ Failed to seed admin:", e);
+        console.error("Failed to seed admin:", e);
         process.exit(1);
     } finally {
         await prisma.$disconnect();

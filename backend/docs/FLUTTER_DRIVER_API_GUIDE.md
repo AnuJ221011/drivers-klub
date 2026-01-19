@@ -5,8 +5,9 @@
 **Base URL (Development):** `http://localhost:3000` (API Gateway)  
 **Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
 **Auth Header:** `Authorization: Bearer <ACCESS_TOKEN>`  
-**Version:** 4.0.0 (Microservices)  
-**Last Updated:** January 12, 2026
+**Version:** 4.1.0 (Microservices + S3 + Fleet Manager Migration)  
+**Last Updated:** January 17, 2026  
+**Last Verified:** January 17, 2026
 
 > **Note:** All requests go through the API Gateway. The gateway routes to 6 microservices (Auth, Driver, Vehicle, Assignment, Trip, Notification).
 
@@ -19,14 +20,98 @@
 3. [Trip Management](#3-trip-management)
 4. [Driver Profile](#4-driver-profile)
 5. [Error Handling](#5-error-handling)
-6. [Payment & Wallet](#6-payment--wallet)
+6. [Finance & Rental Plans](#6-finance--rental-plans)
 7. [Rapido Status Management](#7-rapido-status-management)
+8. [Pricing & Utilities](#8-pricing--utilities)
+9. [Google Maps Service](#9-google-maps-service)
 
 ---
 
 ## 1. Authentication
 
-### 1.1 Send OTP
+### 1.1 New Driver Registration (Onboarding)
+
+The new onboarding flow allows drivers to self-register via the mobile app. It replaces the old "Admin-only" creation model.
+
+#### Step 1: Check Eligibility & Send OTP
+
+**Endpoint:** `POST /users/drivers/verify`
+
+Use this to screen the phone number.
+
+* If user exists -> Returns error (User already registered).
+* If new -> Sends OTP via SMS.
+
+```json
+// Request
+{ "phone": "9876543210" }
+
+// Response
+{ "message": "OTP sent successfully" }
+```
+
+#### Step 2: Verify OTP
+
+**Endpoint:** `POST /users/drivers/verifyOtp`
+
+Verify the OTP entered by the driver.
+
+```json
+// Request
+{
+    "phone": "9876543210",
+    "otp": "123456"
+}
+
+// Response
+{ "message": "OTP verified successfully" }
+```
+
+#### Step 3: Create Account (Signup)
+
+**Endpoint:** `POST /users/drivers/signup`
+
+Creates the `User` and empty `Driver` profile. Does NOT require Auth token (Public).
+
+```json
+// Request
+{
+    "name": "Amit Kumar",
+    "phone": "9876543210"
+}
+
+// Response
+{
+    "id": "u-123",
+    "name": "Amit Kumar",
+    "role": "DRIVER",
+    "token": "..." // Auto-login after signup
+}
+```
+
+> **Note:** If the signup endpoint does *not* return a token, you must call normal Login (`POST /auth/verify-otp`) immediately after signup to get the session token.
+
+#### Step 4: KYC Profile Completion
+
+Once logged in (Token received), the driver must complete their profile using the standard Driver API:
+
+**Endpoint:** `PATCH /drivers/profile` (or `PATCH /drivers/:id`)
+
+**New Fields Available:**
+
+* `email`
+* `dob` (Date of Birth)
+* `address`, `city`, `pincode`
+* `aadharNumber`, `panNumber`, `dlNumber`
+
+**Document Uploads (S3 Presigned URLs):**
+
+* `licenseFront`, `licenseBack`
+* `aadharFront`, `aadharBack`
+* `panCardImage`
+* `livePhoto`
+
+### 1.2 Send OTP
 
 **Endpoint:** `POST /auth/send-otp`  
 **Auth Required:** No
@@ -73,6 +158,14 @@
 }
 ```
 
+**Request Headers (Optional):**
+
+```http
+x-client-type: app
+```
+
+**Note:** Set `x-client-type` header to `app` for mobile apps or `web` for web clients. This determines refresh token expiry duration.
+
 **Dev Bypass (Development Only):**
 
 ```json
@@ -103,8 +196,11 @@
 
 **Token Expiry:**
 
-- **Access Token:** 15 minutes
-- **Refresh Token:** 7 days
+* **Access Token:** 15 minutes (all clients)
+* **Refresh Token:**
+  * **Mobile App** (`x-client-type: app`): 30 days
+  * **Web Client** (`x-client-type: web`): 1 day
+  * **Default** (no header): 1 day
 
 **Action:**
 
@@ -179,7 +275,7 @@
 
 **Side Effects:**
 
-- **Rapido Status**: Driver is automatically marked **ONLINE** on Rapido (if no other conflicts exist).
+* **Rapido Status**: Driver is automatically marked **ONLINE** on Rapido (if no other conflicts exist).
 
 ---
 
@@ -195,11 +291,15 @@
 {
   "driverId": "uuid-driver-id",
   "odometer": 10650,
+  "odometerImageUrl": "https://s3.aws.com/bucket/odometer.jpg",
   "cashDeposited": 5000
 }
 ```
 
-**Note:** `cashDeposited` is the Amount the driver declares they are submitting (Cash + UPI collection) at day end.
+**Note:**
+
+* `cashDeposited` is the Amount the driver declares they are submitting (Cash + UPI collection) at day end.
+* `odometerImageUrl` is optional. Upload odometer image to S3 first using `/drivers/upload-url`, then send the URL.
 
 **Response (200):**
 
@@ -216,12 +316,12 @@
 
 **Error Responses (400):**
 
-- **Invalid Odometer:** `message: "Odometer reading cannot be less than start reading (10500)"`
-- **Invalid Cash:** `message: "Invalid cash deposit amount"`
+* **Invalid Odometer:** `message: "Odometer reading cannot be less than start reading (10500)"`
+* **Invalid Cash:** `message: "Invalid cash deposit amount"`
 
 **Side Effects:**
 
-- **Rapido Status**: Driver is forced **OFFLINE** on Rapido immediately.
+* **Rapido Status**: Driver is forced **OFFLINE** on Rapido immediately.
 
 ---
 
@@ -422,8 +522,8 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 **⚠️ STRICT CONSTRAINT:**
 
-- Can ONLY start within **2.5 hours** of `pickupTime`
-- Error if too early: `400 "Cannot start trip more than 2.5 hours before pickup"`
+* Can ONLY start within **2.5 hours** of `pickupTime`
+* Error if too early: `400 "Cannot start trip more than 2.5 hours before pickup"`
 
 **Response (200):**
 
@@ -436,8 +536,8 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 **Side Effects:**
 
-- Status: `DRIVER_ASSIGNED` → `STARTED`
-- MMT Webhook triggered (if MMT trip)
+* Status: `DRIVER_ASSIGNED` → `STARTED`
+* MMT Webhook triggered (if MMT trip)
 
 ---
 
@@ -462,8 +562,8 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 **Errors:**
 
-- `400 "Driver not within 500m geofence"` - Too far from pickup
-- `400 "Cannot arrive more than 30 minutes before pickup"` - Too early
+* `400 "Driver not within 500m geofence"` - Too far from pickup
+* `400 "Cannot arrive more than 30 minutes before pickup"` - Too early
 
 **Response (200):**
 
@@ -476,8 +576,8 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 **Side Effects:**
 
-- Status: `STARTED` → `ARRIVED`
-- SMS sent to customer: "Driver Arrived"
+* Status: `STARTED` → `ARRIVED`
+* SMS sent to customer: "Driver Arrived"
 
 ---
 
@@ -507,7 +607,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 **Side Effects:**
 
-- Status: `ARRIVED` → `ONBOARD`
+* Status: `ARRIVED` → `ONBOARD`
 
 ---
 
@@ -536,8 +636,8 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 **Side Effects:**
 
-- Status: `ONBOARD` → `COMPLETED`
-- Driver becomes available for next assignment
+* Status: `ONBOARD` → `COMPLETED`
+* Driver becomes available for next assignment
 
 ---
 
@@ -556,8 +656,8 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 **⚠️ STRICT CONSTRAINT:**
 
-- Can ONLY mark no-show **AFTER 30 minutes** past `pickupTime`
-- Error if too early: `400 "Cannot mark no-show before 30 minutes past pickup time"`
+* Can ONLY mark no-show **AFTER 30 minutes** past `pickupTime`
+* Error if too early: `400 "Cannot mark no-show before 30 minutes past pickup time"`
 
 **Response (200):**
 
@@ -570,7 +670,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 **Side Effects:**
 
-- Status: → `NO_SHOW`
+* Status: → `NO_SHOW`
 
 ---
 
@@ -621,6 +721,39 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 ---
 
+---
+
+### 3.6 Partner Trips (MMT)
+
+**Identification**:
+Trips assigned from MakeMyTrip can be identified by:
+
+* `provider`: `"MMT"` (in Trip Details)
+* `tripType`: `"AIRPORT"` or `"OUTSTATION"`
+
+**Special Handling Rules**:
+
+1. **Prepaid/Zero Payment**:
+   * MMT trips are prepaid.
+   * **Do NOT collect cash** from the customer even if `price` is shown.
+   * Show "PREPAID" tag in the UI.
+
+2. **Mandatory OTP**:
+   * MMT requires a valid OTP for onboarding.
+   * Ensure the driver enters the exact 4-digit OTP provided by the customer.
+   * Sending "0000" or invalid OTP may cause MMT to reject the 'Onboard' status.
+
+3. **Location Updates**:
+   * MMT strictly tracks vehicle movement.
+   * Ensure `POST /trips/:id/location` is called every **30-60 seconds** without fail.
+   * Failure to send location updates may result in penalties from MMT.
+
+4. **Cancellation**:
+   * If a driver cancels an MMT trip, it triggers an immediate reassignment webhook.
+   * **Avoid frequent cancellations** to maintain fleet rating.
+
+---
+
 ## 4. Driver Profile
 
 ### 4.1 Get My Profile
@@ -668,11 +801,9 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 **Note:**
 
-- `assignments` array contains the currently assigned vehicle (if any)
-- If no vehicle is assigned, `assignments` will be an empty array `[]`
-- Use `assignments[0].vehicle` to access the assigned vehicle details
-
-```
+* `assignments` array contains the currently assigned vehicle (if any)
+* If no vehicle is assigned, `assignments` will be an empty array `[]`
+* Use `assignments[0].vehicle` to access the assigned vehicle details
 
 ---
 
@@ -713,9 +844,54 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
  }
  ```
 
- ---
+**Response (200):**
 
-### 4.4 Driver Preferences
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "planName": "Weekly Plan",
+      "rentalAmount": 3000,
+      "depositAmount": 5000,
+      "validityDays": 7,
+      "startDate": "2026-01-10T00:00:00.000Z",
+      "expiryDate": "2026-01-17T00:00:00.000Z",
+      "isActive": true,
+      "status": "ACTIVE"
+    },
+    {
+      "id": "uuid-2",
+      "planName": "Monthly Plan",
+      "rentalAmount": 10000,
+      "depositAmount": 5000,
+      "validityDays": 30,
+      "startDate": "2025-12-01T00:00:00.000Z",
+      "expiryDate": "2025-12-31T00:00:00.000Z",
+      "isActive": false,
+      "status": "EXPIRED"
+    }
+  ],
+  "message": "Plan history retrieved successfully"
+}
+```
+
+**Status Values:**
+
+* `ACTIVE` - Current active plan (not expired)
+* `EXPIRED` - Plan has passed expiry date
+* `INACTIVE` - Plan was deactivated before expiry
+
+**Use Case:**
+
+* Show driver's rental history in "My Plans" section
+* Display past plans with their validity periods
+* Useful for admin to track driver's subscription history
+
+---
+
+### 4.6 Driver Preferences
 
 #### Get My Preferences
 
@@ -773,6 +949,78 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 ---
 
+### 4.7 Get Upload URL (S3 Image Upload)
+
+**Endpoint:** `GET /drivers/upload-url`  
+**Auth Required:** Yes  
+**Role:** DRIVER
+
+**Query Parameters:**
+
+* `folder` (required): Folder name - `selfies`, `odometer`, `documents`, `profiles`, `vehicles`
+* `fileType` (required): File extension - `jpg`, `jpeg`, `png`, `pdf`
+
+**Request Example:**
+
+```http
+GET /drivers/upload-url?folder=odometer&fileType=jpg
+Authorization: Bearer <ACCESS_TOKEN>
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "uploadUrl": "https://s3.amazonaws.com/driversklub-assets/odometer/uuid.jpg?X-Amz-...",
+    "key": "odometer/uuid.jpg",
+    "url": "https://driversklub-assets.s3.ap-south-1.amazonaws.com/odometer/uuid.jpg"
+  },
+  "message": "Upload URL generated successfully"
+}
+```
+
+**Upload Flow:**
+
+1. **Request Upload URL**: Call this endpoint with desired folder and file type
+2. **Upload File**: Send a `PUT` request to the `uploadUrl` with the image file as binary body
+3. **Use Final URL**: Send the `url` field to other APIs (e.g., `selfieUrl` in check-in, `odometerImageUrl` in check-out)
+
+**Example Upload (Dart/Flutter):**
+
+```dart
+// Step 1: Get presigned URL
+final response = await http.get(
+  Uri.parse('$baseUrl/drivers/upload-url?folder=odometer&fileType=jpg'),
+  headers: {'Authorization': 'Bearer $token'},
+);
+final data = jsonDecode(response.body)['data'];
+
+// Step 2: Upload file to S3
+final file = File(imagePath);
+await http.put(
+  Uri.parse(data['uploadUrl']),
+  body: await file.readAsBytes(),
+  headers: {'Content-Type': 'image/jpeg'},
+);
+
+// Step 3: Use the final URL
+final imageUrl = data['url'];
+```
+
+**Allowed Folders:**
+
+* `selfies` - Driver check-in selfies
+* `odometer` - Odometer reading photos
+* `documents` - License, Aadhaar, etc.
+* `profiles` - Profile pictures
+* `vehicles` - Vehicle photos
+
+**Note:** Presigned URLs expire in 5 minutes. Upload must be completed within this time.
+
+---
+
 ## 5. Error Handling
 
 ### 5.1 HTTP Status Codes
@@ -804,252 +1052,60 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 ---
 
-## 6. Payment & Wallet
-
-### 6.1 Get Wallet Balance
-
- **Endpoint:** `GET /payment/balance`
- **Auth Required:** Yes
- **Role:** DRIVER
-
- **Response (200):**
-
- ```json
- {
-   "success": true,
-   "data": {
-     "driverId": "uuid",
-     "currentBalance": 1500.50,
-     "currency": "INR",
-     "paymentModel": "RENTAL",
-     "depositBalance": 5000,
-     "pendingDues": 0
-   }
- }
- ```
-
- **Use Case:**
-
-- **Dashboard Display**: Show `currentBalance` at the top of the home screen.
-- **Rental Check**: Warn driver if `currentBalance` is negative (RENTAL model).
-
- ---
-
-### 6.2 Get Transaction History
-
- **Endpoint:** `GET /payment/transactions`
- **Auth Required:** Yes
-
- **Query Params:**
-
-- `page` (default: 1)
-- `limit` (default: 20)
-- `type` (optional: `TRIP_PAYMENT`, `INCENTIVE`, `PENALTY`, `DEPOSIT`)
-
- **Response (200):**
-
- ```json
- {
-   "success": true,
-   "data": {
-     "transactions": [
-       {
-         "id": "uuid",
-         "amount": 450,
-         "type": "TRIP_PAYMENT",
-         "status": "SUCCESS",
-         "createdAt": "2025-12-25T14:30:00Z",
-         "description": "Trip payment for Ride #123"
-       }
-     ],
-     "current_page": 1,
-     "total_pages": 5
-   }
- }
- ```
-
- **Use Case:**
-
-- **Earnings Report**: Driver checks "Yesterday's Earnings" by filtering transactions.
-- **Transparency**: Verify deductions (Penalties) or additions (Incentives).
-
- ---
-
-### 6.3 Get Incentives
-
- **Endpoint:** `GET /payment/incentives`
- **Auth Required:** Yes
-
- **Response (200):**
-
- ```json
- {
-   "success": true,
-   "data": {
-     "incentives": [
-       {
-         "id": "uuid",
-         "amount": 500,
-         "reason": "Completed 50 Trips",
-         "isPaid": false
-       }
-     ],
-     "summary": {
-       "totalEarned": 2500,
-       "paid": 2000,
-       "pending": 500
-     }
-   }
- }
- ```
-
- **Use Case:**
-
-- **Motivation**: Show "Progress to Goal" or "Pending Payouts" to encourage more trips.
-
- ---
-
-## 7. Implementation Notes
-
-### 6.1 Background Location Tracking
-
-- The backend expects GPS coordinates during status changes
-- Implement background location service to track driver position
-- Send location updates during trip lifecycle transitions
-
-### 6.2 Offline Handling
-
-- The API requires online connectivity
-- Queue requests locally (SQLite) when offline
-- Sync when connection is restored
-- Show clear offline indicator to driver
-
-### 6.3 UI Feedback
-
-- Always show loading indicators during API calls
-- API latency can vary (200ms - 2s)
-- Implement retry logic for failed requests (max 3 retries)
-- Show clear error messages from API responses
-
-### 6.4 Token Management
-
-```dart
-// Pseudo-code for token refresh
-Future<void> refreshTokenIfNeeded() async {
-  if (isTokenExpired(accessToken)) {
-    final newToken = await api.refreshToken(refreshToken);
-    await secureStorage.write('accessToken', newToken);
-  }
-}
-
-// Intercept 401 responses
-if (response.statusCode == 401) {
-  await refreshTokenIfNeeded();
-  // Retry original request
-}
-```
-
-### 6.5 Geofencing Implementation
-
-```dart
-// Check if driver is within 500m of pickup
-double distance = Geolocator.distanceBetween(
-  driverLat, driverLng,
-  pickupLat, pickupLng
-);
-
-if (distance > 500) {
-  showError("You must be within 500m of pickup location");
-  return;
-}
-```
-
-### 6.6 Time Constraint Checks
-
-```dart
-// Check if within 2.5h window for start
-DateTime now = DateTime.now();
-DateTime pickupTime = DateTime.parse(trip.pickupTime);
-Duration diff = pickupTime.difference(now);
-
-if (diff.inHours > 2.5) {
-  showError("Cannot start trip more than 2.5 hours before pickup");
-  return;
-}
-```
-
-### 6.7 State Management
-
-- Use Provider/Riverpod/Bloc for state management
-- Cache trip list locally
-- Implement pull-to-refresh for trip list
-- Auto-refresh every 30 seconds when on trip list screen
-
-### 6.8 Push Notifications
-
-- Implement FCM for trip assignments
-- Handle notification when app is in background/killed
-- Deep link to specific trip when notification tapped
-
----
-
 ## 📝 Checklist for Production
 
-- [ ] Implement token refresh logic
-- [ ] Add offline queue mechanism
-- [ ] Implement background location tracking
-- [ ] Add geofencing validation before API calls
-- [ ] Add time constraint validation before API calls
-- [ ] Implement retry logic for failed requests
-- [ ] Add comprehensive error handling
-- [ ] Implement push notifications (FCM)
-- [ ] Add analytics/crash reporting (Firebase)
-- [ ] Test all edge cases (offline, poor network, etc.)
+* [ ] Implement token refresh logic
+* [ ] Add offline queue mechanism
+* [ ] Implement background location tracking
+* [ ] Add geofencing validation before API calls
+* [ ] Add time constraint validation before API calls
+* [ ] Implement retry logic for failed requests
+* [ ] Add comprehensive error handling
+* [ ] Implement push notifications (FCM)
+* [ ] Add analytics/crash reporting (Firebase)
+* [ ] Test all edge cases (offline, poor network, etc.)
 
----
+## 6. Finance & Rental Plans
 
----
+### 6.1 Get Balance & Financial Status
 
-## 5. Payment & Wallet
-
-### 5.1 Get Balance & Rental Status
-
-**Endpoint:** `GET /payment/balance`  
-**Auth Required:** Yes  
+**Endpoint:** `GET /payments/balance`
+**Auth Required:** Yes
 **Role:** DRIVER
 
 **Response (200):**
 
 ```json
 {
-  "depositBalance": 5000,
-  "paymentModel": "RENTAL",
-  "hasActiveRental": true,
-  "rental": {
-    "planName": "Weekly Plan",
-    "startDate": "2025-12-23T00:00:00.000Z",
-    "expiryDate": "2025-12-30T00:00:00.000Z",
-    "daysRemaining": 3,
-    "isExpired": false
+  "success": true,
+  "data": {
+    "depositBalance": 5100,
+    "paymentModel": "RENTAL",
+    "hasActiveRental": true,
+    "rental": {
+      "planName": "Weekly Starter",
+      "amount": 2500,
+      "startDate": "2026-01-15T00:00:00Z",
+      "expiryDate": "2026-01-22T00:00:00Z",
+      "daysRemaining": 30,
+      "isExpired": false,
+      "vehicle": {
+        "number": "BR34 QW 1234",
+        "model": "TATA Tigor EV"
+      }
+    }
   }
 }
 ```
 
-**UI Display:**
-
-- Show deposit balance prominently at top of wallet screen
-- Display rental validity like a SIM card validity (days remaining)
-- Show warning when rental expires in < 2 days
-
 ---
 
----
+### 6.2 Rental Management
 
-### 5.2 Get Available Rental Plans
+#### 6.2.1 Get Available Plans
 
-**Endpoint:** `GET /payment/rental/plans`  
-**Auth Required:** Yes  
-**Role:** DRIVER
+**Endpoint:** `GET /payments/rental/plans`
+**Description:** List all plans available for subscription.
 
 **Response (200):**
 
@@ -1059,154 +1115,26 @@ if (diff.inHours > 2.5) {
   "data": [
     {
       "id": "uuid",
-      "name": "Weekly Plan",
+      "name": "Weekly Starter",
       "rentalAmount": 3000,
       "depositAmount": 5000,
       "validityDays": 7,
-      "isActive": true
+      "description": "Best for new drivers"
     }
   ]
 }
 ```
 
----
+#### 6.2.2 Subscribe to Plan
 
-### 5.3 Get Transaction History
-
-**Endpoint:** `GET /payment/transactions?page=1&limit=20`  
-**Auth Required:** Yes  
-**Role:** DRIVER
-
-**Query Parameters:**
-
-- `page` (number, default: 1)
-- `limit` (number, default: 20)
-- `type` (optional): DEPOSIT, RENTAL, INCENTIVE, PENALTY, PAYOUT
-- `status` (optional): PENDING, SUCCESS, FAILED
-
-**Response (200):**
-
-```json
-{
-  "transactions": [
-    {
-      "id": "uuid",
-      "type": "DEPOSIT",
-      "amount": 5000,
-      "status": "SUCCESS",
-      "paymentMethod": "PG_UPI",
-      "description": "Security deposit - ₹5000",
-      "createdAt": "2025-12-23T10:00:00.000Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 45,
-    "totalPages": 3
-  }
-}
-```
-
-**UI Implementation:**
-
-- Implement infinite scroll or pagination
-- Show transaction type with icons (deposit, rental, incentive, penalty)
-- Color code: Green (credit), Red (debit)
-
----
-
-### 5.4 Get Incentives
-
-**Endpoint:** `GET /payment/incentives`  
-**Auth Required:** Yes  
-**Role:** DRIVER
-
-**Response (200):**
-
-```json
-{
-  "incentives": [
-    {
-      "id": "uuid",
-      "amount": 500,
-      "reason": "Completed 50 trips",
-      "category": "MILESTONE",
-      "isPaid": false,
-      "createdAt": "2025-12-25T00:00:00.000Z"
-    }
-  ],
-  "summary": {
-    "totalIncentives": 10,
-    "paidIncentives": 7,
-    "unpaidIncentives": 3,
-    "totalAmount": 5000,
-    "paidAmount": 3500,
-    "unpaidAmount": 1500
-  }
-}
-```
-
-**UI Display:**
-
-- Show total unpaid incentives prominently
-- List all incentives with paid/unpaid status
-- Show payout date for paid incentives
-
----
-
-### 5.5 Get Penalties
-
-**Endpoint:** `GET /payment/penalties`  
-**Auth Required:** Yes  
-**Role:** DRIVER
-
-**Response (200):**
-
-```json
-{
-  "penalties": [
-    {
-      "id": "uuid",
-      "type": "MONETARY",
-      "amount": 200,
-      "reason": "Late for pickup",
-      "isPaid": true,
-      "isWaived": false,
-      "deductedFromDeposit": true,
-      "depositDeductionAmount": 200,
-      "createdAt": "2025-12-24T00:00:00.000Z"
-    }
-  ]
-}
-```
-
-**Penalty Types:**
-
-- `MONETARY` - Financial penalty (auto-deducted from deposit)
-- `WARNING` - Verbal/written warning
-- `SUSPENSION` - Temporary suspension
-- `BLACKLIST` - Permanent ban
-
-**UI Display:**
-
-- Show penalties with clear reason
-- Indicate if waived (show in green)
-- Show deposit deduction for monetary penalties
-
----
-
-### 5.6 Initiate Deposit Payment
-
-**Endpoint:** `POST /payment/deposit`  
-**Auth Required:** Yes  
-**Role:** DRIVER
+**Endpoint:** `POST /payments/rental`
+**Description:** Initiate payment to subscribe to a plan. Requires checking `deposit` balance first.
 
 **Request Body:**
 
 ```json
 {
-  "amount": 5000
+  "rentalPlanId": "uuid-plan-id"
 }
 ```
 
@@ -1214,31 +1142,60 @@ if (diff.inHours > 2.5) {
 
 ```json
 {
-  "transactionId": "uuid",
-  "paymentUrl": "https://testpay.easebuzz.in/pay/...",
-  "txnId": "TXN_1735123456_ABC123"
+  "success": true,
+  "data": {
+    "transactionId": "uuid",
+    "paymentUrl": "https://testpay.easebuzz.in/pay/{accessKey}",
+    "accessKey": "0c4d0ab671a967784530587dbca8e2c8...",
+    "txnId": "TXN_1768492822722_AU6QJR"
+  }
 }
 ```
 
-**Implementation:**
+**Usage:** Open `paymentUrl` in a WebView or browser to complete payment.
 
-- Open `paymentUrl` in WebView or external browser
-- Handle success/failure callbacks
-- Refresh balance after payment
+#### 6.2.3 Get Active Plan Details
+
+**Endpoint:** `GET /drivers/:id/active-plan`
+**Note:** Use Driver ID from `GET /drivers/me`.
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid-rental-id",
+    "planName": "Weekly Starter",
+    "rentalAmount": 2500,
+    "depositAmount": 5000,
+    "validityDays": 7,
+    "startDate": "2026-01-15T00:00:00Z",
+    "expiryDate": "2026-01-22T00:00:00Z",
+    "isActive": true,
+    "daysRemaining": 5,
+    "vehicle": {
+      "number": "BR34 QW 1234",
+      "model": "TATA Tigor EV"
+    }
+  }
+}
+```
 
 ---
 
-### 5.7 Initiate Rental Payment
+### 6.3 Security Deposit
 
-**Endpoint:** `POST /payment/rental`  
-**Auth Required:** Yes  
-**Role:** DRIVER
+#### 6.3.1 Initiate Top-up
+
+**Endpoint:** `POST /payments/deposit`
+**Description:** Add money to security deposit via PG.
 
 **Request Body:**
 
 ```json
 {
-  "rentalPlanId": "uuid"
+  "amount": 2000
 }
 ```
 
@@ -1246,63 +1203,110 @@ if (diff.inHours > 2.5) {
 
 ```json
 {
-  "transactionId": "uuid",
-  "paymentUrl": "https://testpay.easebuzz.in/pay/...",
-  "txnId": "TXN_1735123456_XYZ789"
+  "success": true,
+  "data": {
+    "transactionId": "uuid",
+    "paymentUrl": "https://testpay.easebuzz.in/pay/{accessKey}",
+    "accessKey": "0c4d0ab671a967784530587dbca8e2c8...",
+    "txnId": "TXN_1768492822722_AU6QJR"
+  }
 }
 ```
 
-**Implementation:**
-
-- Show available rental plans first
-- Open payment URL in WebView
-- Activate rental after successful payment
+**Usage:** Open `paymentUrl` in a WebView or browser to complete payment.
 
 ---
 
-### 5.7 Get Daily Collections (Payout Model Only)
+### 6.4 Transactions & Summary
 
-**Endpoint:** `GET /payment/collections`  
+#### 6.4.1 Get Transaction History
+
+**Endpoint:** `GET /payments/transactions`
+**Query Params:** `page`, `limit`, `type` (DEPOSIT, RENTAL, PENALTY, INCENTIVE)
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "transactions": [
+      {
+        "id": "uuid",
+        "type": "DEPOSIT",
+        "amount": 5000,
+        "status": "SUCCESS",
+        "createdAt": "2025-12-01T10:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+#### 6.4.2 Get Incentives
+
+**Endpoint:** `GET /payments/incentives`
+
+#### 6.4.3 Get Penalties
+
+**Endpoint:** `GET /payments/penalties`
+
+#### 6.4.4 Get Daily Collections (Payout Model)
+
+**Endpoint:** `GET /payments/collections`
+
+#### 6.4.5 Get Weekly Earnings Summary
+
+**Endpoint:** `GET /payments/earnings/weekly`  
 **Auth Required:** Yes  
 **Role:** DRIVER
 
 **Query Parameters:**
 
-- `startDate` (optional): ISO date
-- `endDate` (optional): ISO date
+* `weeks` (optional, default: 5): Number of weeks to fetch (1-12)
 
 **Response (200):**
 
 ```json
 {
-  "collections": [
-    {
-      "id": "uuid",
-      "date": "2025-12-29T00:00:00.000Z",
-      "qrCollectionAmount": 3000,
-      "cashCollectionAmount": 2000,
-      "totalCollection": 5000,
-      "qrCollectionAmount": 3000,
-      "cashCollectionAmount": 2000,
-      "totalCollection": 5000,
-      "isPaid": false // Status tracked via Manual Payouts
-    }
-  ],
-  "summary": {
-    "totalDays": 30,
-    "totalCollections": 150000, // Gross Earnings
-    "totalPayout": 108000,      // Actual Paid (via CSV)
-    "deductions": 42000,        // Commission/Platform Fee (Derived)
-    "balance": 0                // No pending dues
+  "success": true,
+  "data": {
+    "currentWeek": {
+      "type": "current",
+      "weekNumber": 3,
+      "startDate": "2026-01-13",
+      "endDate": "2026-01-19",
+      "tripCount": 15,
+      "tripEarnings": 4500,
+      "incentives": 500,
+      "penalties": 200,
+      "netEarnings": 4800
+    },
+    "previousWeeks": [
+      {
+        "weekNumber": 2,
+        "startDate": "2026-01-06",
+        "endDate": "2026-01-12",
+        "tripCount": 12,
+        "tripEarnings": 3800,
+        "incentives": 300,
+        "penalties": 100,
+        "netEarnings": 4000
+      }
+    ],
+    "totalEarnings": 8800
   }
 }
 ```
 
-**Note:** Only visible for drivers on PAYOUT model
+**Use Case:**
+
+* **Earnings Dashboard**: Show weekly summary card on driver home screen
+* **Historical Trends**: Track performance over multiple weeks
 
 ---
 
-## 7. Rapido Status Management 🛵
+## 7. Rapido Status Management
 
 > [!IMPORTANT]
 > **Automatic Availability Control**:
@@ -1315,3 +1319,77 @@ if (diff.inHours > 2.5) {
 > **Do NOT implement** a manual "Go Online/Offline" toggle for Rapido status in the driver app. If a driver manually overrides this in the Rapido app, the backend will **force them back** to the correct state immediately.
 
 ---
+
+## 8. Pricing & Utilities
+
+### 8.1 Check Fare Estimate
+
+**Endpoint:** `POST /pricing/preview`  
+**Auth Required:** Yes  
+**Role:** `DRIVER`
+
+**Request Body:**
+
+```json
+{
+  "pickup": "Connaught Place, New Delhi",
+  "drop": "Cyber City, Gurgaon",
+  "tripType": "INTER_CITY",
+  "tripDate": "2024-05-20T10:00:00.000Z",
+  "bookingDate": "2024-05-19T10:00:00.000Z",
+  
+  // Vehicle (use one):
+  "vehicleType": "EV",              // Option 1
+  "vehicleSku": "TATA_TIGOR_EV",    // Option 2
+  
+  "distanceKm": 25.5  // Optional fallback
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "distanceSource": "GOOGLE_MAPS", // or "CLIENT_PROVIDED"
+    "billableDistanceKm": 26,
+    "ratePerKm": 25,
+    "baseFare": 650,
+    "totalFare": 780,
+    "breakdown": {
+      "distanceFare": 650,
+      "tripTypeMultiplier": 1.2,
+      "bookingTimeMultiplier": 1.0,
+      "vehicleMultiplier": 1.0
+    },
+    "currency": "INR"
+  },
+  "message": "Fare calculated successfully"
+}
+```
+
+> [!NOTE]
+> **Distance Calculation:** The mobile app should calculate distance using Google Maps SDK, Mapbox, or similar before calling this endpoint. The backend uses the provided `distanceKm` to calculate fare based on trip type, booking advance, and vehicle type.
+>
+> **See Also:** [Pricing Engine Documentation](../PRICING_ENGINE_DOCUMENTATION.md) for complete fare calculation details.
+
+---
+
+## 9. Google Maps Service
+
+**Base URL:** `/maps`
+
+These endpoints allow the app to proxy Google Maps requests through the backend, securing the API Key.
+
+### 9.1 Autocomplete
+
+**Endpoint:** `GET /maps/autocomplete`
+**Query Parameters:** `query` (required)
+**Use Case:** Address search bar.
+
+### 9.2 Geocode
+
+**Endpoint:** `GET /maps/geocode`
+**Query Parameters:** `address` (required)
+**Use Case:** Convert address to Lat/Lng.

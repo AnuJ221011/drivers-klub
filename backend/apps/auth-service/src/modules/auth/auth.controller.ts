@@ -70,7 +70,9 @@ export const verifyOtp = async (req: Request, res: Response) => {
         }
     }
 
-    const tokens = await issueTokens(user.id);
+
+    const clientType = req.headers['x-client-type'] === 'app' ? 'app' : 'web';
+    const tokens = await issueTokens(user.id, clientType);
 
     // Sync Rapido Status on Login
     if (user.role === 'DRIVER') {

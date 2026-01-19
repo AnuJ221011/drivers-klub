@@ -1,0 +1,2498 @@
+{
+  "info": {
+    "_postman_id": "drivers-klub-api-v4-complete",
+    "name": "Drivers Klub API V4 (Complete)",
+    "description": "Full API reference. Part 1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Auth Service",
+      "item": [
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"phone\":\"999\",\"role\":\"DRIVER\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/auth/send-otp",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "auth",
+                "send-otp"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"phone\":\"999\",\"otp\":\"1234\",\"role\":\"DRIVER\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/auth/verify-otp",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "auth",
+                "verify-otp"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"refreshToken\":\"{{REFRESH_TOKEN}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/auth/refresh",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"refreshToken\":\"{{REFRESH_TOKEN}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/auth/logout",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. User Service",
+      "item": [
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Ops\",\"phone\":\"999\",\"role\":\"OPERATIONS\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/users",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/users",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/users/{{USER_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "users",
+                "{{USER_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivate User",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/users/{{USER_ID}}/deactivate",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "users",
+                "{{USER_ID}}",
+                "deactivate"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Driver Service",
+      "item": [
+        {
+          "name": "Create Driver",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"firstName\":\"A\",\"lastName\":\"B\",\"mobile\":\"999\",\"fleetId\":\"{{FLEET_ID}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/drivers",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Drivers by Fleet",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/fleet/{{FLEET_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "fleet",
+                "{{FLEET_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Drivers by Hub",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/hub/{{HUB_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "hub",
+                "{{HUB_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/me",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Driver By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/{{DRIVER_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "{{DRIVER_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Driver",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"firstName\":\"NewName\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/{{DRIVER_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "{{DRIVER_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Status",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\":\"ACTIVE\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/{{DRIVER_ID}}/status",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "{{DRIVER_ID}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Availability",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"isAvailable\":true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/{{DRIVER_ID}}/availability",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "{{DRIVER_ID}}",
+                "availability"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Preferences",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/{{DRIVER_ID}}/preference",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "{{DRIVER_ID}}",
+                "preference"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Preference Req",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"homeLocation\":\"Delhi\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/{{DRIVER_ID}}/preference/update",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "{{DRIVER_ID}}",
+                "preference",
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Pending Pref Reqs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/preference/pending-requests",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "preference",
+                "pending-requests"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Pref Req Status",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"requestId\":\"REQ123\",\"status\":\"APPROVED\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/preference/update-status",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "preference",
+                "update-status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Plan",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/{{DRIVER_ID}}/active-plan",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "{{DRIVER_ID}}",
+                "active-plan"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Plan History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/drivers/{{DRIVER_ID}}/plan-history",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "drivers",
+                "{{DRIVER_ID}}",
+                "plan-history"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Attendance Service",
+      "item": [
+        {
+          "name": "Check In",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"lat\":28,\"lng\":77,\"odometer\":100}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/attendance/check-in",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "attendance",
+                "check-in"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check Out",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"odometer\":150}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/attendance/check-out",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "attendance",
+                "check-out"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Start Break",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/attendance/start-break",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "attendance",
+                "start-break"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "End Break",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/attendance/end-break",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "attendance",
+                "end-break"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/attendance/history",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "attendance",
+                "history"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/attendance/{{ATTENDANCE_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "attendance",
+                "{{ATTENDANCE_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Approve Attendance",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/attendance/{{ATTENDANCE_ID}}/approve",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "attendance",
+                "{{ATTENDANCE_ID}}",
+                "approve"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Attendance",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/attendance/{{ATTENDANCE_ID}}/reject",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "attendance",
+                "{{ATTENDANCE_ID}}",
+                "reject"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Vehicle Service",
+      "item": [
+        {
+          "name": "Create Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicleNumber\":\"DL1C1234\",\"fleetId\":\"{{FLEET_ID}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/vehicles",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "vehicles"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Fleet Vehicles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/vehicles/fleet/{{FLEET_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "vehicles",
+                "fleet",
+                "{{FLEET_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Hub Vehicles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/vehicles/hub/{{HUB_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "vehicles",
+                "hub",
+                "{{HUB_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Vehicle By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/vehicles/{{VEHICLE_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{VEHICLE_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Docs",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"rcUrl\":\"http://img.com\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/vehicles/{{VEHICLE_ID}}/docs",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{VEHICLE_ID}}",
+                "docs"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Vehicle",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"serviceStatus\":\"MAINTENANCE\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/vehicles/{{VEHICLE_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{VEHICLE_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Status",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\":\"ACTIVE\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/vehicles/{{VEHICLE_ID}}/status",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{VEHICLE_ID}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivate Vehicle",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/vehicles/{{VEHICLE_ID}}/deactivate",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "vehicles",
+                "{{VEHICLE_ID}}",
+                "deactivate"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Fleet Service",
+      "item": [
+        {
+          "name": "Create Fleet",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Fleets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Fleet By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/{{FLEET_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "{{FLEET_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivate Fleet",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/{{FLEET_ID}}/deactivate",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "{{FLEET_ID}}",
+                "deactivate"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Hub",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/{{FLEET_ID}}/hubs",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "{{FLEET_ID}}",
+                "hubs"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Hubs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/{{FLEET_ID}}/hubs",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "{{FLEET_ID}}",
+                "hubs"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Manager",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/{{FLEET_ID}}/hub-managers",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "{{FLEET_ID}}",
+                "hub-managers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Managers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/{{FLEET_ID}}/hub-managers",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "{{FLEET_ID}}",
+                "hub-managers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Manager By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/hub-manager/{{MANAGER_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "hub-manager",
+                "{{MANAGER_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Hub By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/hubs/{{HUB_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "hubs",
+                "{{HUB_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Manager",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/hubs/{{HUB_ID}}/assign-manager",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "hubs",
+                "{{HUB_ID}}",
+                "assign-manager"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Vehicle via Fleet",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/hubs/{{HUB_ID}}/add-vehicle",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "hubs",
+                "{{HUB_ID}}",
+                "add-vehicle"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Driver via Fleet",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/hubs/{{HUB_ID}}/add-driver",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "hubs",
+                "{{HUB_ID}}",
+                "add-driver"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/hubs/{{HUB_ID}}/remove-vehicle",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "hubs",
+                "{{HUB_ID}}",
+                "remove-vehicle"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Driver",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleets/hubs/{{HUB_ID}}/remove-driver",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleets",
+                "hubs",
+                "{{HUB_ID}}",
+                "remove-driver"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Fleet Managers (Service)",
+      "item": [
+        {
+          "name": "Create Mgr",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleet-managers",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleet-managers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Fleet Mgrs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleet-managers/fleet/{{FLEET_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleet-managers",
+                "fleet",
+                "{{FLEET_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivate Mgr",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/fleet-managers/{{MGR_ID}}/deactivate",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "fleet-managers",
+                "{{MGR_ID}}",
+                "deactivate"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. Assignment Service",
+      "item": [
+        {
+          "name": "Create Assignment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/assignments",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "assignments"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Fleet Assignments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/assignments/fleet/{{FLEET_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "assignments",
+                "fleet",
+                "{{FLEET_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Trip Assignments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/assignments/trip/{{TRIP_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "assignments",
+                "trip",
+                "{{TRIP_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "End Assignment",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/assignments/{{ASSIGN_ID}}/end",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "assignments",
+                "{{ASSIGN_ID}}",
+                "end"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "9. Notification Service",
+      "item": [
+        {
+          "name": "Send Notification",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/notifications/send",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "notifications",
+                "send"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10. Trip Service",
+      "item": [
+        {
+          "name": "Create Trip",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/trips",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "trips"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Trips",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/trips",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "trips"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Trip ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/trips/{{TRIP_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "trips",
+                "{{TRIP_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Driver",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/trips/{{TRIP_ID}}/assign",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "trips",
+                "{{TRIP_ID}}",
+                "assign"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Start Trip",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/trips/{{TRIP_ID}}/start",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "trips",
+                "{{TRIP_ID}}",
+                "start"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Arrive Trip",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/trips/{{TRIP_ID}}/arrived",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "trips",
+                "{{TRIP_ID}}",
+                "arrived"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Onboard Trip",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/trips/{{TRIP_ID}}/onboard",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "trips",
+                "{{TRIP_ID}}",
+                "onboard"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "NoShow Trip",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/trips/{{TRIP_ID}}/noshow",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "trips",
+                "{{TRIP_ID}}",
+                "noshow"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Trip",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/trips/{{TRIP_ID}}/complete",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "trips",
+                "{{TRIP_ID}}",
+                "complete"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Tracking",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/trips/{{TRIP_ID}}/tracking",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "trips",
+                "{{TRIP_ID}}",
+                "tracking"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Location",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/trips/{{TRIP_ID}}/location",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "trips",
+                "{{TRIP_ID}}",
+                "location"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11. Admin Trips",
+      "item": [
+        {
+          "name": "Get All Trips",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/admin/trips",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "trips"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Driver (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/admin/trips/assign",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "trips",
+                "assign"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unassign Driver",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/admin/trips/unassign",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "trips",
+                "unassign"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reassign Driver",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/admin/trips/reassign",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "trips",
+                "reassign"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "12. Pricing",
+      "item": [
+        {
+          "name": "Preview Pricing",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/pricing/preview",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "pricing",
+                "preview"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "13. Payment Service",
+      "item": [
+        {
+          "name": "Get Balance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/balance",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "balance"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/transactions",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "transactions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Incentives",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/incentives",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "incentives"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Penalties",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/penalties",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "penalties"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Collections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/collections",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "collections"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Deposit",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/deposit",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "deposit"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Rental Pay",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/rental",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "rental"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Rental Plans (Driver)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/rental/plans",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "rental",
+                "plans"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Weekly Earnings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ACCESS_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/earnings/weekly?weeks=5",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payments",
+                "earnings",
+                "weekly"
+              ],
+              "query": [
+                {
+                  "key": "weeks",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Get weekly earnings summary for driver"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Plan (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/rental-plans",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "rental-plans"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Plans (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/rental-plans/{{FLEET_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "rental-plans",
+                "{{FLEET_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Penalty",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/penalty",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "penalty"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Waive Penalty",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/penalty/{{ID}}/waive",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "penalty",
+                "{{ID}}",
+                "waive"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Incentive",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/incentive",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "incentive"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Payout Incentive",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/incentive/{{ID}}/payout",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "incentive",
+                "{{ID}}",
+                "payout"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reconcile",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/collection/{{ID}}/reconcile",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "collection",
+                "{{ID}}",
+                "reconcile"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Payout Process",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/collection/{{ID}}/payout",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "collection",
+                "{{ID}}",
+                "payout"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pending Recon",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/reconciliations/pending",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "reconciliations",
+                "pending"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pending Payouts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/payouts/pending",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "payouts",
+                "pending"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Bulk Payout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/bulk-payout",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "bulk-payout"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Generate QR",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/vehicle/{{ID}}/qr",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "vehicle",
+                "{{ID}}",
+                "qr"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get QR",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/admin/vehicle/{{ID}}/qr",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "vehicle",
+                "{{ID}}",
+                "qr"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/orders",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/orders/{{ORDER_ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "orders",
+                "{{ORDER_ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/payments/orders",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "payment",
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "14. Webhooks",
+      "item": [
+        {
+          "name": "Easebuzz Payment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/webhooks/easebuzz/payment",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "webhooks",
+                "easebuzz",
+                "payment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Easebuzz VA",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/webhooks/easebuzz/virtual-account",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "webhooks",
+                "easebuzz",
+                "virtual-account"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "15. Rapido Integration",
+      "item": [
+        {
+          "name": "Order Status",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/partners/rapido/on_order_status/{{ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "partners",
+                "rapido",
+                "on_order_status",
+                "{{ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Order Status (Batch)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/partners/rapido/on_order_status",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "partners",
+                "rapido",
+                "on_order_status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Captain Status",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/partners/rapido/on_captain_status/{{ID}}",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "partners",
+                "rapido",
+                "on_captain_status",
+                "{{ID}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Captain Status (Batch)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/partners/rapido/on_captain_status",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "partners",
+                "rapido",
+                "on_captain_status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Change Status (Internal)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/partners/rapido/change-status",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "partners",
+                "rapido",
+                "change-status"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "16. MMT Integration",
+      "item": [
+        {
+          "name": "Search",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/partners/mmt/partnersearchendpoint",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "partners",
+                "mmt",
+                "partnersearchendpoint"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Block",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/partners/mmt/partnerblockendpoint",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "partners",
+                "mmt",
+                "partnerblockendpoint"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Paid",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/partners/mmt/partnerpaidendpoint",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "partners",
+                "mmt",
+                "partnerpaidendpoint"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/partners/mmt/partnercancelendpoint",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "partners",
+                "mmt",
+                "partnercancelendpoint"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reschedule Block",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/partners/mmt/partnerrescheduleblockendpoint",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "partners",
+                "mmt",
+                "partnerrescheduleblockendpoint"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reschedule Confirm",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/partners/mmt/partnerrescheduleconfirmendpoint",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "partners",
+                "mmt",
+                "partnerrescheduleconfirmendpoint"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Booking Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/partners/mmt/booking/details",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "partners",
+                "mmt",
+                "booking",
+                "details"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "17. Maps Service",
+      "item": [
+        {
+          "name": "Autocomplete",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ACCESS_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/maps/autocomplete?query=Airport",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "maps",
+                "autocomplete"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "Airport"
+                }
+              ]
+            },
+            "description": "Search for place suggestions using Google Places Autocomplete API"
+          },
+          "response": []
+        },
+        {
+          "name": "Geocode",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ACCESS_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/maps/geocode?address=Connaught Place, New Delhi",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "maps",
+                "geocode"
+              ],
+              "query": [
+                {
+                  "key": "address",
+                  "value": "Connaught Place, New Delhi"
+                }
+              ]
+            },
+            "description": "Convert an address to geographic coordinates (lat/lng)"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

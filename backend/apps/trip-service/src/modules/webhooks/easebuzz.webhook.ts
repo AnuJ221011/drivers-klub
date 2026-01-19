@@ -184,7 +184,7 @@ export const handleVirtualAccountWebhook = async (req: Request, res: Response) =
                 type: 'DAILY_COLLECTION',
                 amount: paymentAmount,
                 status: TransactionStatus.SUCCESS,
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                 
                 // @ts-ignore
                 paymentMethod: PaymentMethod.VIRTUAL_QR,
                 easebuzzTxnId: txn_id,

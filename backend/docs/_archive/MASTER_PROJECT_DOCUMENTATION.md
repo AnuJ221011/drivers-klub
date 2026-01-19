@@ -154,7 +154,7 @@ The central entity representing a booking.
 | `price` | Float | Calculated Total Fare |
 | `vehicleSku` | String | e.g. "EV_SEDAN" |
 | `status` | Enum | `CREATED` -> `DRIVER_ASSIGNED` -> `STARTED` -> `COMPLETED` |
-| `provider` | Enum | `INTERNAL`, [MMT](file:///d:/drivers-klub/driversklub-backend/src/modules/partner/mmt/mmt.service.ts#5-150), `MOJOBOXX` |
+| `provider` | Enum | `INTERNAL`, [MMT](file:///d:/drivers-klub/driversklub-backend/src/modules/partners/mmt/mmt.service.ts#5-150), `MOJOBOXX` |
 
 ### 3.2 Driver
 
@@ -430,13 +430,13 @@ We act as a **Vendor** for MakeMyTrip.
 
 ### 5.1 Inbound API (MMT calls Us)
 
-- **Search**: `POST /partner/mmt/partnersearchendpoint`
-- **Block**: `POST /partner/mmt/partnerblockendpoint`
-- **Confirm**: `POST /partner/mmt/partnerpaidendpoint`
-- **Cancel**: `POST /partner/mmt/partnercancelendpoint`
-- **Reschedule (Check)**: `POST /partner/mmt/partnerrescheduleblockendpoint`
-- **Reschedule (Confirm)**: `POST /partner/mmt/partnerrescheduleconfirmendpoint`
-- **Details**: `GET /partner/mmt/booking/details`
+- **Search**: `POST /partners/mmt/partnersearchendpoint`
+- **Block**: `POST /partners/mmt/partnerblockendpoint`
+- **Confirm**: `POST /partners/mmt/partnerpaidendpoint`
+- **Cancel**: `POST /partners/mmt/partnercancelendpoint`
+- **Reschedule (Check)**: `POST /partners/mmt/partnerrescheduleblockendpoint`
+- **Reschedule (Confirm)**: `POST /partners/mmt/partnerrescheduleconfirmendpoint`
+- **Details**: `GET /partners/mmt/booking/details`
 
 ### 5.2 Outbound Webhooks (We call MMT)
 
@@ -454,7 +454,7 @@ We push status updates to MMT's webhook URL:
 
 ### 5.3 Reschedule Logic
 
-- **Endpoint:** `POST /partner/mmt/partnerrescheduleendpoint`
+- **Endpoint:** `POST /partners/mmt/partnerrescheduleendpoint`
 - **Logic:** Updates `pickupTime` for an existing confirmed booking.
 - **Constraint:** Cannot reschedule `COMPLETED` or `CANCELLED` trips.
 

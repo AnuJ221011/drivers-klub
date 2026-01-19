@@ -10,7 +10,7 @@ async function generatePDFs() {
 
   // Ensure output directory exists
   try {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+     
     // @ts-ignore
     const fs = await import('fs');
     if (!fs.existsSync(pdfDir)) {

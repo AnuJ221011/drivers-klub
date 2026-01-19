@@ -3,14 +3,19 @@ import { prisma } from "@driversklub/database";
 import { ApiError } from "@driversklub/common";
 import type {
   CreateDriverInput,
+  CreateNewDriverInput,
   UpdateDriverAvailabilityInput,
   UpdateDriverInput,
   UpdateDriverStatusInput,
 } from "./driver.types.js";
-import { PreferencesRequestStatus } from "@prisma/client";
+import { PreferencesRequestStatus, VehicleOwnership } from "@prisma/client";
+import { ReferralService } from "../referral/referral.service.js";
+import { VehicleRepository } from "./vehicle.repository.js";
 
 export class DriverService {
   private driverRepo = new DriverRepository();
+  private referralService = new ReferralService();
+  private vehicleRepo = new VehicleRepository();
 
   private assertFleetScope(user: any, fleetId: string) {
     const role = String(user?.role || "");
@@ -20,7 +25,7 @@ export class DriverService {
     if (scopedFleetId !== fleetId) throw new ApiError(403, "Access denied");
   }
 
-  private assertDriverScope(user: any, driver: { fleetId: string; hubId?: string | null }) {
+  private assertDriverScope(user: any, driver: { fleetId: string | null; hubId?: string | null }) {
     const role = String(user?.role || "");
     if (role === "SUPER_ADMIN") return;
     const scopedFleetId = user?.fleetId;
@@ -60,6 +65,74 @@ export class DriverService {
     }
 
     return this.driverRepo.create(data);
+  }
+
+  async createNewDriver(data: CreateNewDriverInput) {
+    const user = await prisma.user.findUnique({
+      where: { id: data.userId },
+    });
+
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    if (user.role !== "DRIVER") {
+      throw new ApiError(400, "User role must be DRIVER");
+    }
+
+    const existing = await this.driverRepo.findByUserId(data.userId);
+    if (existing) {
+      throw new ApiError(409, "Driver profile already exists for this user");
+    }
+
+    let referrerUser = null;
+    if (data.referralCode) {
+      referrerUser = await this.referralService.validateAndGetReferrer(
+        data.referralCode
+      );
+    }
+
+    // Create driver
+    let driver = await this.driverRepo.createNewDriver(data);
+
+    // Create vehicle if driver has one
+    let vehicle = null;
+    if (data.haveVehicle) {
+      vehicle = await this.vehicleRepo.create({
+        vehicleNumber: data.registrationNumber,
+        vehicleName: data.vehicleType,
+        vehicleModel: data.vehicleModel,
+        ownership: VehicleOwnership.OWNED,
+        ownerName: data.ownerName,
+        fuelType: data.fuelType,
+        rcFrontImage: data.rcFrontImage,
+        rcBackImage: data.rcBackImage,
+      } as any);
+
+      // Link vehicle to driver
+      driver = await prisma.driver.update({
+        where: { id: driver.id },
+        data: { vehicleId: vehicle.id },
+      });
+    }
+
+    // Create referral record if referral code was provided
+    if (referrerUser) {
+      await this.referralService.createReferralRecord(
+        referrerUser.id,
+        data.userId
+      );
+
+      // Update user's referredById
+      await prisma.user.update({
+        where: { id: data.userId },
+        data: { referredById: referrerUser.id },
+      });
+    }
+
+    await this.referralService.ensureUserHasReferralCode(data.userId);
+
+    return driver;
   }
 
   async getDriversByFleet(fleetId: string, userScope?: any) {

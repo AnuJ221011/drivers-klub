@@ -130,10 +130,14 @@ export interface VirtualAccountResponse {
         virtual_account_id: string;
         virtual_account_number: string;
         ifsc_code: string;
-        qr_code: string;              // Base64 QR code
+        qr_code?: string;              // QR code (may be base64 or URL)
+        qr_code_url?: string;          // QR code URL
+        upi_qrcode_url?: string;       // UPI QR code URL (alternate field name)
+        upi_qr_code?: string;          // Another possible field name
         upi_id: string;
     };
 }
+
 
 export interface VirtualAccountWebhookPayload {
     merchant_key: string;

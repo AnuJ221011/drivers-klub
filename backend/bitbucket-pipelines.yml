@@ -41,3 +41,44 @@ pipelines:
                 ZIP_FILE: "deploy.zip"
                 S3_BUCKET: "elasticbeanstalk-ap-south-1-384694315351"
                 WAIT: "true"
+
+    staging:
+      - step:
+          name: Test & Build (Staging)
+          caches:
+            - node
+          script:
+            - npm ci
+            - npm run build
+            # Start server in background for integration tests
+            - echo "Starting server in background..."
+            - npm start &
+            - SERVER_PID=$!
+            - echo "Server PID is $SERVER_PID"
+            # Wait for server to be ready (max 30 seconds)
+            - sleep 5
+            - curl --retry 10 --retry-delay 2 --retry-connrefused http://localhost:${PORT:-3000}/health || echo "Server may not be ready"
+            # Run integration tests
+            - npx tsx scripts/test-project.ts
+            # Stop server
+            - kill $SERVER_PID || true
+            # Create the deployment bundle
+            - apt-get update && apt-get install -y zip
+            - npx tsx scripts/build-eb-bundle.ts
+          artifacts:
+            - deploy.zip
+
+      - step:
+          name: Deploy to Elastic Beanstalk (Staging)
+          deployment: staging
+          script:
+            - pipe: atlassian/aws-elasticbeanstalk-deploy:1.0.2
+              variables:
+                AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+                AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+                AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
+                APPLICATION_NAME: "driversklub-backend"
+                ENVIRONMENT_NAME: "driversklub-backend-staging-env"
+                ZIP_FILE: "deploy.zip"
+                S3_BUCKET: "elasticbeanstalk-ap-south-1-384694315351"
+                WAIT: "true"

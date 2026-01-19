@@ -48,4 +48,10 @@ export class InternalRideProvider implements ExternalRideProvider {
       }
     };
   }
+
+  async getRideStatus(providerBookingId: string): Promise<string> {
+    // For internal rides, we can return a simulated status
+    // In a real scenario, this would query the internal trip status
+    return "CONFIRMED";
+  }
 }

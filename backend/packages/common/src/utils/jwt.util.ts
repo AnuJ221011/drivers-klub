@@ -14,16 +14,15 @@ if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET) {
 // Token Expiration Times
 // need to change to .env file soon
 const ACCESS_TOKEN_EXPIRES_IN = "15m";
-const REFRESH_TOKEN_EXPIRES_IN = "7d";
 
 // Generate Access + Refresh tokens
-export const generateTokens = (payload: JwtPayload): TokenPair => {
-    const accessToken = jwt.sign(payload, JWT_ACCESS_SECRET, {
+export const generateTokens = (payload: JwtPayload, refreshExpiresIn: string): TokenPair => {
+    const accessToken = jwt.sign(payload, JWT_ACCESS_SECRET as string, {
         expiresIn: ACCESS_TOKEN_EXPIRES_IN
     });
 
-    const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, {
-        expiresIn: REFRESH_TOKEN_EXPIRES_IN
+    const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET as string, {
+        expiresIn: refreshExpiresIn as any
     });
 
     return { accessToken, refreshToken };
@@ -32,7 +31,7 @@ export const generateTokens = (payload: JwtPayload): TokenPair => {
 // Verify Access Token
 export const verifyAccessToken = (token: string): JwtPayload => {
     try {
-        return jwt.verify(token, JWT_ACCESS_SECRET) as JwtPayload;
+        return jwt.verify(token, JWT_ACCESS_SECRET as string) as JwtPayload;
     } catch {
         throw new ApiError(401, "Invalid or expired access token");
     }
@@ -41,7 +40,7 @@ export const verifyAccessToken = (token: string): JwtPayload => {
 // Verify Refresh Token
 export const verifyRefreshToken = (token: string): JwtPayload => {
     try {
-        return jwt.verify(token, JWT_REFRESH_SECRET) as JwtPayload;
+        return jwt.verify(token, JWT_REFRESH_SECRET as string) as JwtPayload;
     } catch {
         throw new ApiError(401, "Invalid or expired refresh token");
     }

@@ -2,15 +2,15 @@ import { prisma } from "./utils.js";
 import { UserRole, FleetType, VehicleStatus, FuelType, VehicleOwnership, PaymentModel } from "@prisma/client";
 
 // Constants
-export const ADMIN_PHONE = "+919999900001";
-export const DRIVER_PHONE = "+919999900002";
+export const ADMIN_PHONE = "9999900001";
+export const DRIVER_PHONE = "9999900002";
 export const FLEET_NAME = "Test Fleet Inc.";
 export const VEHICLE_NUMBER = "DL01TEST001";
 
 export async function cleanup() {
     console.log("\n🧹 Cleaning up previous test data...");
     try {
-        const phones = [ADMIN_PHONE, DRIVER_PHONE];
+        const phones = [ADMIN_PHONE, DRIVER_PHONE, "9870000000"];
 
         // 1. Delete Trip Assignments
         await prisma.tripAssignment.deleteMany({});

@@ -10,11 +10,36 @@ import type {
   DriverPreferenceEntity,
   DriverPreferenceRequestEntity,
   DriverPreferenceDefinationEnitity,
+  CreateNewDriverInput,
 } from "./driver.types.js";
 
 export class DriverRepository {
   async create(data: CreateDriverInput): Promise<DriverEntity> {
     return prisma.driver.create({ data });
+  }
+
+  async createNewDriver(data: CreateNewDriverInput): Promise<DriverEntity> {
+    return prisma.driver.create({
+      data: {
+        userId: data.userId,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        mobile: data.mobile,
+        dob: new Date(data.dob),
+        city: data.city,
+        address: data.address,
+        pincode: data.pincode,
+        email: data.email,
+        aadharNumber: data.aadharNumber,
+        panNumber: data.panNumber,
+        dlNumber: data.drivingLicenceNumber,
+        licenseNumber: data.drivingLicenceNumber,
+        aadharFront: data.aadharFront,
+        aadharBack: data.aadharBack,
+        panCardImage: data.panPhoto,
+        gstNumber: data.gstNumber,
+      } as any,
+    });
   }
 
   async findByUserId(userId: string): Promise<DriverEntity | null> {
