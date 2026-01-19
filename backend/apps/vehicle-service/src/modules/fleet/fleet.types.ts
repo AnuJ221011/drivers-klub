@@ -10,6 +10,7 @@ export type CreateFleetInput = {
   gstNumber?: string;
   panNumber: string;
   modeId: string;
+  panCardFile?: string;
 };
 
 export type VehicleInput = {

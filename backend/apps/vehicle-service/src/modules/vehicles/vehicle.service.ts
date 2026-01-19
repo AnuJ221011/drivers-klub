@@ -45,7 +45,19 @@ export class VehicleService {
       throw new ApiError(409, "Vehicle with this number already exists");
     }
 
-    return this.repo.create(data);
+    const {
+      permitExpiry,
+      insuranceExpiry,
+      fleetMobileNumber: _fleetMobileNumber,
+      ...rest
+    } = data;
+    const payload: CreateVehicleInput = {
+      ...rest,
+      ...(permitExpiry ? { permitExpiry: new Date(permitExpiry) } : {}),
+      ...(insuranceExpiry ? { insuranceExpiry: new Date(insuranceExpiry) } : {}),
+    };
+
+    return this.repo.create(payload);
   }
 
   async getVehiclesByFleet(fleetId: string, user?: any) {
@@ -101,7 +113,22 @@ export class VehicleService {
       if (existing) throw new ApiError(409, "Vehicle with this number already exists");
     }
 
-    return this.repo.updateDetails(id, data);
+    const {
+      permitExpiry,
+      insuranceExpiry,
+      fleetMobileNumber: _fleetMobileNumber,
+      ...rest
+    } = data;
+    const update: UpdateVehicleInput = { ...rest };
+
+    if (permitExpiry !== undefined) {
+      update.permitExpiry = permitExpiry ? new Date(permitExpiry) : null;
+    }
+    if (insuranceExpiry !== undefined) {
+      update.insuranceExpiry = insuranceExpiry ? new Date(insuranceExpiry) : null;
+    }
+
+    return this.repo.updateDetails(id, update);
   }
 
   async updateVehicleStatus(id: string, data: UpdateVehicleStatusInput, user?: any) {
@@ -109,4 +136,4 @@ export class VehicleService {
     if (!data?.status) throw new ApiError(400, "status is required");
     return this.repo.updateStatus(id, data);
   }
-} 
+}

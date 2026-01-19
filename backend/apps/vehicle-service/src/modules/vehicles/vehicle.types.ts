@@ -13,6 +13,9 @@ export type CreateVehicleInput = {
   vehicleColor?: string;
   ownership: VehicleOwnership;
   fuelType: FuelType;
+  permitExpiry?: string | Date;
+  insuranceExpiry?: string | Date;
+  fleetMobileNumber?: string;
 };
 
 export type UpdateVehicleDocsInput = {
@@ -37,6 +40,9 @@ export type UpdateVehicleInput = {
   vehicleColor?: string;
   ownership?: VehicleOwnership;
   fuelType?: FuelType;
+  permitExpiry?: string | Date | null;
+  insuranceExpiry?: string | Date | null;
+  fleetMobileNumber?: string;
 };
 
 export type VehicleEntity = Vehicle;
