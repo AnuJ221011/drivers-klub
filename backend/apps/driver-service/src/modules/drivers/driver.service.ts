@@ -8,7 +8,7 @@ import type {
   UpdateDriverInput,
   UpdateDriverStatusInput,
 } from "./driver.types.js";
-import { PreferencesRequestStatus, VehicleOwnership } from "@prisma/client";
+import { PreferencesRequestStatus, VehicleOwnership, Prisma } from "@prisma/client";
 import { ReferralService } from "../referral/referral.service.js";
 import { VehicleRepository } from "./vehicle.repository.js";
 
@@ -65,12 +65,12 @@ export class DriverService {
     }
 
     const { additionalDocuments, providerMetadata, ...rest } = data;
-    const meta =
+    const meta: Prisma.InputJsonObject =
       providerMetadata && typeof providerMetadata === "object"
-        ? { ...(providerMetadata as Record<string, unknown>) }
+        ? { ...(providerMetadata as Prisma.InputJsonObject) }
         : {};
     if (Array.isArray(additionalDocuments) && additionalDocuments.length > 0) {
-      meta.additionalDocuments = additionalDocuments;
+      meta.additionalDocuments = additionalDocuments as Prisma.InputJsonArray;
     }
     const payload =
       Object.keys(meta).length > 0
@@ -198,12 +198,12 @@ export class DriverService {
     if (typeof data.livePhoto === "string") update.livePhoto = data.livePhoto;
     if (typeof data.bankIdProof === "string") update.bankIdProof = data.bankIdProof;
 
-    const meta =
+    const meta: Prisma.InputJsonObject =
       data.providerMetadata && typeof data.providerMetadata === "object"
-        ? { ...(data.providerMetadata as Record<string, unknown>) }
+        ? { ...(data.providerMetadata as Prisma.InputJsonObject) }
         : {};
     if (Array.isArray(data.additionalDocuments) && data.additionalDocuments.length > 0) {
-      meta.additionalDocuments = data.additionalDocuments;
+      meta.additionalDocuments = data.additionalDocuments as Prisma.InputJsonArray;
     }
     if (Object.keys(meta).length > 0) {
       update.providerMetadata = meta;
