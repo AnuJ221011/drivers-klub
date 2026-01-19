@@ -61,7 +61,7 @@ export default function AddTeamMember({ onClose, onCreated }: Props) {
       { label: "Operations", value: "OPERATIONS" as const },
       { label: "Manager", value: "MANAGER" as const },
       { label: "Fleet Admin", value: "FLEET_ADMIN" as const },
-      { label: "Admin", value: "SUPER_ADMIN" as const },
+      { label: "Super Admin", value: "SUPER_ADMIN" as const },
     ];
   }, [actorRole]);
 

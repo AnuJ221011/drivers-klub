@@ -24,7 +24,7 @@ import { getFleetHubs, type FleetHubEntity } from "../api/fleetHub.api";
 function toRoleLabel(role: string): string {
   switch (role) {
     case "SUPER_ADMIN":
-      return "Admin";
+      return "Super Admin";
     case "FLEET_ADMIN":
       return "Fleet Admin";
     case "OPERATIONS":

@@ -7,6 +7,7 @@ export type FleetManagerEntity = {
   city: string;
   profilePicture?: string | null;
   fleetId: string;
+  role?: 'MANAGER' | 'FLEET_ADMIN' | (string & {});
   status: 'ACTIVE' | 'INACTIVE';
   createdAt: string;
   updatedAt: string;
@@ -14,6 +15,7 @@ export type FleetManagerEntity = {
 
 export async function getFleetManagersByFleet(fleetId: string): Promise<FleetManagerEntity[]> {
   const res = await api.get<FleetManagerEntity[]>(`/fleet-managers/fleet/${fleetId}`);
+  console.log('Fetched fleet managers:', res.data);
   return res.data;
 }
 

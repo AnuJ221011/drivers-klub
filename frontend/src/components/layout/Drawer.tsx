@@ -1,3 +1,47 @@
+// import { X } from "lucide-react";
+
+// type DrawerProps = {
+//   open: boolean;
+//   onClose: () => void;
+//   title: string;
+//   children: React.ReactNode;
+// };
+
+// export default function Drawer({
+//   open,
+//   onClose,
+//   title,
+//   children,
+// }: DrawerProps) {
+//   return (
+//     <>
+//       {/* Backdrop */}
+//       {open && (
+//         <div
+//           className="fixed inset-0 bg-black/30 z-40"
+//           onClick={onClose}
+//         />
+//       )}
+
+//       {/* Drawer */}
+//       <div
+//         className={`fixed top-0 right-0 h-full w-[520px] max-w-[92vw] bg-white z-50
+//         transform transition-transform duration-300
+//         ${open ? "translate-x-0" : "translate-x-full"}`}
+//       >
+//         <div className="h-14 flex items-center justify-between px-4 border-b">
+//           <h2 className="font-semibold text-black">{title}</h2>
+//           <button onClick={onClose}>
+//             <X size={20} />
+//           </button>
+//         </div>
+
+//         <div className="p-4">{children}</div>
+//       </div>
+//     </>
+//   );
+// }
+
 import { X } from "lucide-react";
 
 type DrawerProps = {
@@ -26,7 +70,7 @@ export default function Drawer({
       {/* Drawer */}
       <div
         className={`fixed top-0 right-0 h-full w-[520px] max-w-[92vw] bg-white z-50
-        transform transition-transform duration-300
+        transform transition-transform duration-300 flex flex-col
         ${open ? "translate-x-0" : "translate-x-full"}`}
       >
         <div className="h-14 flex items-center justify-between px-4 border-b">
@@ -36,8 +80,9 @@ export default function Drawer({
           </button>
         </div>
 
-        <div className="p-4">{children}</div>
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">{children}</div>
       </div>
     </>
   );
 }
+
