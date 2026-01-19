@@ -64,7 +64,20 @@ export class DriverService {
       throw new ApiError(404, "Fleet not found");
     }
 
-    return this.driverRepo.create(data);
+    const { additionalDocuments, providerMetadata, ...rest } = data;
+    const meta =
+      providerMetadata && typeof providerMetadata === "object"
+        ? { ...(providerMetadata as Record<string, unknown>) }
+        : {};
+    if (Array.isArray(additionalDocuments) && additionalDocuments.length > 0) {
+      meta.additionalDocuments = additionalDocuments;
+    }
+    const payload =
+      Object.keys(meta).length > 0
+        ? { ...rest, providerMetadata: meta }
+        : rest;
+
+    return this.driverRepo.create(payload);
   }
 
   async createNewDriver(data: CreateNewDriverInput) {
@@ -177,6 +190,24 @@ export class DriverService {
     if (typeof data.mobile === "string") update.mobile = data.mobile;
     if (typeof data.profilePic === "string")
       update.profilePic = data.profilePic;
+    if (typeof data.licenseFront === "string") update.licenseFront = data.licenseFront;
+    if (typeof data.licenseBack === "string") update.licenseBack = data.licenseBack;
+    if (typeof data.aadharFront === "string") update.aadharFront = data.aadharFront;
+    if (typeof data.aadharBack === "string") update.aadharBack = data.aadharBack;
+    if (typeof data.panCardImage === "string") update.panCardImage = data.panCardImage;
+    if (typeof data.livePhoto === "string") update.livePhoto = data.livePhoto;
+    if (typeof data.bankIdProof === "string") update.bankIdProof = data.bankIdProof;
+
+    const meta =
+      data.providerMetadata && typeof data.providerMetadata === "object"
+        ? { ...(data.providerMetadata as Record<string, unknown>) }
+        : {};
+    if (Array.isArray(data.additionalDocuments) && data.additionalDocuments.length > 0) {
+      meta.additionalDocuments = data.additionalDocuments;
+    }
+    if (Object.keys(meta).length > 0) {
+      update.providerMetadata = meta;
+    }
 
     return this.driverRepo.updateDetails(id, update);
   }

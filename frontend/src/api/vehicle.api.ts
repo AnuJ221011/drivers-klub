@@ -45,6 +45,9 @@ export type CreateVehicleInput = {
   vehicleColor?: string;
   ownership: VehicleOwnership;
   fuelType: UiFuelType;
+  permitExpiry?: string;
+  insuranceExpiry?: string;
+  fleetMobileNumber?: string;
   isActive: boolean;
 };
 
@@ -59,6 +62,9 @@ export async function createVehicle(
     vehicleColor: input.vehicleColor || undefined,
     ownership: input.ownership,
     fuelType: fromUiFuelType(input.fuelType),
+    permitExpiry: input.permitExpiry || undefined,
+    insuranceExpiry: input.insuranceExpiry || undefined,
+    fleetMobileNumber: input.fleetMobileNumber || undefined,
     status: input.isActive ? 'ACTIVE' : 'INACTIVE',
   });
 
@@ -72,6 +78,9 @@ export type UpdateVehicleInput = {
   vehicleColor?: string;
   ownership?: VehicleOwnership;
   fuelType?: UiFuelType;
+  permitExpiry?: string;
+  insuranceExpiry?: string;
+  fleetMobileNumber?: string;
 };
 
 export type UpdateVehicleDocsInput = {
@@ -90,6 +99,9 @@ export async function updateVehicleDetails(
   if (typeof input.vehicleColor === 'string') patch.vehicleColor = input.vehicleColor;
   if (typeof input.ownership === 'string') patch.ownership = input.ownership;
   if (typeof input.fuelType === 'string') patch.fuelType = fromUiFuelType(input.fuelType);
+  if (typeof input.permitExpiry === 'string') patch.permitExpiry = input.permitExpiry;
+  if (typeof input.insuranceExpiry === 'string') patch.insuranceExpiry = input.insuranceExpiry;
+  if (typeof input.fleetMobileNumber === 'string') patch.fleetMobileNumber = input.fleetMobileNumber;
 
   const res = await api.patch<VehicleEntity>(`/vehicles/${vehicleId}`, patch);
   return toUiVehicle(res.data);

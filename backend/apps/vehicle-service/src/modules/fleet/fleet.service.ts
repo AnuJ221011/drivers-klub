@@ -20,12 +20,13 @@ export class FleetService {
   private fleetRepo = new FleetRepository();
 
   async createFleet(data: CreateFleetInput) {
-    const existing = await this.fleetRepo.findByMobile(data.mobile);
+    const { panCardFile: _panCardFile, ...payload } = data;
+    const existing = await this.fleetRepo.findByMobile(payload.mobile);
     if (existing) {
       throw new ApiError(409, "Fleet with this mobile already exists");
     }
 
-    return this.fleetRepo.create(data);
+    return this.fleetRepo.create(payload);
   }
 
   async getAllFleets() {

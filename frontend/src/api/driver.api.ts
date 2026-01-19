@@ -23,6 +23,11 @@ export type CreateDriverInput = {
   name: string;
   phone: string;
   isActive: boolean;
+  identityLivePhoto?: File | string | null;
+  aadhaarCardFile?: File | string | null;
+  panCardFile?: File | string | null;
+  bankDetailsFile?: File | string | null;
+  additionalDocuments?: Array<File | string>;
 };
 
 function splitName(fullName: string): { firstName: string; lastName: string } {
@@ -30,6 +35,26 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
   if (parts.length === 0) return { firstName: '', lastName: 'NA' };
   if (parts.length === 1) return { firstName: parts[0], lastName: 'NA' };
   return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
+
+type DriverDocValue = File | string | null | undefined;
+
+function normalizeDriverDoc(value: DriverDocValue): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+  }
+  return undefined;
+}
+
+function normalizeDriverDocList(
+  values: Array<File | string> | undefined,
+): string[] | undefined {
+  if (!values?.length) return undefined;
+  const list = values
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter(Boolean);
+  return list.length ? list : undefined;
 }
 
 /**
@@ -53,14 +78,27 @@ export async function createDriver(
   );
 
   const userId = userRes.data?.id;
-  const res = await api.post<DriverEntity>('/drivers', {
+  const livePhoto = normalizeDriverDoc(input.identityLivePhoto);
+  const aadharFront = normalizeDriverDoc(input.aadhaarCardFile);
+  const panCardImage = normalizeDriverDoc(input.panCardFile);
+  const bankIdProof = normalizeDriverDoc(input.bankDetailsFile);
+  const additionalDocuments = normalizeDriverDocList(input.additionalDocuments);
+
+  const payload: Record<string, unknown> = {
     userId,
     fleetId: input.fleetId,
     firstName,
     lastName,
     mobile: input.phone,
     status: input.isActive ? 'ACTIVE' : 'INACTIVE',
-  });
+  };
+  if (livePhoto) payload.livePhoto = livePhoto;
+  if (aadharFront) payload.aadharFront = aadharFront;
+  if (panCardImage) payload.panCardImage = panCardImage;
+  if (bankIdProof) payload.bankIdProof = bankIdProof;
+  if (additionalDocuments) payload.providerMetadata = { additionalDocuments };
+
+  const res = await api.post<DriverEntity>('/drivers', payload);
 
   return toUiDriver(res.data);
 }
@@ -68,6 +106,11 @@ export async function createDriver(
 export type UpdateDriverInput = {
   name?: string;
   phone?: string;
+  identityLivePhoto?: File | string | null;
+  aadhaarCardFile?: File | string | null;
+  panCardFile?: File | string | null;
+  bankDetailsFile?: File | string | null;
+  additionalDocuments?: Array<File | string>;
 };
 
 export async function updateDriverDetails(
@@ -81,6 +124,16 @@ export async function updateDriverDetails(
     patch.lastName = lastName;
   }
   if (typeof input.phone === 'string') patch.mobile = input.phone;
+  const livePhoto = normalizeDriverDoc(input.identityLivePhoto);
+  const aadharFront = normalizeDriverDoc(input.aadhaarCardFile);
+  const panCardImage = normalizeDriverDoc(input.panCardFile);
+  const bankIdProof = normalizeDriverDoc(input.bankDetailsFile);
+  const additionalDocuments = normalizeDriverDocList(input.additionalDocuments);
+  if (livePhoto) patch.livePhoto = livePhoto;
+  if (aadharFront) patch.aadharFront = aadharFront;
+  if (panCardImage) patch.panCardImage = panCardImage;
+  if (bankIdProof) patch.bankIdProof = bankIdProof;
+  if (additionalDocuments) patch.providerMetadata = { additionalDocuments };
 
   const res = await api.patch<DriverEntity>(`/drivers/${driverId}`, patch);
   return toUiDriver(res.data);

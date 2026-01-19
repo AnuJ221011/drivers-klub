@@ -159,7 +159,7 @@ import Input from "../ui/Input";
 import Select from "../ui/Select";
 import Button from "../ui/Button";
 
-import { createVehicle, updateVehicleDocs } from '../../api/vehicle.api';
+import { createVehicle } from '../../api/vehicle.api';
 import { useFleet } from '../../context/FleetContext';
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -210,22 +210,19 @@ export default function AddVehicle({ onClose, onCreated }: Props) {
 
     setSaving(true);
     try {
-      const created = await createVehicle({
+      await createVehicle({
         number: trimmedNumber,
         brand: trimmedBrand,
         model: trimmedModel,
         vehicleColor: vehicleColor.trim() || undefined,
         ownership: ownership as Ownership,
         fuelType: fuelType as FuelType,
+        permitExpiry: permitExpiry || undefined,
+        insuranceExpiry: insuranceExpiry || undefined,
+        fleetMobileNumber: fleetMobileNumber.trim() || undefined,
         isActive: status === 'Active',
         fleetId: effectiveFleetId,
       });
-      if (permitExpiry || insuranceExpiry) {
-        await updateVehicleDocs(created.id, {
-          permitExpiry: permitExpiry || undefined,
-          insuranceExpiry: insuranceExpiry || undefined,
-        });
-      }
       toast.success('Vehicle created');
       onCreated?.();
       onClose();

@@ -161,6 +161,11 @@ export default function AddDriver({ onClose, onCreated }: Props) {
         phone: digits,
         isActive: status === 'Active',
         fleetId: effectiveFleetId,
+        identityLivePhoto: identityLivePhoto ?? undefined,
+        aadhaarCardFile: aadhaarCardFile ?? undefined,
+        panCardFile: panCardFile ?? undefined,
+        bankDetailsFile: bankDetailsFile ?? undefined,
+        additionalDocuments: additionalDocuments.length > 0 ? additionalDocuments : undefined,
       });
       toast.success('Driver created');
       onCreated?.();

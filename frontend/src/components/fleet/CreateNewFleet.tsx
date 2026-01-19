@@ -255,6 +255,7 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
         email: form.email.trim() || undefined,
         gstNumber: form.gstNumber.trim() || undefined,
         dob: form.dob || undefined,
+        panCardFile: panCardFile ?? undefined,
       });
 
       toast.success("Fleet onboarded successfully");

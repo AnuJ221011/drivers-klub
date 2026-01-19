@@ -7,6 +7,16 @@ export type CreateDriverInput = {
   lastName: string;
   mobile: string;
   profilePic?: string;
+  status?: DriverStatus;
+  licenseFront?: string;
+  licenseBack?: string;
+  aadharFront?: string;
+  aadharBack?: string;
+  panCardImage?: string;
+  livePhoto?: string;
+  bankIdProof?: string;
+  providerMetadata?: Record<string, unknown>;
+  additionalDocuments?: string[];
 };
 
 export type CreateNewDriverInput = {
@@ -56,6 +66,15 @@ export type UpdateDriverInput = {
   lastName?: string;
   mobile?: string;
   profilePic?: string;
+  licenseFront?: string;
+  licenseBack?: string;
+  aadharFront?: string;
+  aadharBack?: string;
+  panCardImage?: string;
+  livePhoto?: string;
+  bankIdProof?: string;
+  providerMetadata?: Record<string, unknown>;
+  additionalDocuments?: string[];
 };
 
 export type UpdateDriverStatusInput = {
