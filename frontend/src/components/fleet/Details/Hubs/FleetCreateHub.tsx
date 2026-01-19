@@ -205,12 +205,44 @@ export default function FleetCreateHub() {
   const [address, setAddress] = useState("");
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   const hasGoogleKey = Boolean((apiKey || "").trim());
+  const [mapAuthFailed, setMapAuthFailed] = useState(false);
+  const [mapLoadTimeout, setMapLoadTimeout] = useState(false);
+
+  useEffect(() => {
+    setMapAuthFailed(false);
+    setMapLoadTimeout(false);
+    if (!hasGoogleKey) return;
+
+    const previous = window.gm_authFailure;
+    window.gm_authFailure = () => {
+      setMapAuthFailed(true);
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      if (!window.google?.maps) {
+        setMapLoadTimeout(true);
+      }
+    }, 7000);
+
+    return () => {
+      window.gm_authFailure = previous;
+      window.clearTimeout(timeoutId);
+    };
+  }, [hasGoogleKey]);
 
   const googleEmbedSrc = useMemo(() => {
     const q = `${location.lat},${location.lng}`;
     const z = 13;
     return `https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`;
   }, [location.lat, location.lng]);
+  const showInteractiveMap = hasGoogleKey && !mapAuthFailed && !mapLoadTimeout;
+  const mapFallbackMessage = !hasGoogleKey
+    ? "Google map is shown in embed mode (no API key). To enable map clicks + geofence drawing, configure VITE_GOOGLE_MAPS_API_KEY."
+    : mapAuthFailed
+      ? "Google Maps authentication failed. Check API key, billing, and HTTP referrer restrictions. Showing embed map instead."
+      : mapLoadTimeout
+        ? "Google Maps failed to load. Check network access or API key settings. Showing embed map instead."
+        : "";
 
   /* ---------- Reverse Geocoding ---------- */
   const fetchAddress = async (lat: number, lng: number) => {
@@ -280,21 +312,21 @@ export default function FleetCreateHub() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ---------- Map ---------- */}
-        <div className="lg:col-span-2 h-[520px] rounded-lg overflow-hidden border">
-          {hasGoogleKey ? (
-            <APIProvider apiKey={apiKey!}>
-              <div className="relative h-full w-full">
-                <div className="absolute top-3 left-3 right-3 z-10 max-w-xl">
-                  <PlaceSearch
-                    value={address}
-                    onChange={setAddress}
-                    onPlaceSelected={async ({ lat, lng, address }) => {
-                      setLocation({ lat, lng });
-                      if (address) setAddress(address);
-                      else await fetchAddress(lat, lng);
-                    }}
-                  />
-                </div>
+        <div className="lg:col-span-2 h-[520px] rounded-lg overflow-hidden border bg-white">
+          <div className="relative h-full w-full">
+            <div className="absolute top-3 left-3 right-3 z-10 max-w-xl">
+              <PlaceSearch
+                value={address}
+                onChange={setAddress}
+                onPlaceSelected={async ({ lat, lng, address }) => {
+                  setLocation({ lat, lng });
+                  if (address) setAddress(address);
+                  else await fetchAddress(lat, lng);
+                }}
+              />
+            </div>
+            {showInteractiveMap ? (
+              <APIProvider apiKey={apiKey!} libraries={["marker"]}>
                 <Map
                   defaultZoom={13}
                   defaultCenter={location as google.maps.LatLngLiteral}
@@ -307,23 +339,22 @@ export default function FleetCreateHub() {
 
                   <GeofenceCircle center={location as google.maps.LatLngLiteral} radius={radius} />
                 </Map>
+              </APIProvider>
+            ) : (
+              <div className="h-full w-full">
+                <iframe
+                  title="Google Map"
+                  src={googleEmbedSrc}
+                  className="h-full w-full"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+                {mapFallbackMessage ? (
+                  <div className="p-2 text-xs text-black/60 border-t bg-white">{mapFallbackMessage}</div>
+                ) : null}
               </div>
-            </APIProvider>
-          ) : (
-            <div className="h-full w-full">
-              <iframe
-                title="Google Map"
-                src={googleEmbedSrc}
-                className="h-full w-full"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-              <div className="p-2 text-xs text-black/60 border-t bg-white">
-                Google map is shown in embed mode (no API key). To enable map clicks + geofence drawing,
-                configure <code>VITE_GOOGLE_MAPS_API_KEY</code>.
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* ---------- Form ---------- */}
