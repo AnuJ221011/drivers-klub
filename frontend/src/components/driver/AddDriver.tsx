@@ -148,20 +148,23 @@ export default function AddDriver({ onClose, onCreated }: Props) {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const digits = phone.replace(/\D/g, '');
-    if (digits && digits.length !== 10) return toast.error('Phone number must be 10 digits');
+    const trimmedName = name.trim();
+    if (!trimmedName) return toast.error('Driver name is required');
+    if (!digits) return toast.error('Phone number is required');
+    if (digits.length !== 10) return toast.error('Phone number must be 10 digits');
     if (!effectiveFleetId) return toast.error('No fleet selected/available');
 
     setSaving(true);
     try {
       await createDriver({
-        name: name.trim() || undefined,
-        phone: digits.slice(0, 10) || undefined,
+        name: trimmedName,
+        phone: digits,
         isActive: status === 'Active',
         fleetId: effectiveFleetId,
-        identityLivePhoto,
-        aadhaarCardFile,
-        panCardFile,
-        bankDetailsFile,
+        identityLivePhoto: identityLivePhoto ?? undefined,
+        aadhaarCardFile: aadhaarCardFile ?? undefined,
+        panCardFile: panCardFile ?? undefined,
+        bankDetailsFile: bankDetailsFile ?? undefined,
         additionalDocuments: additionalDocuments.length > 0 ? additionalDocuments : undefined,
       });
       toast.success('Driver created');

@@ -16,6 +16,11 @@ export type Vehicle = {
   isActive: boolean;
   hubId?: string | null;
   createdAt: string;
+  vehicleColor?: string;
+  ownership?: VehicleOwnership;
+  permitExpiry?: string | null;
+  insuranceExpiry?: string | null;
+  fleetMobileNumber?: string;
 };
 
 export type VehicleEntity = {

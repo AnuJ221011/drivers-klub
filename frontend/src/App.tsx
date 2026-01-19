@@ -208,7 +208,7 @@ import DriverCheckinDetail from './components/DriverCheckins/DriverCheckinDetail
 import PaymentPricing from './pages/PaymentPricing';
 import DriverCheckoutHistory from './pages/DriverCheckoutHistory';
 import DriverPreferencesPage from './pages/DriverPreferences';
-import CreateRide from './pages/CreateRide';
+import CreateRide from './pages/createRide';
 import Client from './pages/Client';
 import ClientDetails from './pages/ClientDetails';
 

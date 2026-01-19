@@ -236,10 +236,11 @@ export default function DriverDrawer({ driver, fleetId, onClose, onUpdated }: Pr
     try {
       await updateDriverDetails(driverId, {
         name: name.trim(),
-        identityLivePhoto,
-        aadhaarCardFile,
-        panCardFile,
-        bankDetailsFile,
+        phone: digits,
+        identityLivePhoto: identityLivePhoto ?? undefined,
+        aadhaarCardFile: aadhaarCardFile ?? undefined,
+        panCardFile: panCardFile ?? undefined,
+        bankDetailsFile: bankDetailsFile ?? undefined,
         additionalDocuments: additionalDocuments.length > 0 ? additionalDocuments : undefined,
       });
       await updateDriverStatus(driverId, status === 'Active');

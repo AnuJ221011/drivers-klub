@@ -509,10 +509,10 @@ export default function VehicleDrawer({
         model: model.trim() || undefined,
         vehicleColor: vehicleColor.trim() || undefined,
         fuelType,
-        fleetMobileNumber: fleetMobileNumber.trim() || undefined,
         ownership: ownership || undefined,
         permitExpiry: permitExpiry || undefined,
         insuranceExpiry: insuranceExpiry || undefined,
+        fleetMobileNumber: fleetMobileNumber.trim() || undefined,
       });
 
       await updateVehicleStatus(vehicleId, status === 'Active');

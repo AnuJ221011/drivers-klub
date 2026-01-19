@@ -197,18 +197,26 @@ export default function AddVehicle({ onClose, onCreated }: Props) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!number.trim()) return toast.error('Please enter vehicle number');
+    const trimmedNumber = number.trim();
+    const trimmedBrand = brand.trim();
+    const trimmedModel = model.trim();
+
+    if (!trimmedNumber) return toast.error('Please enter vehicle number');
+    if (!trimmedBrand) return toast.error('Please enter vehicle name');
+    if (!trimmedModel) return toast.error('Please enter vehicle model');
+    if (!ownership) return toast.error('Please select ownership');
+    if (!fuelType) return toast.error('Please select fuel type');
     if (!effectiveFleetId) return toast.error('No fleet selected/available');
 
     setSaving(true);
     try {
       await createVehicle({
-        number: number.trim(),
-        brand: brand.trim() || undefined,
-        model: model.trim() || undefined,
+        number: trimmedNumber,
+        brand: trimmedBrand,
+        model: trimmedModel,
         vehicleColor: vehicleColor.trim() || undefined,
-        ownership: ownership || undefined,
-        fuelType: fuelType || undefined,
+        ownership: ownership as Ownership,
+        fuelType: fuelType as FuelType,
         permitExpiry: permitExpiry || undefined,
         insuranceExpiry: insuranceExpiry || undefined,
         fleetMobileNumber: fleetMobileNumber.trim() || undefined,

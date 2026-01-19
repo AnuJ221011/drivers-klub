@@ -21,6 +21,7 @@ export type CreateFleetInput = {
   gstNumber?: string;
   panNumber: string;
   modeId: string;
+  panCardFile?: File | string | null;
 };
 
 export async function createFleet(input: CreateFleetInput): Promise<Fleet> {
