@@ -1,4 +1,5 @@
 import api from './axios';
+import { trackEvent } from '../utils/analytics';
 import type { Vehicle, VehicleEntity, VehicleOwnership } from '../models/vehicle/vehicle';
 
 type UiFuelType = 'PETROL' | 'DIESEL' | 'CNG' | 'EV';
@@ -67,6 +68,12 @@ export async function createVehicle(
     fleetMobileNumber: input.fleetMobileNumber || undefined,
     status: input.isActive ? 'ACTIVE' : 'INACTIVE',
   });
+  trackEvent('create_vehicle', {
+    fleet_id: input.fleetId,
+    ownership: input.ownership,
+    fuel_type: input.fuelType,
+    initial_status: input.isActive ? 'ACTIVE' : 'INACTIVE',
+  });
 
   return toUiVehicle(res.data);
 }
@@ -120,6 +127,9 @@ export async function updateVehicleStatus(
   isActive: boolean,
 ): Promise<Vehicle> {
   const res = await api.patch<VehicleEntity>(`/vehicles/${vehicleId}/status`, {
+    status: isActive ? 'ACTIVE' : 'INACTIVE',
+  });
+  trackEvent('vehicle_status_change', {
     status: isActive ? 'ACTIVE' : 'INACTIVE',
   });
   return toUiVehicle(res.data);

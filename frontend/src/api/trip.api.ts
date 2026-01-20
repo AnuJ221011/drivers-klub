@@ -1,4 +1,5 @@
 import api from './axios';
+import { trackEvent } from '../utils/analytics';
 import type { TripEntity } from '../models/trip/trip';
 import type { TripAssignmentEntity } from './assignment.api';
 
@@ -65,6 +66,9 @@ export type CreateTripInput = {
 
 export async function createTrip(input: CreateTripInput): Promise<TripEntity> {
   const res = await api.post<TripEntity>('/trips', input);
+  trackEvent('create_trip', {
+    trip_type: input.tripType,
+  });
   return res.data;
 }
 
@@ -76,17 +80,20 @@ export async function getTripById(id: string): Promise<TripEntity> {
 
 export async function assignTripDriver(tripId: string, driverId: string): Promise<TripAssignmentEntity> {
   const res = await api.post<{ assignment: TripAssignmentEntity }>(`/admin/trips/assign`, { tripId, driverId });
+  trackEvent('assign_trip_driver', {});
   return res.data.assignment;
 }
 
 export async function unassignTripDriver(tripId: string): Promise<unknown> {
   // Backend: POST /admin/trips/unassign { tripId }
   const res = await api.post<unknown>(`/admin/trips/unassign`, { tripId });
+  trackEvent('unassign_trip_driver', {});
   return res.data;
 }
 
 export async function reassignTripDriver(tripId: string, driverId: string): Promise<TripAssignmentEntity> {
   const res = await api.post<{ assignment: TripAssignmentEntity }>(`/admin/trips/reassign`, { tripId, driverId });
   console.log('Reassigned trip driver response:', res.data);
+  trackEvent('reassign_trip_driver', {});
   return res.data.assignment;
 }

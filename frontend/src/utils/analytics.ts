@@ -19,10 +19,16 @@ export function trackPageView(path: string) {
 
 export function trackEvent(name: string, params: Record<string, unknown> = {}) {
   if (!analyticsReady) return;
-  ReactGA.event(name, params);
+  const cleaned = Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== undefined),
+  );
+  ReactGA.event(name, cleaned);
 }
 
 export function setUserProperties(props: Record<string, string | number | boolean | null | undefined>) {
   if (!analyticsReady) return;
-  ReactGA.gtag('set', 'user_properties', props);
+  const cleaned = Object.fromEntries(
+    Object.entries(props).filter(([, value]) => value !== undefined),
+  );
+  ReactGA.gtag('set', 'user_properties', cleaned);
 }

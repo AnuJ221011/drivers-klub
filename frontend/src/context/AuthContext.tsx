@@ -4,6 +4,7 @@ import type { User, UserRole } from '../models/user/user';
 import { getUserById } from '../api/user.api';
 import type { TokenPair } from '../models/auth/tokens';
 import { logout as logoutApi } from '../api/auth.api';
+import { trackEvent } from '../utils/analytics';
 
 type AuthContextValue = {
   isAuthenticated: boolean;
@@ -93,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     void (async () => {
       try {
+        trackEvent('logout');
         await logoutApi(getRefreshToken());
       } catch {
         // ignore logout failures; we'll clear local session anyway

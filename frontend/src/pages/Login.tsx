@@ -8,6 +8,7 @@ import Button from '../components/ui/Button';
 import { sendOtp, verifyOtp } from '../api/auth.api';
 import { setLoggedIn } from '../utils/auth';
 import { useAuth } from '../context/AuthContext';
+import { trackEvent } from '../utils/analytics';
 
 function normalizePhoneDigits(value: string): string {
   return (value || "").replace(/\D/g, "");
@@ -40,7 +41,7 @@ export default function LoginPage() {
   const canSend = useMemo(() => normalizePhoneDigits(phone).length === 10, [phone]);
   const canVerify = useMemo(() => otp.trim().length >= 4, [otp]);
 
-  async function handleSendOtp(e?: FormEvent) {
+  async function handleSendOtp(e?: FormEvent, action: 'send' | 'resend' = 'send') {
     e?.preventDefault?.();
     const normalized = normalizePhoneDigits(phone);
     if (!normalized) return toast.error('Please enter phone number');
@@ -53,8 +54,10 @@ export default function LoginPage() {
       toast.success(otpData?.message || 'OTP sent successfully');
       setStep('verify');
       setTimeout(() => otpRef.current?.focus?.(), 50);
+      trackEvent('otp_send', { action, method: 'whatsapp', result: 'success' });
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to send OTP'));
+      trackEvent('otp_send', { action, method: 'whatsapp', result: 'error' });
     } finally {
       setLoading(false);
     }
@@ -74,9 +77,12 @@ export default function LoginPage() {
       }
       setLoggedIn();
       toast.success('Verified successfully');
+      trackEvent('otp_verify', { result: 'success' });
+      trackEvent('login', { method: 'otp' });
       navigate('/admin', { replace: true });
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Invalid or expired OTP'));
+      trackEvent('otp_verify', { result: 'error' });
     } finally {
       setLoading(false);
     }
@@ -96,7 +102,7 @@ export default function LoginPage() {
           </div>
 
           {step === 'send' ? (
-            <form onSubmit={handleSendOtp} className="space-y-4">
+            <form onSubmit={(e) => handleSendOtp(e, 'send')} className="space-y-4">
               <PhoneInput
                 id="phone"
                 label="Phone number"
@@ -163,7 +169,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   className="text-sm font-medium text-gray-900 underline underline-offset-4"
-                  onClick={() => void handleSendOtp()}
+                  onClick={() => void handleSendOtp(undefined, 'resend')}
                   disabled={loading}
                 >
                   Resend OTP
