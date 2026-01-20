@@ -1,4 +1,5 @@
 import api from './axios';
+import { trackEvent } from '../utils/analytics';
 import type { Fleet, FleetType } from '../models/fleet/fleet';
 
 export async function getFleets(): Promise<Fleet[]> {
@@ -26,10 +27,14 @@ export type CreateFleetInput = {
 
 export async function createFleet(input: CreateFleetInput): Promise<Fleet> {
   const res = await api.post<Fleet>('/fleets', input);
+  trackEvent('create_fleet', {
+    fleet_type: input.fleetType,
+  });
   return res.data;
 }
 
 export async function deactivateFleet(id: string): Promise<Fleet> {
   const res = await api.patch<Fleet>(`/fleets/${id}/deactivate`);
+  trackEvent('deactivate_fleet', {});
   return res.data;
 }

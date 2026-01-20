@@ -1,4 +1,5 @@
 import api from './axios';
+import { trackEvent } from '../utils/analytics';
 import type { AssignmentEntity } from '../models/assignment/assignment';
 
 export async function getAssignmentsByFleet(fleetId: string): Promise<AssignmentEntity[]> {
@@ -32,10 +33,14 @@ export async function createAssignment(input: {
   vehicleId: string;
 }): Promise<AssignmentEntity> {
   const res = await api.post<AssignmentEntity>('/assignments', input);
+  trackEvent('create_assignment', {
+    fleet_id: input.fleetId,
+  });
   return res.data;
 }
 
 export async function endAssignment(id: string): Promise<AssignmentEntity> {
   const res = await api.patch<AssignmentEntity>(`/assignments/${id}/end`);
+  trackEvent('end_assignment', {});
   return res.data;
 }

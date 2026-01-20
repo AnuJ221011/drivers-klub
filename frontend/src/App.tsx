@@ -186,8 +186,8 @@
 //   );
 // }
 
-import type { ReactNode } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect, type ReactNode } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
 import LoginPage from './pages/Login';
@@ -211,6 +211,7 @@ import DriverPreferencesPage from './pages/DriverPreferences';
 import CreateRide from './pages/createRide';
 import Client from './pages/Client';
 import ClientDetails from './pages/ClientDetails';
+import { initAnalytics, trackPageView } from './utils/analytics';
 
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -218,10 +219,25 @@ function PrivateRoute({ children }: { children: ReactNode }) {
   return children;
 }
 
+function AnalyticsListener() {
+  const location = useLocation();
+
+  useEffect(() => {
+    initAnalytics(import.meta.env.VITE_GA_MEASUREMENT_ID);
+  }, []);
+
+  useEffect(() => {
+    trackPageView(`${location.pathname}${location.search}`);
+  }, [location.pathname, location.search]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <Toaster position="top-right" />
+      <AnalyticsListener />
 
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />

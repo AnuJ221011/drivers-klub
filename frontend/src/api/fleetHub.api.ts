@@ -1,4 +1,5 @@
 import api from './axios';
+import { trackEvent } from '../utils/analytics';
 
 export type FleetHubEntity = {
   id: string;
@@ -36,6 +37,10 @@ export type CreateFleetHubInput = {
 
 export async function createFleetHub(fleetId: string, input: CreateFleetHubInput): Promise<FleetHubEntity> {
   const res = await api.post<FleetHubEntity>(`/fleets/${fleetId}/hubs`, input);
+  trackEvent('create_hub', {
+    fleet_id: fleetId,
+    hub_type: input.hubType,
+  });
   return res.data;
 }
 
@@ -46,20 +51,32 @@ export async function getFleetHubById(hubId: string): Promise<FleetHubEntity> {
 
 export async function addVehicleToHub(hubId: string, vehicleId: string) {
   const res = await api.post(`/fleets/hubs/${hubId}/add-vehicle`, { vehicleId });
+  trackEvent('assign_vehicle_to_hub', {
+    hub_id: hubId,
+  });
   return res.data;
 }
 
 export async function removeVehicleFromHub(hubId: string, vehicleId: string) {
   const res = await api.post(`/fleets/hubs/${hubId}/remove-vehicle`, { vehicleId });
+  trackEvent('remove_vehicle_from_hub', {
+    hub_id: hubId,
+  });
   return res.data;
 }
 
 export async function addDriverToHub(hubId: string, driverId: string) {
   const res = await api.post(`/fleets/hubs/${hubId}/add-driver`, { driverId });
+  trackEvent('assign_driver_to_hub', {
+    hub_id: hubId,
+  });
   return res.data;
 }
 
 export async function removeDriverFromHub(hubId: string, driverId: string) {
   const res = await api.post(`/fleets/hubs/${hubId}/remove-driver`, { driverId });
+  trackEvent('remove_driver_from_hub', {
+    hub_id: hubId,
+  });
   return res.data;
 }

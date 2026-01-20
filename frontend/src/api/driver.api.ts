@@ -1,4 +1,5 @@
 import api from './axios';
+import { trackEvent } from '../utils/analytics';
 
 import type { Driver, DriverEntity } from '../models/driver/driver';
 
@@ -99,6 +100,11 @@ export async function createDriver(
   if (additionalDocuments) payload.providerMetadata = { additionalDocuments };
 
   const res = await api.post<DriverEntity>('/drivers', payload);
+  trackEvent('create_driver', {
+    fleet_id: input.fleetId,
+    initial_status: input.isActive ? 'ACTIVE' : 'INACTIVE',
+    has_additional_documents: Boolean(additionalDocuments?.length),
+  });
 
   return toUiDriver(res.data);
 }
@@ -146,6 +152,9 @@ export async function updateDriverStatus(
   const res = await api.patch<DriverEntity>(`/drivers/${driverId}/status`, {
     status: isActive ? 'ACTIVE' : 'INACTIVE',
   });
+  trackEvent('driver_status_change', {
+    status: isActive ? 'ACTIVE' : 'INACTIVE',
+  });
   return toUiDriver(res.data);
 }
 
@@ -155,6 +164,9 @@ export async function updateDriverAvailability(
 ): Promise<Driver> {
   const res = await api.patch<DriverEntity>(`/drivers/${driverId}/availability`, {
     isAvailable,
+  });
+  trackEvent('driver_availability_change', {
+    is_available: isAvailable,
   });
   return toUiDriver(res.data);
 }
