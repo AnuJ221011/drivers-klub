@@ -122,6 +122,9 @@ Send OTP to user's phone number.
 - In development, OTP is logged to console
 - If Exotel credentials are set, OTP is sent via Exotel SMS
 - Set `EXOTEL_BASE_URL` for a custom Exotel subdomain (optional)
+- Use `EXOTEL_SMS_ENDPOINT=sendCopy` if your Exotel account requires the sendCopy API
+- For India DLT compliance, set `EXOTEL_DLT_ENTITY_ID` and `EXOTEL_DLT_TEMPLATE_ID`
+- Ensure `EXOTEL_SMS_BODY_TEMPLATE` matches your registered DLT template and includes `{{otp}}`
 - OTP expires in 5 minutes (configurable)
 - Maximum 3 verification attempts per OTP
 

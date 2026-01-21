@@ -5,6 +5,8 @@ import { ApiError } from "@driversklub/common";
 
 const repo = new OtpRepository();
 const DEFAULT_EXOTEL_BASE_URL = "https://api.exotel.com";
+const DEFAULT_EXOTEL_SMS_ENDPOINT = "sendCopy";
+const DEFAULT_OTP_TEMPLATE = "Your Driver's Klub OTP is {{otp}}";
 
 const getExotelBaseUrl = () => {
     const rawBaseUrl = process.env.EXOTEL_BASE_URL;
@@ -18,8 +20,40 @@ const getExotelBaseUrl = () => {
     return `https://${trimmed}`;
 };
 
+const getExotelSmsEndpoint = () => {
+    const rawEndpoint = process.env.EXOTEL_SMS_ENDPOINT;
+    if (!rawEndpoint) {
+        return DEFAULT_EXOTEL_SMS_ENDPOINT;
+    }
+    return rawEndpoint.trim().replace(/^\/+|\/+$/g, "");
+};
+
+const renderOtpTemplate = (template: string, otp: string) => {
+    return template
+        .replace(/#var#/gi, otp)
+        .replace(/\{\{\s*otp\s*\}\}/gi, otp)
+        .replace(/\{otp\}/gi, otp);
+};
+
+const buildOtpBody = (otp: string) => {
+    const rawTemplate = process.env.EXOTEL_SMS_BODY_TEMPLATE?.trim();
+    const template = rawTemplate || DEFAULT_OTP_TEMPLATE;
+    return renderOtpTemplate(template, otp);
+};
+
 const buildExotelSendUrl = (accountSid: string) => {
-    return `${getExotelBaseUrl()}/v1/Accounts/${accountSid}/Sms/send`;
+    const endpoint = getExotelSmsEndpoint();
+    return `${getExotelBaseUrl()}/v1/Accounts/${accountSid}/Sms/${endpoint}`;
+};
+
+const appendIfPresent = (
+    params: URLSearchParams,
+    key: string,
+    value?: string
+) => {
+    if (value) {
+        params.append(key, value);
+    }
 };
 
 export class OtpService {
@@ -40,6 +74,13 @@ export class OtpService {
         const exotelApiKey = process.env.EXOTEL_API_KEY;
         const exotelApiToken = process.env.EXOTEL_API_TOKEN;
         const exotelSenderId = process.env.EXOTEL_SENDER_ID;
+        const exotelDltEntityId = process.env.EXOTEL_DLT_ENTITY_ID;
+        const exotelDltTemplateId = process.env.EXOTEL_DLT_TEMPLATE_ID;
+        const exotelSmsType = process.env.EXOTEL_SMS_TYPE;
+        const exotelSmsPriority = process.env.EXOTEL_SMS_PRIORITY;
+        const exotelEncodingType = process.env.EXOTEL_ENCODING_TYPE;
+        const exotelCustomField = process.env.EXOTEL_CUSTOM_FIELD;
+        const exotelStatusCallback = process.env.EXOTEL_STATUS_CALLBACK_URL;
 
         // LOG FIRST (So we see it even if DB fails)
         if (
@@ -68,8 +109,15 @@ export class OtpService {
                 const payload = new URLSearchParams({
                     From: exotelSenderId,
                     To: phone,
-                    Body: `Your Driver's Klub OTP is ${otp}`
+                    Body: buildOtpBody(otp)
                 });
+                appendIfPresent(payload, "DltEntityId", exotelDltEntityId);
+                appendIfPresent(payload, "DltTemplateId", exotelDltTemplateId);
+                appendIfPresent(payload, "SmsType", exotelSmsType);
+                appendIfPresent(payload, "Priority", exotelSmsPriority);
+                appendIfPresent(payload, "EncodingType", exotelEncodingType);
+                appendIfPresent(payload, "CustomField", exotelCustomField);
+                appendIfPresent(payload, "StatusCallback", exotelStatusCallback);
                 await axios.post(
                     buildExotelSendUrl(exotelAccountSid),
                     payload.toString(),
