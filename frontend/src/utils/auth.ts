@@ -33,6 +33,33 @@ export function clearLoggedIn() {
   // no-op; token presence is the source of truth
 }
 
+type JwtPayload = {
+  exp?: number;
+};
+
+function decodeJwtPayload(token: string): JwtPayload | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    let payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (payloadB64.length % 4 !== 0) payloadB64 += '=';
+    const json = atob(payloadB64);
+    return JSON.parse(json) as JwtPayload;
+  } catch {
+    return null;
+  }
+}
+
+export function isTokenExpired(token: string | null | undefined): boolean {
+  if (!token) return true;
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return false;
+  const now = Math.floor(Date.now() / 1000);
+  return now >= payload.exp;
+}
+
 export function isAuthenticated(): boolean {
-  return Boolean(getAuthToken());
+  const token = getAuthToken();
+  if (!token) return false;
+  return !isTokenExpired(token);
 }
