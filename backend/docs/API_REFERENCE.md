@@ -795,12 +795,18 @@ Create a new fleet.
   "name": "Demo Fleet Pvt Ltd",
   "city": "GURGAON",
   "mobile": "9876543210",
+  "fleetAdminName": "Fleet Admin",
+  "fleetAdminMobile": "9999999999",
   "panNumber": "ABCDE1234F",
-  "modeId": "CAB",
   "fleetType": "COMPANY",
   "status": "ACTIVE"
 }
 ```
+
+**Notes:**
+
+- `fleetAdminName` and `fleetAdminMobile` are required to create the Fleet Admin user
+- `modeId` is optional; defaults to `CAB` if omitted
 
 **Fleet Types:**
 

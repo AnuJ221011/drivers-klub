@@ -71,7 +71,8 @@ export default function FleetDetails() {
       city: "-",
       fleetType: "INDIVIDUAL",
       panNumber: "-",
-      modeId: "-",
+      fleetAdminName: "-",
+      fleetAdminMobile: "",
       createdAt: "",
       status: "ACTIVE",
     } as Fleet;

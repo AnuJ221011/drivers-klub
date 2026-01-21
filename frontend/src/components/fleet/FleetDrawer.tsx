@@ -180,8 +180,20 @@ export default function FleetDrawer({ fleet, onDeactivated }: Props) {
   return (
     <div className="space-y-4">
       <Input
-        label="Fleet Owner Name"
+        label="Fleet Name"
         value={form.name}
+        disabled
+      />
+
+      <Input
+        label="Fleet Admin Name"
+        value={form.fleetAdminName || ""}
+        disabled
+      />
+
+      <Input
+        label="Fleet Admin Mobile"
+        value={form.fleetAdminMobile || ""}
         disabled
       />
 
@@ -221,12 +233,6 @@ export default function FleetDrawer({ fleet, onDeactivated }: Props) {
       <Input
         label="PAN Number"
         value={form.panNumber}
-        disabled
-      />
-
-      <Input
-        label="Mode ID"
-        value={form.modeId}
         disabled
       />
 

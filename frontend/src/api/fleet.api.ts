@@ -20,8 +20,9 @@ export type CreateFleetInput = {
   fleetType: FleetType;
   gstNumber?: string;
   panNumber: string;
-  modeId: string;
   panCardFile?: File | string | null;
+  fleetAdminName: string;
+  fleetAdminMobile: string;
 };
 
 export async function createFleet(input: CreateFleetInput): Promise<Fleet> {

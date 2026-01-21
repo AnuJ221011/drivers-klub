@@ -64,7 +64,19 @@ export default function FleetManagement() {
       label: "S.No",
       render: (_, i) => i + 1,
     },
-    { key: "name", label: "Fleet Owner" },
+    { key: "name", label: "Fleet Name" },
+    {
+      key: "fleetAdminName",
+      label: "Fleet Admin",
+      render: (fleet) => (
+        <div className="flex flex-col">
+          <span>{fleet.fleetAdminName || "—"}</span>
+          {fleet.fleetAdminMobile ? (
+            <span className="text-xs text-black/60">{fleet.fleetAdminMobile}</span>
+          ) : null}
+        </div>
+      ),
+    },
     { key: "mobile", label: "Mobile" },
     { key: "city", label: "City" },
     {
