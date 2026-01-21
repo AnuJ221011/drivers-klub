@@ -78,9 +78,6 @@ export class OtpService {
         const exotelDltTemplateId = process.env.EXOTEL_DLT_TEMPLATE_ID;
         const exotelSmsType = process.env.EXOTEL_SMS_TYPE;
         const exotelSmsPriority = process.env.EXOTEL_SMS_PRIORITY;
-        const exotelEncodingType = process.env.EXOTEL_ENCODING_TYPE;
-        const exotelCustomField = process.env.EXOTEL_CUSTOM_FIELD;
-        const exotelStatusCallback = process.env.EXOTEL_STATUS_CALLBACK_URL;
 
         // LOG FIRST (So we see it even if DB fails)
         if (
@@ -115,9 +112,6 @@ export class OtpService {
                 appendIfPresent(payload, "DltTemplateId", exotelDltTemplateId);
                 appendIfPresent(payload, "SmsType", exotelSmsType);
                 appendIfPresent(payload, "Priority", exotelSmsPriority);
-                appendIfPresent(payload, "EncodingType", exotelEncodingType);
-                appendIfPresent(payload, "CustomField", exotelCustomField);
-                appendIfPresent(payload, "StatusCallback", exotelStatusCallback);
                 await axios.post(
                     buildExotelSendUrl(exotelAccountSid),
                     payload.toString(),
