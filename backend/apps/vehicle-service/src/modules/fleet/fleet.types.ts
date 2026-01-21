@@ -12,12 +12,11 @@ export type CreateFleetInput = {
   modeId?: string;
   panCardFile?: string;
   fleetAdminName: string;
-  fleetAdminMobile: string;
 };
 
 export type CreateFleetPayload = Omit<
   CreateFleetInput,
-  "panCardFile" | "fleetAdminName" | "fleetAdminMobile"
+  "panCardFile" | "fleetAdminName"
 >;
 
 export type VehicleInput = {

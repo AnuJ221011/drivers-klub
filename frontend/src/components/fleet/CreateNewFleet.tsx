@@ -183,7 +183,6 @@ type Props = {
 type FleetForm = {
   name: string;
   fleetAdminName: string;
-  fleetAdminMobile: string;
   mobile: string;
   email: string;
   city: string;
@@ -200,7 +199,6 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
   const [form, setForm] = useState<FleetForm>({
     name: "",
     fleetAdminName: "",
-    fleetAdminMobile: "",
     mobile: "",
     email: "",
     city: "",
@@ -235,7 +233,6 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
   const handleSubmit = async () => {
     const trimmedName = form.name.trim();
     const trimmedAdminName = form.fleetAdminName.trim();
-    const trimmedAdminMobile = form.fleetAdminMobile.trim();
     const trimmedMobile = form.mobile.trim();
     const trimmedCity = form.city.trim();
     const trimmedPan = form.panNumber.trim();
@@ -243,7 +240,6 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
     if (
       !trimmedName ||
       !trimmedAdminName ||
-      !trimmedAdminMobile ||
       !trimmedMobile ||
       !trimmedCity ||
       !form.fleetType ||
@@ -259,7 +255,6 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
       await createFleet({
         name: trimmedName,
         fleetAdminName: trimmedAdminName,
-        fleetAdminMobile: trimmedAdminMobile,
         mobile: trimmedMobile,
         city: trimmedCity,
         fleetType: form.fleetType,
@@ -295,17 +290,11 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
       />
 
       <Input
-        label="Fleet Admin Mobile"
-        value={form.fleetAdminMobile}
-        onChange={(e) => handleChange("fleetAdminMobile", e.target.value)}
-        placeholder="10 digit mobile number"
-      />
-
-      <Input
         label="Mobile Number"
         value={form.mobile}
         onChange={(e) => handleChange("mobile", e.target.value)}
         placeholder="10 digit mobile number"
+        helperText="This mobile number will be used for Fleet Admin login."
       />
 
       <Input

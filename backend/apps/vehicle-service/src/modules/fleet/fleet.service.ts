@@ -40,15 +40,18 @@ export class FleetService {
   private fleetRepo = new FleetRepository();
 
   async createFleet(data: CreateFleetInput): Promise<FleetWithAdmin> {
-    const { panCardFile: _panCardFile, fleetAdminName, fleetAdminMobile, ...payload } = data;
+    const {
+      panCardFile: _panCardFile,
+      fleetAdminName,
+      ...payload
+    } = data as CreateFleetInput & { fleetAdminMobile?: string };
     const adminName = fleetAdminName?.trim();
-    const adminMobile = fleetAdminMobile?.trim();
-
-    if (!adminName || !adminMobile) {
-      throw new ApiError(400, "Fleet admin name and mobile are required");
-    }
 
     const fleetMobile = payload.mobile?.trim();
+    if (!adminName) {
+      throw new ApiError(400, "Fleet admin name is required");
+    }
+
     if (!fleetMobile) {
       throw new ApiError(400, "Fleet mobile is required");
     }
@@ -58,12 +61,14 @@ export class FleetService {
       throw new ApiError(409, "Fleet with this mobile already exists");
     }
 
-    const existingAdmin = await prisma.user.findUnique({ where: { phone: adminMobile } });
+    const existingAdmin = await prisma.user.findUnique({ where: { phone: fleetMobile } });
     if (existingAdmin) {
       throw new ApiError(409, "Fleet admin with this mobile already exists");
     }
 
-    const { modeId, dob, ...fleetPayload } = payload;
+    const { fleetAdminMobile: _fleetAdminMobile, ...cleanPayload } =
+      payload as CreateFleetPayload & { fleetAdminMobile?: string };
+    const { modeId, dob, ...fleetPayload } = cleanPayload;
     const resolvedModeId = modeId?.trim() || "CAB";
     const fleetName = fleetPayload.name?.trim() || fleetPayload.name;
 
@@ -81,7 +86,7 @@ export class FleetService {
       const adminUser = await tx.user.create({
         data: {
           name: adminName,
-          phone: adminMobile,
+          phone: fleetMobile,
           role: UserRole.FLEET_ADMIN,
           fleetId: fleet.id,
         },
