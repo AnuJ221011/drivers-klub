@@ -96,9 +96,21 @@ export class AttendanceController {
         return res.status(404).json({ message: "Attendance not found" });
       }
 
-      // Scope enforcement: non-super users must only access their fleet (and hub for operations)
+      // Scope enforcement: drivers can only access their own attendance;
+      // other non-super roles must stay within their fleet (and hub for operations).
       const role = String(req.user?.role || "");
-      if (role !== "SUPER_ADMIN") {
+      if (role === "DRIVER") {
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ message: "Unauthorized" });
+        const driver = await prisma.driver.findUnique({
+          where: { userId },
+          select: { id: true },
+        });
+        if (!driver) return res.status(404).json({ message: "Driver not found" });
+        if (attendance.driverId !== driver.id) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      } else if (role !== "SUPER_ADMIN") {
         const scopedFleetId = req.user?.fleetId || null;
         if (!scopedFleetId) return res.status(403).json({ message: "Fleet scope not set for this user" });
         const driverFleetId = attendance.driver?.fleetId;
@@ -353,20 +365,34 @@ export class AttendanceController {
       const skip = (page - 1) * limit;
 
       const role = String(req.user?.role || "");
-      const scopedFleetId = req.user?.fleetId || null;
-      const scopedHubIds = Array.isArray(req.user?.hubIds) ? req.user.hubIds : [];
-
       const where: any = {};
-      if (driverId) where.driverId = String(driverId);
-
-      if (role !== "SUPER_ADMIN") {
-        if (!scopedFleetId) {
-          return res.status(403).json({ message: "Fleet scope not set for this user" });
+      if (role === "DRIVER") {
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ message: "Unauthorized" });
+        const driver = await prisma.driver.findUnique({
+          where: { userId },
+          select: { id: true },
+        });
+        if (!driver) return res.status(404).json({ message: "Driver not found" });
+        if (driverId && String(driverId) !== driver.id) {
+          return res.status(403).json({ message: "Access denied" });
         }
-        where.driver = {
-          fleetId: scopedFleetId,
-          ...(role === "OPERATIONS" ? { hubId: { in: scopedHubIds } } : {}),
-        };
+        where.driverId = driver.id;
+      } else {
+        const scopedFleetId = req.user?.fleetId || null;
+        const scopedHubIds = Array.isArray(req.user?.hubIds) ? req.user.hubIds : [];
+
+        if (driverId) where.driverId = String(driverId);
+
+        if (role !== "SUPER_ADMIN") {
+          if (!scopedFleetId) {
+            return res.status(403).json({ message: "Fleet scope not set for this user" });
+          }
+          where.driver = {
+            fleetId: scopedFleetId,
+            ...(role === "OPERATIONS" ? { hubId: { in: scopedHubIds } } : {}),
+          };
+        }
       }
 
       const [data, total] = await Promise.all([

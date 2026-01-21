@@ -1,4 +1,5 @@
 import { prisma } from "@driversklub/database";
+import { UserRole } from "@prisma/client";
 import {
   FleetHubRepository,
   FleetRepository,
@@ -8,6 +9,8 @@ import { ApiError } from "@driversklub/common";
 import type {
   CreateFleetInput,
   DriverInput,
+  FleetEntity,
+  FleetWithAdmin,
   VehicleInput,
 } from "./fleet.types.js";
 import { AssignManagerInput, CreateFleetHubInput } from "./fleetHub.types.js";
@@ -16,29 +19,113 @@ import { VehicleRepository } from "../vehicles/vehicle.repository.js";
 
 // DriverRepository removed to avoid circular dependency - usage replaced with direct prisma calls
 
+type FleetAdminUser = {
+  name: string;
+  phone: string;
+};
+
+const mapFleetWithAdmin = (
+  fleet: FleetEntity & { users?: FleetAdminUser[] }
+): FleetWithAdmin => {
+  const { users, ...rest } = fleet;
+  const admin = users?.[0];
+  return {
+    ...rest,
+    fleetAdminName: admin?.name,
+    fleetAdminMobile: admin?.phone,
+  };
+};
+
 export class FleetService {
   private fleetRepo = new FleetRepository();
 
-  async createFleet(data: CreateFleetInput) {
-    const { panCardFile: _panCardFile, ...payload } = data;
-    const existing = await this.fleetRepo.findByMobile(payload.mobile);
+  async createFleet(data: CreateFleetInput): Promise<FleetWithAdmin> {
+    const {
+      panCardFile: _panCardFile,
+      fleetAdminName,
+      ...payload
+    } = data as CreateFleetInput & { fleetAdminMobile?: string };
+    const adminName = fleetAdminName?.trim();
+
+    const fleetMobile = payload.mobile?.trim();
+    if (!adminName) {
+      throw new ApiError(400, "Fleet admin name is required");
+    }
+
+    if (!fleetMobile) {
+      throw new ApiError(400, "Fleet mobile is required");
+    }
+
+    const existing = await this.fleetRepo.findByMobile(fleetMobile);
     if (existing) {
       throw new ApiError(409, "Fleet with this mobile already exists");
     }
 
-    return this.fleetRepo.create(payload);
+    const existingAdmin = await prisma.user.findUnique({ where: { phone: fleetMobile } });
+    if (existingAdmin) {
+      throw new ApiError(409, "Fleet admin with this mobile already exists");
+    }
+
+    const { fleetAdminMobile: _fleetAdminMobile, ...cleanPayload } =
+      payload as CreateFleetPayload & { fleetAdminMobile?: string };
+    const { modeId, dob, ...fleetPayload } = cleanPayload;
+    const resolvedModeId = modeId?.trim() || "CAB";
+    const fleetName = fleetPayload.name?.trim() || fleetPayload.name;
+
+    return prisma.$transaction(async (tx) => {
+      const fleet = await tx.fleet.create({
+        data: {
+          ...fleetPayload,
+          name: fleetName,
+          mobile: fleetMobile,
+          modeId: resolvedModeId,
+          dob: dob ? new Date(dob) : undefined,
+        },
+      });
+
+      const adminUser = await tx.user.create({
+        data: {
+          name: adminName,
+          phone: fleetMobile,
+          role: UserRole.FLEET_ADMIN,
+          fleetId: fleet.id,
+        },
+      });
+
+      return {
+        ...fleet,
+        fleetAdminName: adminUser.name,
+        fleetAdminMobile: adminUser.phone,
+      };
+    });
   }
 
-  async getAllFleets() {
-    return this.fleetRepo.findAll();
+  async getAllFleets(): Promise<FleetWithAdmin[]> {
+    const fleets = await prisma.fleet.findMany({
+      include: {
+        users: {
+          where: { role: UserRole.FLEET_ADMIN },
+          select: { name: true, phone: true },
+        },
+      },
+    });
+    return fleets.map(mapFleetWithAdmin);
   }
 
-  async getFleetById(id: string) {
-    const fleet = await this.fleetRepo.findById(id);
+  async getFleetById(id: string): Promise<FleetWithAdmin> {
+    const fleet = await prisma.fleet.findUnique({
+      where: { id },
+      include: {
+        users: {
+          where: { role: UserRole.FLEET_ADMIN },
+          select: { name: true, phone: true },
+        },
+      },
+    });
     if (!fleet) {
       throw new ApiError(404, "Fleet not found");
     }
-    return fleet;
+    return mapFleetWithAdmin(fleet);
   }
 
   async deactivateFleet(id: string) {
