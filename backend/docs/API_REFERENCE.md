@@ -2042,6 +2042,10 @@ End current break.
 
 Get attendance history.
 
+**Notes:**
+
+- Drivers can call this without `driverId` to fetch their own history
+
 **Authentication:** Required  
 **Roles:** Any authenticated user
 

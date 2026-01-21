@@ -11,7 +11,7 @@ export default function DriverCheckinDetail() {
   // Route param from `/admin/driver-checkins/:id`
   const { id } = useParams();
   const navigate = useNavigate();
-  const { userId } = useAuth();
+  const { userId, role } = useAuth();
 
   const [loading, setLoading] = useState(false);
 
@@ -83,8 +83,9 @@ export default function DriverCheckinDetail() {
     return logs;
   }, [attendance, checkinTimeLabel]);
 
-  // "Can act" means we have the route id and a logged-in admin user.
-  const canAct = Boolean(id && userId);
+  const canApprove = role === "SUPER_ADMIN" || role === "MANAGER";
+  // "Can act" means we have the route id and a logged-in approver.
+  const canAct = Boolean(id && userId && canApprove);
   const status = attendance?.status;
   const isActionLocked = status !== "PENDING";
 
@@ -180,24 +181,26 @@ export default function DriverCheckinDetail() {
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3">
-        <Button
-          className="bg-green-500 hover:bg-green-600"
-          disabled={!canAct || isActionLocked}
-          onClick={() => void onApprove()}
-        >
-          {status === "APPROVED" ? "Approved" : "Approve"}
-        </Button>
+      {canApprove ? (
+        <div className="flex gap-3">
+          <Button
+            className="bg-green-500 hover:bg-green-600"
+            disabled={!canAct || isActionLocked}
+            onClick={() => void onApprove()}
+          >
+            {status === "APPROVED" ? "Approved" : "Approve"}
+          </Button>
 
-        <Button
-          variant="secondary"
-          className="text-red-600"
-          disabled={!canAct || isActionLocked}
-          onClick={() => void onReject()}
-        >
-          {status === "REJECTED" ? "Rejected" : "Reject"}
-        </Button>
-      </div>
+          <Button
+            variant="secondary"
+            className="text-red-600"
+            disabled={!canAct || isActionLocked}
+            onClick={() => void onReject()}
+          >
+            {status === "REJECTED" ? "Rejected" : "Reject"}
+          </Button>
+        </div>
+      ) : null}
 
       {/* Audit Trail */}
       <AuditTrail logs={auditLogs} />
