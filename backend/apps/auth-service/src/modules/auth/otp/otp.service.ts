@@ -4,6 +4,23 @@ import { OtpRepository } from "./otp.repository.js";
 import { ApiError } from "@driversklub/common";
 
 const repo = new OtpRepository();
+const DEFAULT_EXOTEL_BASE_URL = "https://api.exotel.com";
+
+const getExotelBaseUrl = () => {
+    const rawBaseUrl = process.env.EXOTEL_BASE_URL;
+    if (!rawBaseUrl) {
+        return DEFAULT_EXOTEL_BASE_URL;
+    }
+    const trimmed = rawBaseUrl.trim().replace(/\/+$/, "");
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+        return trimmed;
+    }
+    return `https://${trimmed}`;
+};
+
+const buildExotelSendUrl = (accountSid: string) => {
+    return `${getExotelBaseUrl()}/v1/Accounts/${accountSid}/Sms/send`;
+};
 
 export class OtpService {
     generateOtp(): string {
@@ -18,8 +35,20 @@ export class OtpService {
             Date.now() + Number(process.env.OTP_EXPIRY_MINUTES || 5) * 60 * 1000
         );
 
+        const isProduction = process.env.NODE_ENV === "production";
+        const exotelAccountSid = process.env.EXOTEL_ACCOUNT_SID;
+        const exotelApiKey = process.env.EXOTEL_API_KEY;
+        const exotelApiToken = process.env.EXOTEL_API_TOKEN;
+        const exotelSenderId = process.env.EXOTEL_SENDER_ID;
+
         // LOG FIRST (So we see it even if DB fails)
-        if (!process.env.EXOTEL_ACCOUNT_SID || process.env.NODE_ENV !== "production") {
+        if (
+            !isProduction ||
+            !exotelAccountSid ||
+            !exotelApiKey ||
+            !exotelApiToken ||
+            !exotelSenderId
+        ) {
             console.log("==========================================");
             console.log(`[DEV OTP] Phone: ${phone}`);
             console.log(`[DEV OTP] Code : ${otp}`);
@@ -34,26 +63,23 @@ export class OtpService {
         }
 
         // 🔹 EXOTEL SEND OTP (IF CONFIGURED)
-        if (
-            process.env.EXOTEL_ACCOUNT_SID &&
-            process.env.EXOTEL_API_KEY &&
-            process.env.EXOTEL_API_TOKEN &&
-            process.env.NODE_ENV === "production" // SAFETY: Only run in prod
-        ) {
+        if (exotelAccountSid && exotelApiKey && exotelApiToken && exotelSenderId) {
             try {
-                // ... Exotel call ...
+                const payload = new URLSearchParams({
+                    From: exotelSenderId,
+                    To: phone,
+                    Body: `Your Driver's Klub OTP is ${otp}`
+                });
                 await axios.post(
-                    `https://api.exotel.com/v1/Accounts/${process.env.EXOTEL_ACCOUNT_SID}/Sms/send.json`,
-                    null,
+                    buildExotelSendUrl(exotelAccountSid),
+                    payload.toString(),
                     {
-                        params: {
-                            From: process.env.EXOTEL_SENDER_ID,
-                            To: phone,
-                            Body: `Your Driver's Klub OTP is ${otp}`
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded"
                         },
                         auth: {
-                            username: process.env.EXOTEL_API_KEY!,
-                            password: process.env.EXOTEL_API_TOKEN!
+                            username: exotelApiKey,
+                            password: exotelApiToken
                         }
                     }
                 );

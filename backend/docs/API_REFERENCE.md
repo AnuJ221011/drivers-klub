@@ -120,6 +120,8 @@ Send OTP to user's phone number.
 **Notes:**
 
 - In development, OTP is logged to console
+- If Exotel credentials are set, OTP is sent via Exotel SMS
+- Set `EXOTEL_BASE_URL` for a custom Exotel subdomain (optional)
 - OTP expires in 5 minutes (configurable)
 - Maximum 3 verification attempts per OTP
 
