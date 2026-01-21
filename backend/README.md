@@ -221,7 +221,6 @@ JWT_REFRESH_SECRET="your-refresh-secret"
 # OTP Service
 OTP_EXPIRY_MINUTES=5
 OTP_MAX_ATTEMPTS=3
-OTP_BYPASS_KEY="dev_bypass_key"
 
 # Payment Gateway (Easebuzz)
 EASEBUZZ_MERCHANT_KEY="your-key"

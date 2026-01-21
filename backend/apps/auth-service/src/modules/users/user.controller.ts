@@ -113,10 +113,9 @@ export const verifyDriverOtp = async (req: Request, res: Response) => {
     return res.status(400).json({ message: "Invalid request body" });
   }
 
-  const { phone, otp, verifiedKey } = body as {
+  const { phone, otp } = body as {
     phone?: string;
     otp?: string;
-    verifiedKey?: string;
   };
 
   if (!phone || !otp) {
@@ -127,7 +126,7 @@ export const verifyDriverOtp = async (req: Request, res: Response) => {
     return res.status(400).json({ message: "phone and otp are required" });
   }
 
-  await otpService.verifyOtp(phone, otp, verifiedKey);
+  await otpService.verifyOtp(phone, otp);
 
   ApiResponse.send(
     res,

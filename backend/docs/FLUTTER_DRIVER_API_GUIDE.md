@@ -133,15 +133,6 @@ Once logged in (Token received), the driver must complete their profile using th
 }
 ```
 
-**Dev Mode:** When `NODE_ENV !== 'production'`, OTP is printed to server console:
-
-```text
-==========================================
-[DEV OTP] Phone: +919876543210
-[DEV OTP] Code : 123456
-==========================================
-```
-
 ---
 
 ### 1.2 Verify OTP
@@ -165,16 +156,6 @@ x-client-type: app
 ```
 
 **Note:** Set `x-client-type` header to `app` for mobile apps or `web` for web clients. This determines refresh token expiry duration.
-
-**Dev Bypass (Development Only):**
-
-```json
-{
-  "phone": "9876543210",
-  "otp": "000000",
-  "verifiedKey": "pass"
-}
-```
 
 **Response (200):**
 
