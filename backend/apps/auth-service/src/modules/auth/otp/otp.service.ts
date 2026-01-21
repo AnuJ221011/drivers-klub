@@ -5,7 +5,7 @@ import { ApiError } from "@driversklub/common";
 
 const repo = new OtpRepository();
 const DEFAULT_EXOTEL_BASE_URL = "https://api.exotel.com";
-const DEFAULT_EXOTEL_SMS_ENDPOINT = "sendCopy";
+const DEFAULT_EXOTEL_SMS_ENDPOINT = "send";
 const DEFAULT_OTP_TEMPLATE = "Your Driver's Klub OTP is {{otp}}";
 
 const getExotelBaseUrl = () => {
