@@ -9,9 +9,15 @@ export type CreateFleetInput = {
   fleetType: FleetType;
   gstNumber?: string;
   panNumber: string;
-  modeId: string;
+  modeId?: string;
   panCardFile?: string;
+  fleetAdminName: string;
 };
+
+export type CreateFleetPayload = Omit<
+  CreateFleetInput,
+  "panCardFile" | "fleetAdminName"
+>;
 
 export type VehicleInput = {
   vehicleId: string;
@@ -26,3 +32,7 @@ export type UpdateFleetStatusInput = {
 };
 
 export type FleetEntity = Fleet;
+export type FleetWithAdmin = Fleet & {
+  fleetAdminName?: string;
+  fleetAdminMobile?: string;
+};

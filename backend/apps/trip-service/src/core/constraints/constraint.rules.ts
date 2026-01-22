@@ -6,7 +6,7 @@ import { TripType } from "@prisma/client";
  * Supported cities for trip origin.
  * Currently limited to Delhi NCR region for operational coverage.
  */
-const NCR_CITIES = ["DELHI", "GURGAON", "NOIDA", "FARIDABAD", "GHAZIABAD"];
+const NCR_CITIES = ["DELHI", "GURGAON", "NOIDA", "FARIDABAD", "GHAZIABAD", "BANGALORE"];
 
 function validateOrigin(origin: string): ConstraintResult {
     const normalized = origin.toUpperCase();
@@ -21,6 +21,20 @@ function validateOrigin(origin: string): ConstraintResult {
 
 function validatePrebookWindow(pickupTime: Date): ConstraintResult {
     const now = new Date();
+    
+    // DEVELOPMENT: Allow booking if pickup is at least 1 minute from now
+    if (process.env.NODE_ENV === "development") {
+        const oneMinuteFromNow = new Date(now.getTime() + 60 * 1000);
+        if (pickupTime < oneMinuteFromNow) {
+            return {
+                allowed: false,
+                reason: `In Development mode, pickup time must be at least 1 minute in the future. (After ${oneMinuteFromNow.toLocaleTimeString()})`
+            };
+        }
+        return { allowed: true };
+    }
+
+    // PRODUCTION / STAGING: Strict "Next Day 4 AM" rule
     const tomorrow4AM = new Date(now);
     tomorrow4AM.setDate(now.getDate() + 1);
     tomorrow4AM.setHours(4, 0, 0, 0);

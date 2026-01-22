@@ -14,4 +14,5 @@ export * from './utils/geo.util';
 export * from './utils/timezone.util';
 export * from './utils/s3.service.js';
 export * from './utils/jwt.util';
+export * from './utils/sqs.producer';
 // export * from './utils/prisma'; // Deciding whether to keep this or use @driversklub/database

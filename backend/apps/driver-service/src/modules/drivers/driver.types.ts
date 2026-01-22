@@ -1,4 +1,12 @@
-import type { Driver, DriverStatus, KycStatus, DriverPreference, DriverPreferenceRequest, PreferenceDefination} from "@prisma/client";
+import type {
+  Driver,
+  DriverStatus,
+  KycStatus,
+  DriverPreference,
+  DriverPreferenceRequest,
+  PreferenceDefination,
+  Prisma,
+} from "@prisma/client";
 
 export type CreateDriverInput = {
   userId: string;
@@ -15,7 +23,7 @@ export type CreateDriverInput = {
   panCardImage?: string;
   livePhoto?: string;
   bankIdProof?: string;
-  providerMetadata?: Record<string, unknown>;
+  providerMetadata?: Prisma.InputJsonObject;
   additionalDocuments?: string[];
 };
 
@@ -73,8 +81,10 @@ export type UpdateDriverInput = {
   panCardImage?: string;
   livePhoto?: string;
   bankIdProof?: string;
-  providerMetadata?: Record<string, unknown>;
+  providerMetadata?: Prisma.InputJsonObject;
   additionalDocuments?: string[];
+  rcFrontImage?: string;
+  rcBackImage?: string;
 };
 
 export type UpdateDriverStatusInput = {

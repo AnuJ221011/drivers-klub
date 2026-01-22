@@ -15,24 +15,24 @@ router.post("/start-break", controller.startBreak);
 router.post("/end-break", controller.endBreak);
 router.get(
   "/history",
-  authorizeRoles("SUPER_ADMIN", "FLEET_ADMIN", "OPERATIONS", "MANAGER"),
+  authorizeRoles("SUPER_ADMIN", "FLEET_ADMIN", "OPERATIONS", "MANAGER", "DRIVER"),
   controller.getHistory
 );
 router.get(
   "/:id",
-  authorizeRoles('SUPER_ADMIN', 'OPERATIONS', 'MANAGER'),
+  authorizeRoles('SUPER_ADMIN', 'FLEET_ADMIN', 'OPERATIONS', 'MANAGER', 'DRIVER'),
   controller.getById
 );
 
 router.post(
   "/:id/approve",
-  authorizeRoles('SUPER_ADMIN', 'MANAGER'),
+  authorizeRoles('SUPER_ADMIN', 'FLEET_ADMIN', 'OPERATIONS', 'MANAGER'),
   controller.approve
 );
 
 router.post(
   "/:id/reject",
-  authorizeRoles('SUPER_ADMIN', 'MANAGER'),
+  authorizeRoles('SUPER_ADMIN', 'FLEET_ADMIN', 'OPERATIONS', 'MANAGER'),
   controller.reject
 );
 

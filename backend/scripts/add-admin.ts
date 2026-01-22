@@ -3,8 +3,8 @@ import { UserRole } from "@prisma/client";
 import { prisma } from "@driversklub/database";
 
 async function main() {
-    const phone = "9999999999";
-    const name = "System Admin";
+    const phone = "9015397699";
+    const name = "System Admin Gourav";
 
     console.log(`Checking for admin user with phone: ${phone}...`);
 

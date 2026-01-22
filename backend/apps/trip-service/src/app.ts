@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { errorHandler, notFound, requestLogger } from "@driversklub/common";
 import tripRoutes from "./modules/trips/trip.routes.js";
+import publicTripRoutes from "./modules/public-booking/public-trip.routes.js";
 import rapidoRoutes from "./modules/partner/rapido/rapido.routes.js";
 import mmtRoutes from "./modules/partner/mmt/mmt.routes.js";
 import paymentRoutes from "./modules/payment/payment.routes.js";
@@ -28,6 +29,7 @@ app.get("/", (_req, res) => {
 // Routes
 app.use("/maps", mapsRoutes);
 app.use("/trips", tripRoutes);
+app.use("/public/trips", publicTripRoutes); // Public trip booking endpoints
 app.use("/partners/rapido", rapidoRoutes);
 app.use("/partners/mmt", mmtRoutes);
 app.use("/payments", paymentRoutes);

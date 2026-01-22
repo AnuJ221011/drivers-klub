@@ -156,6 +156,66 @@ export class GoogleMapsAdapter {
     }
 
     /**
+     * Get city name from an address using Google Geocoding API.
+     * Extracts city from address_components in the geocoding response.
+     */
+    async getCityFromAddress(address: string): Promise<string | null> {
+        if (!this.apiKey) return null;
+
+        const cacheKey = `city_${address.toLowerCase().trim()}`;
+        const cachedResult = this.cache.get<string>(cacheKey);
+
+        if (cachedResult) return cachedResult;
+
+        try {
+            const response = await axios.get(this.geocodingUrl, {
+                params: {
+                    address: address,
+                    key: this.apiKey
+                },
+                timeout: 5000
+            });
+
+            const result = response.data.results?.[0];
+            if (!result || !result.address_components) return null;
+
+            // Extract city from address_components
+            // Priority: locality > administrative_area_level_2 > administrative_area_level_1
+            let city: string | null = null;
+
+            for (const component of result.address_components) {
+                if (component.types.includes("locality")) {
+                    city = component.long_name;
+                    break;
+                } else if (!city && component.types.includes("administrative_area_level_2")) {
+                    city = component.long_name;
+                } else if (!city && component.types.includes("administrative_area_level_1")) {
+                    city = component.long_name;
+                }
+            }
+
+            // If no city found, try to extract from formatted_address
+            if (!city && result.formatted_address) {
+                const parts = result.formatted_address.split(",");
+                if (parts.length > 1) {
+                    city = parts[parts.length - 2]?.trim() || null;
+                }
+            }
+
+            if (city) {
+                this.cache.set(cacheKey, city);
+                return city;
+            }
+
+            return null;
+
+        } catch (error: any) {
+            logger.error("Google Geocoding API Error (getCityFromAddress)", { message: error.message, address });
+            return null;
+        }
+    }
+
+    /**
      * Get Autocomplete suggestions for a query.
      * Caches short queries (short TTL) to prevent spam.
      */

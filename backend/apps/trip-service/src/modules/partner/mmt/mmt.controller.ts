@@ -39,7 +39,10 @@ export class MMTController {
                 // Pass through additional fields
                 searchId: req.body.search_id,
                 partnerName: req.body.partner_name,
-                airportType: req.body.trip_type_details?.airport_type
+                airportType: req.body.trip_type_details?.airport_type,
+                // Pass through inclusion/exclusion arrays for fare calculation
+                mandatory_inclusions: req.body.mandatory_inclusions || [],
+                mandatory_exclusions: req.body.mandatory_exclusions || []
             };
 
             const result = await this.service.searchFare(mappedInput);
@@ -63,7 +66,14 @@ export class MMTController {
                 pickupTime: req.body.start_time || req.body.pickupTime,
                 distanceKm: req.body.one_way_distance || req.body.distanceKm || 40,
                 pickupCity: req.body.source?.city || req.body.pickupCity || "DELHI",
-                dropCity: req.body.destination?.city || req.body.dropCity || "Unknown"
+                dropCity: req.body.destination?.city || req.body.dropCity || "Unknown",
+                // Location data
+                pickupLat: req.body.source?.lat || req.body.source?.latitude,
+                pickupLng: req.body.source?.lng || req.body.source?.longitude,
+                pickupLocation: req.body.source?.address || req.body.source?.name,
+                dropLat: req.body.destination?.lat || req.body.destination?.latitude,
+                dropLng: req.body.destination?.lng || req.body.destination?.longitude,
+                dropLocation: req.body.destination?.address || req.body.destination?.name
             };
 
             const result = await this.service.blockRide(mappedInput);
@@ -116,10 +126,13 @@ export class MMTController {
 
     getBookingDetails = async (req: Request, res: Response, next: NextFunction) => {
         try {
-            // GET /booking/details?booking_id=... OR ?partner_reference_number=...
+            // GET /booking/details?booking_id=... OR ?partner_reference_number=... OR ?order_reference_number=...
             const { booking_id, partner_reference_number, order_reference_number } = req.query;
 
             // Determine which ID type and whether it's an external MMT reference
+            // - order_reference_number (BKS...) = MMT's external booking ID stored in RideProviderMapping.externalBookingId
+            // - partner_reference_number (UUID) = Our internal Ride.id (returned as reference_number in block response)
+            // - booking_id = Our internal Ride.id (alternative param name)
             let bookingId: string;
             let isExternalRef = false;
 
@@ -128,10 +141,10 @@ export class MMTController {
                 isExternalRef = false; // Our internal booking ID
             } else if (partner_reference_number) {
                 bookingId = partner_reference_number as string;
-                isExternalRef = true; // MMT's external reference ID
+                isExternalRef = false; // Our internal booking ID (UUID we returned in block response)
             } else if (order_reference_number) {
                 bookingId = order_reference_number as string;
-                isExternalRef = false; // "order_reference_number" is OUR internal booking ID
+                isExternalRef = true; // MMT's order reference number (BKS...) stored in externalBookingId
             } else {
                 return ApiResponse.send(res, 400, null, "Missing booking_id or partner_reference_number");
             }

@@ -73,10 +73,10 @@ export class MMTService {
                         make_year_type: "Newer",
                         make_year: 2024,
                         cancellation_rule: "SUPER_FLEXI",
-                        min_payment_percentage: 100,
+                        min_payment_percentage: 20,
                         pax_capacity: 4,
                         luggage_capacity: 2,
-                        zero_payment: true, // Mandatory flag for V3
+                        zero_payment: false, // Changed to false since min_payment is 20%
                         amenities: {
                             features: {
                                 vehicle: ["AC", "Music System", "Charging Point"],
@@ -87,32 +87,32 @@ export class MMTService {
                         fare_details: {
                             base_fare: price.baseFare,
                             per_km_charge: Math.round(price.finalFare / distanceKm), // Approx per km
-                            per_km_extra_charge: 20, // Example fixed rate
+                            per_km_extra_charge: 25, // fixe rate
                             total_driver_charges: 0,
                             seller_discount: 0,
                             extra_charges: {
                                 night_charges: {
-                                    amount: 0,
-                                    is_included_in_base_fare: false,
-                                    is_included_in_grand_total: false,
-                                    is_applicable: false
+                                    amount: 1.25 * price.baseFare, // 25% of base fare
+                                    is_included_in_base_fare: (input.mandatory_inclusions || []).includes("NC"),
+                                    is_included_in_grand_total: true,
+                                    is_applicable: true
                                 },
                                 toll_charges: {
-                                    amount: 0,
-                                    is_included_in_base_fare: false,
-                                    is_included_in_grand_total: false, // Excluded usually means pay on actuals
+                                    amount: 100, // Fixed toll estimate
+                                    is_included_in_base_fare: (input.mandatory_inclusions || []).includes("TOLL"),
+                                    is_included_in_grand_total: (input.mandatory_inclusions || []).includes("TOLL"),
                                     is_applicable: true
                                 },
                                 state_tax: {
                                     amount: 0,
-                                    is_included_in_base_fare: false,
-                                    is_included_in_grand_total: false,
+                                    is_included_in_base_fare: (input.mandatory_inclusions || []).includes("ST"),
+                                    is_included_in_grand_total: true,
                                     is_applicable: true
                                 },
                                 parking_charges: {
                                     amount: 0,
-                                    is_included_in_base_fare: false,
-                                    is_included_in_grand_total: false,
+                                    is_included_in_base_fare: (input.mandatory_inclusions || []).includes("PC"),
+                                    is_included_in_grand_total: true,
                                     is_applicable: true
                                 },
                                 waiting_charges: {
@@ -122,9 +122,9 @@ export class MMTService {
                                     is_applicable: true
                                 },
                                 airport_entry_fee: {
-                                    amount: 0,
-                                    is_included_in_base_fare: false,
-                                    is_included_in_grand_total: false,
+                                    amount: 270, // Fixed for Delhi Airport
+                                    is_included_in_base_fare: (input.mandatory_inclusions || []).includes("AE"),
+                                    is_included_in_grand_total: true,
                                     is_applicable: true
                                 }
                             }
@@ -189,6 +189,17 @@ export class MMTService {
                 price: priceResult.finalFare,
                 vehicleSku: "TATA_TIGOR_EV",
                 status: "BLOCKED",
+                // Location data
+                pickupLat: input.pickupLat || null,
+                pickupLng: input.pickupLng || null,
+                pickupLocation: input.pickupLocation || null,
+                dropLat: input.dropLat || null,
+                dropLng: input.dropLng || null,
+                dropLocation: input.dropLocation || null,
+                // Set provider fields on Ride model for easy querying
+                provider: "MMT",
+                providerBookingId: input.mmtRefId,
+                providerStatus: "PENDING",
                 providerMeta: {
                     otp: verificationCode
                 },
@@ -206,7 +217,7 @@ export class MMTService {
         return {
             response: {
                 success: true,
-                order_reference_number: trip.id,
+                reference_number: trip.id,
                 status: "BLOCKED",
                 verification_code: verificationCode
             }
@@ -214,17 +225,45 @@ export class MMTService {
     }
 
     async confirmPaid(input: any) {
-        const bookingId = input.bookingId || input.order_reference_number;
-        const trip = await prisma.ride.findUnique({ where: { id: bookingId } });
+        // partner_reference_number is our internal trip ID (returned as reference_number in block response)
+        // order_reference_number is MMT's booking ID (BKS...)
+        // We need to handle both cases
+        let trip;
+
+        // First try partner_reference_number (our internal ID)
+        if (input.partner_reference_number) {
+            trip = await prisma.ride.findUnique({ where: { id: input.partner_reference_number } });
+        }
+
+        // If not found and order_reference_number provided, search by external ID
+        if (!trip && input.order_reference_number) {
+            const mapping = await prisma.rideProviderMapping.findFirst({
+                where: { externalBookingId: input.order_reference_number },
+                include: { ride: true }
+            });
+            trip = mapping?.ride;
+        }
+
+        // Fallback to bookingId as internal ID
+        if (!trip && input.bookingId) {
+            trip = await prisma.ride.findUnique({ where: { id: input.bookingId } });
+        }
+
         if (!trip) throw new ApiError(404, "Booking not found");
 
         if (trip.status !== "BLOCKED") throw new ApiError(400, "Booking is not in blocked state");
 
+        // Update both Ride status and RideProviderMapping status
         const updated = await prisma.ride.update({
-            where: { id: bookingId },
+            where: { id: trip.id },
             data: {
                 status: "CREATED", // Confirmed!
-                providerStatus: "CONFIRMED"
+                providerStatus: "CONFIRMED",
+                providerMapping: {
+                    update: {
+                        providerStatus: "CONFIRMED"
+                    }
+                }
             }
         });
 
@@ -238,16 +277,39 @@ export class MMTService {
     }
 
     // 4. CANCEL
-    // 4. CANCEL
     async cancelRide(input: any) {
-        const bookingId = input.bookingId || input.order_reference_number;
-        const trip = await prisma.ride.findUnique({ where: { id: bookingId } });
-        if (!trip) throw new Error("Booking not found");
+        // Handle both partner_reference_number (our ID) and order_reference_number (MMT's BKS ID)
+        let trip;
 
-        const updated = await prisma.ride.update({
-            where: { id: bookingId },
+        if (input.partner_reference_number) {
+            trip = await prisma.ride.findUnique({ where: { id: input.partner_reference_number } });
+        }
+
+        if (!trip && input.order_reference_number) {
+            const mapping = await prisma.rideProviderMapping.findFirst({
+                where: { externalBookingId: input.order_reference_number },
+                include: { ride: true }
+            });
+            trip = mapping?.ride;
+        }
+
+        if (!trip && input.bookingId) {
+            trip = await prisma.ride.findUnique({ where: { id: input.bookingId } });
+        }
+
+        if (!trip) throw new ApiError(404, "Booking not found");
+
+        // Update both Ride status and RideProviderMapping status
+        await prisma.ride.update({
+            where: { id: trip.id },
             data: {
-                status: "CANCELLED_BY_PARTNER"
+                status: "CANCELLED_BY_PARTNER",
+                providerStatus: "CANCELLED",
+                providerMapping: {
+                    update: {
+                        providerStatus: "CANCELLED"
+                    }
+                }
             }
         });
 
@@ -259,19 +321,29 @@ export class MMTService {
     }
 
     // 5. RESCHEDULE BLOCK (Check availability/validity)
-    // 5. Reschedule Block Endpoint
     async rescheduleBlock(input: any) {
         // Official Spec:
-        // Input: order_reference_number, start_time
+        // Input: partner_reference_number (our internal ID) or order_reference_number (MMT's BKS ID), start_time
         // Output: { response: { success: true, verification_code, fare_details, ... } }
 
-        const bookingId = input.order_reference_number;
         const newPickupTimeStr = input.start_time;
-
-        if (!bookingId) throw new ApiError(400, "order_reference_number is required");
         if (!newPickupTimeStr) throw new ApiError(400, "start_time is required");
 
-        const trip = await prisma.ride.findUnique({ where: { id: bookingId } });
+        // Handle both ID types
+        let trip;
+
+        if (input.partner_reference_number) {
+            trip = await prisma.ride.findUnique({ where: { id: input.partner_reference_number } });
+        }
+
+        if (!trip && input.order_reference_number) {
+            const mapping = await prisma.rideProviderMapping.findFirst({
+                where: { externalBookingId: input.order_reference_number },
+                include: { ride: true }
+            });
+            trip = mapping?.ride;
+        }
+
         if (!trip) throw new ApiError(404, "Booking not found");
 
         const newPickupTime = new Date(newPickupTimeStr);
@@ -296,7 +368,7 @@ export class MMTService {
         // Persist pending reschedule time and new OTP in providerMeta
         const currentMeta = (trip.providerMeta as Record<string, any>) || {};
         await prisma.ride.update({
-            where: { id: bookingId },
+            where: { id: trip.id },
             data: {
                 pendingRescheduleTime: newPickupTime,
                 providerMeta: {
@@ -310,7 +382,7 @@ export class MMTService {
         // Assignments use AssignmentStatus enum: ASSIGNED, ACTIVE (on-going)
         const activeAssignment = await prisma.tripAssignment.findFirst({
             where: {
-                tripId: bookingId,
+                tripId: trip.id,
                 status: { in: ['ASSIGNED', 'ACTIVE'] }
             },
             include: {
@@ -346,27 +418,43 @@ export class MMTService {
     // 6. Reschedule Confirm Endpoint
     async rescheduleConfirm(input: any) {
         // Official Spec:
-        // Input: order_reference_number
+        // Input: partner_reference_number (our internal ID) or order_reference_number (MMT's BKS ID)
         // Output: { response: { success: true } }
 
-        const bookingId = input.order_reference_number;
-        if (!bookingId) throw new ApiError(400, "order_reference_number is required");
+        // Handle both ID types
+        let trip;
 
-        const trip = await prisma.ride.findUnique({ where: { id: bookingId } });
+        if (input.partner_reference_number) {
+            trip = await prisma.ride.findUnique({ where: { id: input.partner_reference_number } });
+        }
+
+        if (!trip && input.order_reference_number) {
+            const mapping = await prisma.rideProviderMapping.findFirst({
+                where: { externalBookingId: input.order_reference_number },
+                include: { ride: true }
+            });
+            trip = mapping?.ride;
+        }
+
         if (!trip) throw new ApiError(404, "Booking not found");
 
         if (!trip.pendingRescheduleTime) {
             throw new ApiError(400, "No pending reschedule found. Call rescheduleblock first.");
         }
 
-        // Apply Reschedule
+        // Apply Reschedule - update both Ride and RideProviderMapping
         await prisma.ride.update({
-            where: { id: bookingId },
+            where: { id: trip.id },
             data: {
                 pickupTime: trip.pendingRescheduleTime,
                 pendingRescheduleTime: null, // Clear pending
                 status: "CREATED", // Resets to created/confirmed state
-                providerStatus: "CONFIRMED"
+                providerStatus: "CONFIRMED",
+                providerMapping: {
+                    update: {
+                        providerStatus: "CONFIRMED"
+                    }
+                }
             }
         });
 

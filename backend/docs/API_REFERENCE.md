@@ -119,7 +119,11 @@ Send OTP to user's phone number.
 
 **Notes:**
 
-- In development, OTP is logged to console
+- OTP is sent via Exotel SMS
+- Set `EXOTEL_BASE_URL` for a custom Exotel subdomain (optional)
+- Use `EXOTEL_SMS_ENDPOINT=sendCopy` if your Exotel account requires the sendCopy API
+- For India DLT compliance, set `EXOTEL_DLT_ENTITY_ID` and `EXOTEL_DLT_TEMPLATE_ID`
+- Ensure `EXOTEL_SMS_BODY_TEMPLATE` matches your registered DLT template and includes `{{otp}}`
 - OTP expires in 5 minutes (configurable)
 - Maximum 3 verification attempts per OTP
 
@@ -136,8 +140,7 @@ Verify OTP and authenticate user.
 ```json
 {
   "phone": "9876543210",
-  "otp": "123456",
-  "verifiedKey": "pass"  // Optional: Dev bypass key
+  "otp": "123456"
 }
 ```
 
@@ -163,7 +166,6 @@ Verify OTP and authenticate user.
 **Security:**
 
 - OTP is deleted after successful verification (prevents reuse)
-- Dev bypass only works in non-production environments
 
 **Request Headers (Optional):**
 
@@ -274,8 +276,7 @@ Verify the OTP for driver registration.
 ```json
 {
   "phone": "9876543210",
-  "otp": "123456",
-  "verifiedKey": "optional-bypass-key"
+  "otp": "123456"
 }
 ```
 
@@ -794,11 +795,19 @@ Create a new fleet.
   "name": "Demo Fleet Pvt Ltd",
   "city": "GURGAON",
   "mobile": "9876543210",
+  "fleetAdminName": "Fleet Admin",
   "panNumber": "ABCDE1234F",
-  "modeId": "CAB",
   "fleetType": "COMPANY",
   "status": "ACTIVE"
 }
+```
+
+**Notes:**
+
+- `fleetAdminName` is required to create the Fleet Admin user
+- Fleet Admin mobile uses the same `mobile` as the Fleet
+- `modeId` is optional; defaults to `CAB` if omitted
+
 ```
 
 **Fleet Types:**
@@ -2034,6 +2043,10 @@ End current break.
 #### GET `/attendance/history`
 
 Get attendance history.
+
+**Notes:**
+
+- Drivers can call this without `driverId` to fetch their own history
 
 **Authentication:** Required  
 **Roles:** Any authenticated user

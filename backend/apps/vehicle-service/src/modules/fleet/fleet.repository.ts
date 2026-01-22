@@ -1,6 +1,6 @@
 import { prisma } from "@driversklub/database";
 import type {
-  CreateFleetInput,
+  CreateFleetPayload,
   UpdateFleetStatusInput,
   FleetEntity,
   VehicleInput,
@@ -16,10 +16,12 @@ import {
 import { CreateHubManagerInput, HubManagerEntity } from "./hubManager.types.js";
 
 export class FleetRepository {
-  async create(data: CreateFleetInput): Promise<FleetEntity> {
+  async create(data: CreateFleetPayload): Promise<FleetEntity> {
+    const { modeId, ...restData } = data;
     return prisma.fleet.create({
       data: {
-        ...data,
+        ...restData,
+        modeId: modeId || "CAB", // Default to "CAB" if not provided
         dob: data.dob ? new Date(data.dob) : undefined,
       },
     });

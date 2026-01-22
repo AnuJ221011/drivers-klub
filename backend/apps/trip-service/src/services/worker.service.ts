@@ -1,3 +1,4 @@
+import { AnalyticsService } from "./analytics.service.js"; // Import
 import { prisma } from "@driversklub/database";
 import { RideSyncService } from "../core/provider/ride-sync.service.js";
 import { logger } from "@driversklub/common";
@@ -9,6 +10,7 @@ import { logger } from "@driversklub/common";
 export class WorkerService {
     private intervalId: NodeJS.Timeout | null = null;
     private isRunning = false;
+    private lastAnalyticsSync = 0; // Track last run time
 
     /**
      * Start the background worker
@@ -28,16 +30,30 @@ export class WorkerService {
         this.isRunning = true;
 
         // Run immediately on startup
-        this.syncActiveTrips().catch(err => {
+        this.runTasks().catch(err => {
             logger.error('[Worker] Initial sync failed:', err);
         });
 
         // Then run periodically
         this.intervalId = setInterval(async () => {
             if (this.isRunning) {
-                await this.syncActiveTrips();
+                await this.runTasks();
             }
         }, intervalMs);
+    }
+
+    private async runTasks() {
+        // 1. Sync Active Trips (Core logic)
+        await this.syncActiveTrips();
+
+        // 2. Run Analytics Sync (Every 6 hours)
+        const now = Date.now();
+        if (now - this.lastAnalyticsSync > 21600000) { // 6 hours = 21600000 ms
+            this.lastAnalyticsSync = now;
+            // Run without awaiting to not block main thread loop? 
+            // Better to await to avoid resource contention
+            await AnalyticsService.runSync().catch(err => logger.error('[Worker] Analytics sync error', err));
+        }
     }
 
     /**

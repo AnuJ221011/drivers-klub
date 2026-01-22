@@ -4,6 +4,7 @@ import { config } from "../config/env.js";
 
 const router = Router();
 
+router.use("/public/trips", createProxy(config.services.trip));
 // Core Trip Routes
 router.use("/trips", createProxy(config.services.trip, {
     pathRewrite: { "^/trips/health": "/health" }

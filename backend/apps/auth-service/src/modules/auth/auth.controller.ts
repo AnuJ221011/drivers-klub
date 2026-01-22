@@ -37,10 +37,9 @@ export const verifyOtp = async (req: Request, res: Response) => {
         return res.status(400).json({ message: "Invalid request body" });
     }
 
-    const { phone, otp, verifiedKey } = body as {
+    const { phone, otp } = body as {
         phone?: string;
         otp?: string;
-        verifiedKey?: string;
     };
 
     if (!phone || !otp) {
@@ -50,7 +49,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
     logger.info(`Verifying OTP for phone: ${phone}`);
 
-    await otpService.verifyOtp(phone, otp, verifiedKey);
+    await otpService.verifyOtp(phone, otp);
 
     const user = await prisma.user.findUnique({ where: { phone } });
     if (!user) {

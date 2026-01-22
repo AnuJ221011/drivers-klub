@@ -50,7 +50,7 @@ export interface MMTCarType {
 export interface MMTBlockResponse {
     response: {
         success: boolean;
-        order_reference_number: string;
+        reference_number: string;
         verification_code?: string;
         status: string;
         error?: string;
