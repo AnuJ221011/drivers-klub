@@ -45,6 +45,11 @@ function AnalyticsListener() {
   return null;
 }
 
+function PublicRoute({ children }: { children: ReactNode }) {
+  if (isAuthenticated()) return <Navigate to="/admin" replace />;
+  return children;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -52,8 +57,18 @@ export default function App() {
       <AnalyticsListener />
 
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/"
+          element={<Navigate to={isAuthenticated() ? "/admin" : "/login"} replace />}
+        />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <LoginPage />
+            </PublicRoute>
+          }
+        />
         <Route path="/create-ride" element={<CreateRide />} />
         
 
@@ -196,7 +211,10 @@ export default function App() {
         />
         </Route>
 
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route
+          path="*"
+          element={<Navigate to={isAuthenticated() ? "/admin" : "/login"} replace />}
+        />
       </Routes>
     </BrowserRouter>
   );

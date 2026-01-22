@@ -182,6 +182,7 @@ type Props = {
 
 type FleetForm = {
   name: string;
+  fleetAdminName: string;
   mobile: string;
   email: string;
   city: string;
@@ -189,7 +190,6 @@ type FleetForm = {
   fleetType: FleetType | "";
   gstNumber: string;
   panNumber: string;
-  modeId: string;
 };
 
 export default function CreateNewFleet({ onClose, onCreated }: Props) {
@@ -198,6 +198,7 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
 
   const [form, setForm] = useState<FleetForm>({
     name: "",
+    fleetAdminName: "",
     mobile: "",
     email: "",
     city: "",
@@ -205,7 +206,6 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
     fleetType: "",
     gstNumber: "",
     panNumber: "",
-    modeId: "",
   });
 
   function formatFileName(file: File | null): string {
@@ -232,12 +232,19 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
 
   const handleSubmit = async () => {
     const trimmedName = form.name.trim();
+    const trimmedAdminName = form.fleetAdminName.trim();
     const trimmedMobile = form.mobile.trim();
     const trimmedCity = form.city.trim();
     const trimmedPan = form.panNumber.trim();
-    const trimmedModeId = form.modeId.trim();
 
-    if (!trimmedName || !trimmedMobile || !trimmedCity || !form.fleetType || !trimmedPan || !trimmedModeId) {
+    if (
+      !trimmedName ||
+      !trimmedAdminName ||
+      !trimmedMobile ||
+      !trimmedCity ||
+      !form.fleetType ||
+      !trimmedPan
+    ) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -247,11 +254,11 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
 
       await createFleet({
         name: trimmedName,
+        fleetAdminName: trimmedAdminName,
         mobile: trimmedMobile,
         city: trimmedCity,
         fleetType: form.fleetType,
         panNumber: trimmedPan,
-        modeId: trimmedModeId,
         email: form.email.trim() || undefined,
         gstNumber: form.gstNumber.trim() || undefined,
         dob: form.dob || undefined,
@@ -271,9 +278,15 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
   return (
     <div className="space-y-4">
       <Input
-        label="Fleet Owner Name"
+        label="Fleet Name"
         value={form.name}
         onChange={(e) => handleChange("name", e.target.value)}
+      />
+
+      <Input
+        label="Fleet Admin Name"
+        value={form.fleetAdminName}
+        onChange={(e) => handleChange("fleetAdminName", e.target.value)}
       />
 
       <Input
@@ -281,6 +294,7 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
         value={form.mobile}
         onChange={(e) => handleChange("mobile", e.target.value)}
         placeholder="10 digit mobile number"
+        helperText="This mobile number will be used for Fleet Admin login."
       />
 
       <Input
@@ -324,11 +338,6 @@ export default function CreateNewFleet({ onClose, onCreated }: Props) {
         label="PAN Number"
         value={form.panNumber}
         onChange={(e) => handleChange("panNumber", e.target.value)}
-      />
-      <Input
-        label="Mode ID"
-        value={form.modeId}
-        onChange={(e) => handleChange("modeId", e.target.value)}
       />
       <Input
         label="PAN Card File"

@@ -16,7 +16,7 @@ import TeamDrawer from "../components/TeamManagement/TeamDrawer";
 import type { Column } from "../components/ui/Table";
 import type { TeamMember } from "../models/user/team";
 import type { User } from "../models/user/user";
-import { getUsers, deactivateUser } from "../api/user.api";
+import { getUsers, deactivateUser, updateUser } from "../api/user.api";
 import { useFleet } from "../context/FleetContext";
 import FleetSelectBar from "../components/fleet/FleetSelectBar";
 import { getFleetHubs, type FleetHubEntity } from "../api/fleetHub.api";
@@ -118,7 +118,7 @@ export default function Team() {
         name: u.name,
         phone: u.phone,
         email: "", // backend does not expose email in User model currently
-        role: toRoleLabel(u.role),
+        role: u.role,
         hubLabels,
         hubIds,
         status: u.isActive ? "Active" : "Inactive",
@@ -155,7 +155,7 @@ export default function Team() {
 
   const roleOptions = useMemo(() => {
     const unique = Array.from(new Set((members || []).map((m) => m.role).filter(Boolean))).sort();
-    return [{ label: "All Roles", value: "" }].concat(unique.map((r) => ({ label: r, value: r })));
+    return [{ label: "All Roles", value: "" }].concat(unique.map((r) => ({ label: toRoleLabel(r), value: r })));
   }, [members]);
 
   const columns: Column<TeamMember>[] = [
@@ -166,7 +166,7 @@ export default function Team() {
     },
     { key: "name", label: "Name" },
     { key: "phone", label: "Phone" },
-    { key: "role", label: "Role" },
+    { key: "role", label: "Role", render: (m) => toRoleLabel(m.role) },
     {
       key: "hub",
       label: "Hub",
@@ -297,35 +297,27 @@ export default function Team() {
       >
         <TeamDrawer
           member={selectedMember}
-          hubOptions={(hubs || []).map((h) => ({
-            id: h.id,
-            label: hubLabelById.get(h.id) || h.id,
-          }))}
-          hubsDisabled={!effectiveFleetId}
           onSave={async (updated) => {
-            // Hub assignment is UI-only until backend API is available.
-            if ((updated.hubIds || []).length > 0) {
-              toast("Hub selection changed in UI. Backend API needed to save.", { duration: 4000 });
-            }
+            try {
+              await updateUser(updated.id, {
+                name: updated.name,
+                role: updated.role,
+                isActive: updated.status === "Active",
+                fleetId: updated.fleetId ?? null,
+                hubIds: updated.hubIds,
+              });
 
-            // Deactivate user if requested.
-            if (updated.status === "Inactive") {
-              try {
-                await deactivateUser(updated.id);
-                toast.success("User deactivated");
-              } catch (err: unknown) {
-                toast.error(getErrorMessage(err, "Failed to deactivate user"));
-              }
-            } else {
-              // Keep existing behavior: no re-activation
-              // (and we don't currently persist name/phone/email/role edits to backend).
-            }
+              toast.success("Team member updated successfully");
 
-            setSelectedMember(null);
-            await refreshMembers();
+              setSelectedMember(null);
+              await refreshMembers();
+            } catch (err: unknown) {
+              toast.error(getErrorMessage(err, "Failed to update team member"));
+            }
           }}
         />
       </Drawer>
+
     </div>
   );
 }

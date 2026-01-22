@@ -11,7 +11,9 @@ export type Fleet = {
   fleetType: FleetType;
   gstNumber: string | null;
   panNumber: string;
-  modeId: string;
+  modeId?: string;
+  fleetAdminName?: string;
+  fleetAdminMobile?: string;
   status: FleetStatus;
   createdAt: string;
   updatedAt: string;

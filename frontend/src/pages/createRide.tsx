@@ -1,6 +1,13 @@
 
 
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type InputHTMLAttributes,
+  type ReactNode,
+} from 'react';
 import toast from 'react-hot-toast';
 import logo from '../assets/images/logo.png';
 import {
@@ -8,7 +15,16 @@ import {
   Clock,
   MapPin,
   MapPinOff,
+  Phone,
+  User,
 } from 'lucide-react';
+import {
+  createPublicTrip,
+  type PublicTripCreateResponse,
+  type PublicTripPricing,
+  type PublicTripType,
+} from '../api/publicTrips.api';
+import PhoneInput from '../components/ui/PhoneInput';
 
 /* ---------------- Utilities ---------------- */
 
@@ -22,103 +38,152 @@ function toTimeValue(d: Date): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/* ---------------- Booking Field ---------------- */
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
 
-type BookingFieldProps = {
+function normalizePhone(value: string): string {
+  return (value || '').replace(/\D/g, '');
+}
+
+function formatCurrency(value: number, currency = 'INR'): string {
+  if (!Number.isFinite(value)) return '';
+  return `${currency} ${value}`;
+}
+
+function getDummyEstimate(tripType: PublicTripType): PublicTripPricing {
+  const distanceKm = 48.702;
+  const billableDistanceKm = 49;
+  const ratePerKm = 25;
+  const distanceFare = Math.round(billableDistanceKm * ratePerKm);
+  const tripTypeMultiplier =
+    tripType === 'RENTAL' ? 1.1 : tripType === 'INTER_CITY' ? 1.2 : 1;
+  const totalFare = Math.round(distanceFare * tripTypeMultiplier);
+
+  return {
+    vehicleSku: 'TATA_TIGOR_EV',
+    vehicleType: 'EV',
+    tripType,
+    distanceKm,
+    billableDistanceKm,
+    ratePerKm,
+    baseFare: distanceFare,
+    totalFare,
+    breakdown: {
+      distanceFare,
+      tripTypeMultiplier,
+      bookingTimeMultiplier: 1,
+      vehicleMultiplier: 1,
+    },
+    currency: 'INR',
+  };
+}
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === 'object') {
+    if (err instanceof Error && err.message) return err.message;
+    const maybeAny = err as { response?: { data?: unknown } };
+    const data = maybeAny.response?.data;
+    if (data && typeof data === 'object' && 'message' in data) {
+      return String((data as Record<string, unknown>).message);
+    }
+  }
+  return fallback;
+}
+
+const CITY_SUGGESTIONS = [
+  'Delhi',
+  'Noida',
+  'Gurgaon',
+  'Faridabad',
+  'Ghaziabad',
+];
+
+const TRIP_TYPE_OPTIONS = [
+  { label: 'Airport', value: 'AIRPORT' },
+  { label: 'Rental', value: 'RENTAL' },
+  { label: 'Inter-city', value: 'INTER_CITY' },
+] as const;
+
+/* ---------------- Segmented Fields ---------------- */
+
+type SegmentInputProps = {
   icon: ReactNode;
+  label: string;
   placeholder: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
   min?: string;
-  label?: string;
+  inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode'];
+  pattern?: string;
+  maxLength?: number;
+  autoComplete?: string;
+  list?: string;
 };
 
-function BookingField({
+function SegmentInput({
   icon,
+  label,
   placeholder,
   value,
   onChange,
   type = 'text',
   min,
-  label,
-}: BookingFieldProps) {
+  inputMode,
+  pattern,
+  maxLength,
+  autoComplete,
+  list,
+}: SegmentInputProps) {
   return (
-    <label className="block space-y-1 text-xs font-medium text-black/70">
-      {label && <span>{label}</span>}
-      <div className="flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 shadow-sm">
+    <label className="flex min-w-0 flex-col gap-1 px-4 py-4">
+      <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-black">
         <span className="text-yellow-500">{icon}</span>
-        <input
-          type={type}
-          min={min}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="
-            w-full
-            bg-transparent
-            text-sm
-            text-black
-            placeholder:text-black/40
-            focus:outline-none
-          "
-        />
-      </div>
+        {label}
+      </span>
+      <input
+        type={type}
+        min={min}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        inputMode={inputMode}
+        pattern={pattern}
+        maxLength={maxLength}
+        autoComplete={autoComplete}
+        list={list}
+        placeholder={placeholder}
+        className="
+          w-full
+          bg-transparent
+          text-base
+          font-semibold
+          text-black
+          placeholder:text-black/30
+          focus:outline-none
+        "
+      />
     </label>
   );
 }
 
-/* ---------------- Decorative Path ---------------- */
+type SegmentSlotProps = {
+  icon: ReactNode;
+  label: string;
+  children: ReactNode;
+};
 
-function RidePath({ className = '' }: { className?: string }) {
-  const ridePath =
-    'M24 210 C 120 160 210 200 290 130 C 340 85 375 60 400 35';
-
+function SegmentSlot({ icon, label, children }: SegmentSlotProps) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 420 250"
-      fill="none"
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id="rideGradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#fde68a" />
-          <stop offset="100%" stopColor="#facc15" />
-        </linearGradient>
-      </defs>
-
-      <path
-        d={ridePath}
-        stroke="#fde68a"
-        strokeWidth="3"
-        strokeLinecap="round"
-        opacity={0.4}
-      />
-
-      <path
-        d={ridePath}
-        stroke="url(#rideGradient)"
-        strokeWidth="3"
-        strokeLinecap="round"
-        strokeDasharray="6 12"
-      />
-
-      <g>
-        <g transform="translate(-12 -8)">
-          <rect x="0" y="6" width="24" height="8" rx="4" fill="#111827" />
-          <rect x="6" y="2" width="10" height="6" rx="3" fill="#fde68a" />
-          <circle cx="6" cy="14" r="2.2" fill="#111827" />
-          <circle cx="18" cy="14" r="2.2" fill="#111827" />
-        </g>
-        <animateMotion
-          dur="6s"
-          repeatCount="indefinite"
-          rotate="auto"
-          path={ridePath}
-        />
-      </g>
-    </svg>
+    <div className="flex min-w-0 flex-col gap-1 px-4 py-4">
+      <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-black">
+        <span className="text-yellow-500">{icon}</span>
+        {label}
+      </span>
+      <div className="min-w-0 w-full">{children}</div>
+    </div>
   );
 }
 
@@ -126,36 +191,64 @@ function RidePath({ className = '' }: { className?: string }) {
 
 export default function CreateRide() {
   const defaultPickupDateTime = useMemo(() => {
-    const d = new Date();
-    d.setMinutes(d.getMinutes() + 30);
+    const d = addDays(new Date(), 1);
+    d.setHours(10, 30, 0, 0);
     return d;
   }, []);
 
   const minPickupDate = useMemo(
-    () => toDateValue(new Date()),
+    () => toDateValue(addDays(new Date(), 1)),
     []
   );
 
   const [pickupLocation, setPickupLocation] = useState('');
   const [dropLocation, setDropLocation] = useState('');
+  const [tripType, setTripType] = useState<PublicTripType>('AIRPORT');
   const [pickupDate, setPickupDate] = useState(
     toDateValue(defaultPickupDateTime)
   );
   const [pickupTime, setPickupTime] = useState(
     toTimeValue(defaultPickupDateTime)
   );
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [loadingEstimate, setLoadingEstimate] = useState(false);
+  const [savingTrip, setSavingTrip] = useState(false);
+  const [estimate, setEstimate] = useState<PublicTripPricing | null>(
+    null
+  );
+  const [createdTrip, setCreatedTrip] =
+    useState<PublicTripCreateResponse | null>(null);
 
-  function handleSubmit(event: FormEvent) {
-    event.preventDefault();
+  useEffect(() => {
+    setEstimate(null);
+  }, [pickupLocation, dropLocation, tripType, pickupDate, pickupTime]);
+
+  useEffect(() => {
+    setCreatedTrip(null);
+  }, [
+    pickupLocation,
+    dropLocation,
+    tripType,
+    pickupDate,
+    pickupTime,
+    customerName,
+    customerPhone,
+  ]);
+
+  function getBaseIssues(): string[] {
     const issues: string[] = [];
     const pickupDateTime = new Date(
       `${pickupDate}T${pickupTime}`
     );
+    const minDate = minPickupDate;
+    const hour = pickupTime
+      ? Number(pickupTime.split(':')[0])
+      : Number.NaN;
 
-    if (!pickupLocation.trim())
-      issues.push('Enter a pickup location');
-    if (!dropLocation.trim())
-      issues.push('Enter a drop location');
+    if (!pickupLocation.trim()) issues.push('Enter a pickup location');
+    if (!dropLocation.trim()) issues.push('Enter a drop location');
+    if (!tripType) issues.push('Select a trip type');
     if (
       !pickupDate ||
       !pickupTime ||
@@ -163,26 +256,74 @@ export default function CreateRide() {
     ) {
       issues.push('Select a valid pickup date and time');
     }
+    if (pickupDate && pickupDate < minDate) {
+      issues.push('Trips must be booked at least 1 day in advance');
+    }
+    if (!Number.isNaN(hour) && hour < 4) {
+      issues.push(
+        'Trips are not available between 12:00 AM and 04:00 AM'
+      );
+    }
+
+    return issues;
+  }
+
+  async function handleGetEstimate() {
+    const issues = getBaseIssues();
+    if (issues.length > 0) {
+      toast.error(issues[0]);
+      return;
+    }
+
+    setLoadingEstimate(true);
+    setTimeout(() => {
+      setEstimate(getDummyEstimate(tripType));
+      setLoadingEstimate(false);
+    }, 300);
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const issues = getBaseIssues();
+    const phoneDigits = normalizePhone(customerPhone);
+
+    if (!customerName.trim())
+      issues.push('Enter customer name');
+    if (!phoneDigits)
+      issues.push('Enter customer phone');
+    if (phoneDigits && phoneDigits.length !== 10)
+      issues.push('Customer phone must be 10 digits');
 
     if (issues.length > 0) {
       toast.error(issues[0]);
       return;
     }
 
-    toast.success(
-      'Ride request received. We will confirm shortly.'
-    );
-
-    setPickupLocation('');
-    setDropLocation('');
-    setPickupDate(toDateValue(defaultPickupDateTime));
-    setPickupTime(toTimeValue(defaultPickupDateTime));
+    setSavingTrip(true);
+    setCreatedTrip(null);
+    try {
+      const trip = await createPublicTrip({
+        pickupLocation,
+        dropLocation,
+        tripDate: pickupDate,
+        tripTime: pickupTime,
+        tripType,
+        customerName: customerName.trim(),
+        customerPhone: phoneDigits,
+      });
+      setCreatedTrip(trip);
+      toast.success('Trip created successfully');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to create trip'));
+    } finally {
+      setSavingTrip(false);
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-6">
+      <header className="mx-auto flex w-full max-w-6xl flex-shrink-0 items-center justify-between px-4 py-4">
         <div className="flex items-center gap-2">
           <span className="rounded-md bg-yellow-400 px-2 py-1">
             <img
@@ -199,102 +340,226 @@ export default function CreateRide() {
       </header>
 
       {/* Main */}
-      <main className="mx-auto max-w-6xl space-y-12 px-4 pb-12">
-        <section className="relative overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
-          <div className="absolute right-8 top-8 h-[80%] w-44 rounded-2xl bg-gradient-to-b from-yellow-200 to-yellow-400" />
-
-          <div className="relative grid gap-10 p-10 lg:grid-cols-[1fr_0.9fr] lg:items-center">
-            <div className="space-y-8">
-              <h1 className="text-3xl font-semibold text-black sm:text-4xl">
-                Schedule your next ride
-              </h1>
-
-              <form
-                onSubmit={handleSubmit}
-                className="
-                  w-full
-                  max-w-sm
-                  space-y-4
-                  rounded-xl
-                  bg-white
-                  p-5
-                  border
-                  border-black/10
-                  shadow-sm
-                "
-              >
-                <div className="relative pl-6">
-                  <span className="absolute left-2 top-4 h-[calc(100%-2rem)] w-px bg-yellow-200" />
-                  <span className="absolute left-1.5 top-4 h-2 w-2 rounded-full bg-yellow-500" />
-                  <span className="absolute left-1.5 bottom-4 h-2 w-2 rounded-full bg-yellow-500" />
-
-                  <div className="space-y-3">
-                    <BookingField
-                      icon={<MapPin size={16} />}
-                      placeholder="Pick Up Location"
-                      value={pickupLocation}
-                      onChange={setPickupLocation}
-                    />
-                    <BookingField
-                      icon={<MapPinOff size={16} />}
-                      placeholder="Drop Location"
-                      value={dropLocation}
-                      onChange={setDropLocation}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <BookingField
-                    label="Pickup Date"
-                    icon={<CalendarDays size={16} />}
-                    type="date"
-                    min={minPickupDate}
-                    placeholder="Select date"
-                    value={pickupDate}
-                    onChange={setPickupDate}
-                  />
-                  <BookingField
-                    label="Pickup Time"
-                    icon={<Clock size={16} />}
-                    type="time"
-                    placeholder="Select time"
-                    value={pickupTime}
-                    onChange={setPickupTime}
-                  />
-                </div>
-
+      <main className="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-4 pb-6">
+        <section className="w-full rounded-3xl bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-300 p-6 shadow-md">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {TRIP_TYPE_OPTIONS.map((option) => (
                 <button
-                  type="submit"
+                  key={option.value}
+                  type="button"
+                  onClick={() => setTripType(option.value)}
+                  className={`rounded-md bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide transition border-b-2 ${
+                    tripType === option.value
+                      ? 'border-black text-black'
+                      : 'border-transparent text-black/70 hover:border-black/60'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            <datalist id="supported-cities" className="hidden">
+              {CITY_SUGGESTIONS.map((city) => (
+                <option key={city} value={city} />
+              ))}
+            </datalist>
+
+            <div className="grid overflow-hidden rounded-2xl border border-black/10 bg-white shadow-lg divide-y divide-black/10 lg:grid-cols-[1.5fr_1.5fr_1fr_0.9fr_1fr] lg:divide-y-0 lg:divide-x">
+              <SegmentInput
+                icon={<MapPin size={14} />}
+                label="From"
+                placeholder="Pickup location"
+                value={pickupLocation}
+                onChange={setPickupLocation}
+                list="supported-cities"
+              />
+              <SegmentInput
+                icon={<MapPinOff size={14} />}
+                label="To"
+                placeholder="Drop location"
+                value={dropLocation}
+                onChange={setDropLocation}
+                list="supported-cities"
+              />
+              <SegmentInput
+                icon={<CalendarDays size={14} />}
+                label="Pickup Date"
+                type="date"
+                min={minPickupDate}
+                placeholder="Select date"
+                value={pickupDate}
+                onChange={setPickupDate}
+              />
+              <SegmentInput
+                icon={<Clock size={14} />}
+                label="Pickup Time"
+                type="time"
+                placeholder="Select time"
+                value={pickupTime}
+                onChange={setPickupTime}
+              />
+              <div className="flex flex-col justify-center bg-white-400 px-4 py-4">
+                <span className="text-sm font-semibold uppercase tracking-wide text-black/80">
+                  Estimate
+                </span>
+                <button
+                  type="button"
+                  onClick={handleGetEstimate}
+                  disabled={loadingEstimate || savingTrip}
                   className="
+                    mt-2
                     flex
-                    w-full
                     items-center
                     justify-center
-                    gap-2
-                    rounded-full
-                    bg-yellow-400
+                    rounded-md
+                    bg-amber-400
                     px-4
                     py-2
                     text-xs
                     font-semibold
                     text-black
                     transition
-                    hover:bg-yellow-500
+                    hover:bg-yellow/20
+                    disabled:cursor-not-allowed
+                    disabled:opacity-60
                   "
                 >
-                  Book Ride
+                  {loadingEstimate
+                    ? 'Calculating...'
+                    : estimate
+                    ? 'Update Estimate'
+                    : 'Get Estimated Price'}
                 </button>
-              </form>
+              </div>
             </div>
 
-            <div className="relative flex justify-center">
-              <RidePath className="pointer-events-none absolute -top-6 w-full max-w-md opacity-40" />
+            <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
+              <div className="grid overflow-hidden rounded-2xl border border-black/10 bg-white shadow-lg divide-y divide-black/10 lg:grid-cols-[1.1fr_1.3fr] lg:divide-y-0 lg:divide-x">
+                <SegmentInput
+                  icon={<User size={14} />}
+                  label="Customer Name"
+                  placeholder="Your name"
+                  value={customerName}
+                  onChange={setCustomerName}
+                  autoComplete="name"
+                />
+                <SegmentSlot icon={<Phone size={14} />} label="Phone Number">
+                  <PhoneInput
+                    value={customerPhone}
+                    onChange={setCustomerPhone}
+                    placeholder="9876543210"
+                    wrapperClassName="space-y-0"
+                    labelClassName="hidden"
+                    prefixClassName="px-0 py-0 text-base font-semibold text-black/60 bg-transparent border-0"
+                    inputClassName="border-0 rounded-none px-0 py-0 text-base font-semibold text-black placeholder:text-black/30 focus:ring-0 focus:border-0"
+                    helperClassName="hidden"
+                  />
+                </SegmentSlot>
+              </div>
+
+              <button
+                type="submit"
+                disabled={savingTrip}
+                className="
+                  flex
+                  w-full
+                  items-center
+                  justify-center
+                  gap-2
+                  rounded-2xl
+                  bg-white
+                  px-4
+                  py-3
+                  text-2xl
+                  font-bold
+                  text-black
+                  shadow-sm
+                  transition
+                  hover:bg-white/90
+                  disabled:cursor-not-allowed
+                  disabled:opacity-60
+                "
+              >
+                {savingTrip ? 'Booking...' : 'Book Ride'}
+              </button>
             </div>
-          </div>
+
+            {estimate && (
+              <div className="flex justify-end">
+                <div className="w-full max-w-sm rounded-2xl border border-yellow-200 bg-white p-4 text-xs text-black/70 shadow-lg">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-black">
+                      Estimated Fare
+                    </span>
+                    <span className="text-sm font-semibold text-black">
+                      {formatCurrency(
+                        estimate.totalFare,
+                        estimate.currency
+                      )}
+                    </span>
+                  </div>
+                  <div className="mt-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span>Distance</span>
+                      <span>{estimate.distanceKm.toFixed(2)} km</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Billable Distance</span>
+                      <span>{estimate.billableDistanceKm} km</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Rate Per Km</span>
+                      <span>
+                        {formatCurrency(
+                          estimate.ratePerKm,
+                          estimate.currency
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Vehicle</span>
+                      <span>{estimate.vehicleSku}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {createdTrip && (
+              <div className="flex justify-end">
+                <div className="w-full max-w-sm rounded-2xl border border-emerald-200 bg-white p-4 text-xs text-black/70 shadow-lg">
+                  <div className="text-sm font-semibold text-black">
+                    Trip created
+                  </div>
+                  <div className="mt-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span>Trip ID</span>
+                      <span className="font-medium text-black">
+                        {createdTrip.tripId}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Status</span>
+                      <span>{createdTrip.status}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Price</span>
+                      <span>
+                        {formatCurrency(createdTrip.price, 'INR')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </form>
         </section>
       </main>
     </div>
   );
 }
+
+
 
