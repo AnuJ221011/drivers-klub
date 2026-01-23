@@ -15,6 +15,9 @@ function getScope(req: Request): { role: string; fleetId: string | null; hubIds:
     return { role, fleetId, hubIds };
 }
 
+const getParam = (value: string | string[] | undefined): string | undefined =>
+    Array.isArray(value) ? value[0] : value;
+
 async function assertDriverInScope(req: Request, driverId: string) {
     const { role, fleetId, hubIds } = getScope(req);
     if (role === 'SUPER_ADMIN') return;
@@ -494,7 +497,10 @@ export const createRentalPlan = async (req: Request, res: Response) => {
  * GET /admin/payment/rental-plans/:fleetId
  */
 export const getRentalPlans = async (req: Request, res: Response) => {
-    const { fleetId } = req.params;
+    const fleetId = getParam(req.params.fleetId);
+    if (!fleetId) {
+        return res.status(400).json({ message: 'fleetId is required' });
+    }
     const { activeOnly = 'true' } = req.query;
 
     const scope = getScope(req);
@@ -552,7 +558,10 @@ export const createPenalty = async (req: Request, res: Response) => {
  */
 export const waivePenalty = async (req: Request, res: Response) => {
     const { id: userId } = req.user as any;
-    const { id: penaltyId } = req.params;
+    const penaltyId = getParam(req.params.id);
+    if (!penaltyId) {
+        return res.status(400).json({ message: 'penaltyId is required' });
+    }
     const { waiverReason } = req.body;
 
     const scope = getScope(req);
@@ -606,7 +615,10 @@ export const createIncentive = async (req: Request, res: Response) => {
  * POST /admin/payment/incentive/:id/payout
  */
 export const payoutIncentive = async (req: Request, res: Response) => {
-    const { id: incentiveId } = req.params;
+    const incentiveId = getParam(req.params.id);
+    if (!incentiveId) {
+        return res.status(400).json({ message: 'incentiveId is required' });
+    }
 
     const scope = getScope(req);
     if (scope.role !== 'SUPER_ADMIN') {
@@ -632,7 +644,10 @@ export const payoutIncentive = async (req: Request, res: Response) => {
  */
 export const reconcileCollection = async (req: Request, res: Response) => {
     const { id: userId } = req.user as any;
-    const { id: collectionId } = req.params;
+    const collectionId = getParam(req.params.id);
+    if (!collectionId) {
+        return res.status(400).json({ message: 'collectionId is required' });
+    }
     const { expectedRevenue, reconciliationNotes } = req.body;
 
     const collection = await payoutService.reconcileCollection({
@@ -650,7 +665,10 @@ export const reconcileCollection = async (req: Request, res: Response) => {
  * POST /admin/payment/collection/:id/payout
  */
 export const processPayout = async (req: Request, res: Response) => {
-    const { id: collectionId } = req.params;
+    const collectionId = getParam(req.params.id);
+    if (!collectionId) {
+        return res.status(400).json({ message: 'collectionId is required' });
+    }
 
     const result = await payoutService.processPayout(collectionId);
 
@@ -689,7 +707,10 @@ export const getPendingPayouts = async (req: Request, res: Response) => {
  */
 export const generateVehicleQR = async (req: Request, res: Response) => {
     try {
-        const { id: vehicleId } = req.params;
+        const vehicleId = getParam(req.params.id);
+        if (!vehicleId) {
+            return res.status(400).json({ message: 'vehicleId is required' });
+        }
 
         try {
             await assertVehicleInScope(req, vehicleId);
@@ -700,12 +721,6 @@ export const generateVehicleQR = async (req: Request, res: Response) => {
         }
 
         const qr = await virtualQRService.generateVehicleQR(vehicleId);
-        if (!vehicleId) {
-            return res.status(400).json({
-                success: false,
-                message: 'vehicleId is required'
-            });
-        }
 
 
         ApiResponse.send(res, 201, qr, 'Virtual QR generated successfully');
@@ -741,7 +756,10 @@ export const generateVehicleQR = async (req: Request, res: Response) => {
  */
 export const getVehicleQR = async (_req: Request, res: Response) => {
     try {
-        const { id: vehicleId } = _req.params;
+        const vehicleId = getParam(_req.params.id);
+        if (!vehicleId) {
+            return res.status(400).json({ message: 'vehicleId is required' });
+        }
 
         try {
             await assertVehicleInScope(_req, vehicleId);

@@ -24,6 +24,10 @@ export class PricingController {
                 vehicleType,
                 vehicleSku,
                 distanceKm: clientDistanceKm,
+                pickupLat,
+                pickupLng,
+                dropLat,
+                dropLng,
             } = req.body;
 
             // Validate required fields
@@ -50,11 +54,54 @@ export class PricingController {
                 return;
             }
 
-            let distanceKm = clientDistanceKm;
+            const toNumber = (value: unknown): number | undefined => {
+                if (typeof value === "number" && Number.isFinite(value)) return value;
+                if (typeof value === "string") {
+                    const parsed = Number(value.trim());
+                    if (!Number.isNaN(parsed)) return parsed;
+                }
+                return undefined;
+            };
+
+            const resolvedPickupLat = toNumber(pickupLat);
+            const resolvedPickupLng = toNumber(pickupLng);
+            const resolvedDropLat = toNumber(dropLat);
+            const resolvedDropLng = toNumber(dropLng);
+
+            let distanceKm = toNumber(clientDistanceKm);
             let distanceSource: "GOOGLE_MAPS" | "CLIENT_PROVIDED" = "CLIENT_PROVIDED";
 
+            const hasCoords =
+                resolvedPickupLat !== undefined &&
+                resolvedPickupLng !== undefined &&
+                resolvedDropLat !== undefined &&
+                resolvedDropLng !== undefined;
+
+            if (hasCoords) {
+                logger.info("Attempting Google Maps distance calculation (coords)", {
+                    pickupLat: resolvedPickupLat,
+                    pickupLng: resolvedPickupLng,
+                    dropLat: resolvedDropLat,
+                    dropLng: resolvedDropLng
+                });
+
+                const googleResult = await this.googleMaps.getDistance(
+                    { lat: resolvedPickupLat, lng: resolvedPickupLng },
+                    { lat: resolvedDropLat, lng: resolvedDropLng }
+                );
+
+                if (googleResult) {
+                    distanceKm = googleResult.distanceKm;
+                    distanceSource = "GOOGLE_MAPS";
+                    logger.info("Using Google Maps distance (coords)", {
+                        distanceKm,
+                        durationMins: googleResult.durationMins
+                    });
+                }
+            }
+
             // Try to get distance from Google Maps if pickup and drop are provided
-            if (pickup && drop) {
+            if (distanceKm === undefined && pickup && drop) {
                 logger.info("Attempting Google Maps distance calculation", { pickup, drop });
 
                 const googleResult = await this.googleMaps.getDistance(pickup, drop);
@@ -66,31 +113,15 @@ export class PricingController {
                         distanceKm,
                         durationMins: googleResult.durationMins
                     });
-                } else {
-                    logger.warn("Google Maps returned null, falling back to client distance", {
-                        clientDistanceKm,
-                    });
+                }
+            }
 
-                    if (!clientDistanceKm) {
-                        res.status(400).json({
-                            success: false,
-                            message: "Google Maps unavailable and no distanceKm provided. Please provide distanceKm as fallback.",
-                        });
-                        return;
-                    }
-                }
-            } else {
-                // No pickup/drop provided, must have client distance
-                if (!clientDistanceKm) {
-                    res.status(400).json({
-                        success: false,
-                        message: "Either provide (pickup + drop) or distanceKm",
-                    });
-                    return;
-                }
-                logger.info("Using client-provided distance (no pickup/drop locations)", {
-                    distanceKm: clientDistanceKm,
+            if (distanceKm === undefined || !Number.isFinite(distanceKm) || distanceKm <= 0) {
+                res.status(400).json({
+                    success: false,
+                    message: "Unable to calculate distance. Provide pickup/drop or distanceKm.",
                 });
+                return;
             }
 
             // Parse dates
@@ -114,6 +145,7 @@ export class PricingController {
                 success: true,
                 data: {
                     distanceSource,
+                    distanceKm,
                     billableDistanceKm: Math.ceil(distanceKm),
                     ratePerKm: 25,
                     baseFare: pricing.baseFare,

@@ -36,10 +36,18 @@ export class GoogleMapsAdapter {
      * Get distance and duration between two points using Routes API (computeRoutes).
      * Replaces deprecated Distance Matrix API.
      */
-    async getDistance(origin: string, destination: string): Promise<{ distanceKm: number; durationMins: number } | null> {
+    async getDistance(
+        origin: string | { lat: number; lng: number },
+        destination: string | { lat: number; lng: number }
+    ): Promise<{ distanceKm: number; durationMins: number } | null> {
         if (!this.apiKey) return null;
 
-        const cacheKey = `route_${origin.toLowerCase().trim()}_${destination.toLowerCase().trim()}`;
+        const toKeyPart = (value: string | { lat: number; lng: number }) => {
+            if (typeof value === "string") return value.toLowerCase().trim();
+            return `${value.lat.toFixed(6)},${value.lng.toFixed(6)}`;
+        };
+
+        const cacheKey = `route_${toKeyPart(origin)}_${toKeyPart(destination)}`;
         const cachedResult = this.cache.get<{ distanceKm: number; durationMins: number }>(cacheKey);
 
         if (cachedResult) {
@@ -48,10 +56,19 @@ export class GoogleMapsAdapter {
         }
 
         try {
+            const resolvePoint = async (value: string | { lat: number; lng: number }) => {
+                if (typeof value !== "string") {
+                    return { lat: value.lat, lng: value.lng };
+                }
+                const geocode = await this.getGeocode(value);
+                if (!geocode) return null;
+                return { lat: geocode.lat, lng: geocode.lng };
+            };
+
             // Using Routes API (better accuracy, modern)
             // It expects a POST request with specific field mask
-            const start = await this.getGeocode(origin);
-            const end = await this.getGeocode(destination);
+            const start = await resolvePoint(origin);
+            const end = await resolvePoint(destination);
 
             if (!start || !end) {
                 logger.warn("Could not geocode origin or destination for route", { origin, destination });

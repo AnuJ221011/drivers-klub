@@ -2,9 +2,11 @@ import Modal from "../../../layout/Modal";
 import Button from "../../../ui/Button";
 import Input from "../../../ui/Input";
 import PhoneInput from "../../../ui/PhoneInput";
-import { useState } from "react";
+import Select from "../../../ui/Select";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { createDriver } from "../../../../api/driver.api";
+import { getFleetHubs } from "../../../../api/fleetHub.api";
 
 type Props = {
   open: boolean;
@@ -17,14 +19,54 @@ export default function AddDriversModal({ open, onClose, fleetId, onAdded }: Pro
   const [name, setName] = useState("");
   const [phone, setPhone] = useState(""); // digits only
   const [loading, setLoading] = useState(false);
+  const [hubId, setHubId] = useState("");
+  const [hubOptions, setHubOptions] = useState<Array<{ label: string; value: string }>>([
+    { label: "Unassigned", value: "" },
+  ]);
+
+  useEffect(() => {
+    if (!fleetId) {
+      setHubOptions([{ label: "Unassigned", value: "" }]);
+      setHubId("");
+      return;
+    }
+    let mounted = true;
+    void (async () => {
+      try {
+        const hubs = await getFleetHubs(fleetId);
+        if (!mounted) return;
+        setHubOptions([
+          { label: "Unassigned", value: "" },
+          ...(hubs || []).map((h) => ({
+            label: h.address ? `${h.hubType} • ${h.address}` : String(h.hubType),
+            value: h.id,
+          })),
+        ]);
+      } catch {
+        // keep defaults
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [fleetId]);
 
   const onSubmit = async () => {
     const digits = phone.replace(/\D/g, "");
     if (digits.length !== 10) return toast.error("Phone number must be 10 digits");
     setLoading(true);
     try {
-      await createDriver({ fleetId, name, phone: digits.slice(0, 10), isActive: true });
+      const result = await createDriver({
+        fleetId,
+        name,
+        phone: digits.slice(0, 10),
+        isActive: true,
+        hubId: hubId || undefined,
+      });
       toast.success("Driver added");
+      if (hubId && !result.hubAssigned) {
+        toast.error("Driver created but hub assignment failed");
+      }
       onAdded();
       onClose();
       setName("");
@@ -55,6 +97,13 @@ export default function AddDriversModal({ open, onClose, fleetId, onAdded }: Pro
           label="Phone"
           value={phone}
           onChange={setPhone}
+        />
+
+        <Select
+          label="Hub"
+          value={hubId}
+          onChange={(e) => setHubId(e.target.value)}
+          options={hubOptions}
         />
 
         <div className="flex justify-end gap-2">

@@ -7,6 +7,8 @@ import { OtpService } from "../auth/otp/otp.service.js";
 
 const userService = new UserService();
 const otpService = new OtpService();
+const getParam = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
 
 export const createUser = async (req: Request, res: Response) => {
   const { name, phone, role, fleetId, hubIds, isActive } = req.body as {
@@ -43,7 +45,10 @@ export const updateUser = async (req: Request, res: Response) => {
     throw new ApiError(401, "Unauthorized");
   }
 
-  const user = await userService.updateUser(req.user, req.params.id, {
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Invalid user id");
+
+  const user = await userService.updateUser(req.user, id, {
     name,
     role,
     fleetId,
@@ -60,12 +65,16 @@ export const getAllUsers = async (_req: Request, res: Response) => {
 };
 
 export const getUserById = async (req: Request, res: Response) => {
-  const user = await userService.getUserById(req.params.id);
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Invalid user id");
+  const user = await userService.getUserById(id);
   ApiResponse.send(res, 200, user, "User retrieved successfully");
 };
 
 export const deactivateUser = async (req: Request, res: Response) => {
-  const user = await userService.deactivateUser(req.params.id);
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Invalid user id");
+  const user = await userService.deactivateUser(id);
   ApiResponse.send(res, 200, user, "User deactivated successfully");
 };
 

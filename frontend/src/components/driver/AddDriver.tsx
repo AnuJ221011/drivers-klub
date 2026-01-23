@@ -97,7 +97,7 @@
 // }
 
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import toast from 'react-hot-toast';
 
 import Input from "../ui/Input";
@@ -106,6 +106,7 @@ import Button from "../ui/Button";
 import PhoneInput from "../ui/PhoneInput";
 
 import { createDriver } from '../../api/driver.api';
+import { getFleetHubs } from '../../api/fleetHub.api';
 import { useFleet } from '../../context/FleetContext';
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -135,6 +136,37 @@ export default function AddDriver({ onClose, onCreated }: Props) {
   const [panCardFile, setPanCardFile] = useState<File | null>(null);
   const [bankDetailsFile, setBankDetailsFile] = useState<File | null>(null);
   const [additionalDocuments, setAdditionalDocuments] = useState<File[]>([]);
+  const [hubId, setHubId] = useState('');
+  const [hubOptions, setHubOptions] = useState<Array<{ label: string; value: string }>>([
+    { label: 'Unassigned', value: '' },
+  ]);
+
+  useEffect(() => {
+    if (!effectiveFleetId) {
+      setHubOptions([{ label: 'Unassigned', value: '' }]);
+      setHubId('');
+      return;
+    }
+    let mounted = true;
+    void (async () => {
+      try {
+        const hubs = await getFleetHubs(effectiveFleetId);
+        if (!mounted) return;
+        setHubOptions([
+          { label: 'Unassigned', value: '' },
+          ...(hubs || []).map((h) => ({
+            label: h.address ? `${h.hubType} • ${h.address}` : String(h.hubType),
+            value: h.id,
+          })),
+        ]);
+      } catch {
+        // keep default options
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [effectiveFleetId]);
 
   function formatFileName(file: File | null): string {
     return file ? file.name : 'No file selected';
@@ -156,11 +188,12 @@ export default function AddDriver({ onClose, onCreated }: Props) {
 
     setSaving(true);
     try {
-      await createDriver({
+      const result = await createDriver({
         name: trimmedName,
         phone: digits,
         isActive: status === 'Active',
         fleetId: effectiveFleetId,
+        hubId: hubId || undefined,
         identityLivePhoto: identityLivePhoto ?? undefined,
         aadhaarCardFile: aadhaarCardFile ?? undefined,
         panCardFile: panCardFile ?? undefined,
@@ -168,6 +201,9 @@ export default function AddDriver({ onClose, onCreated }: Props) {
         additionalDocuments: additionalDocuments.length > 0 ? additionalDocuments : undefined,
       });
       toast.success('Driver created');
+      if (hubId && !result.hubAssigned) {
+        toast.error('Driver created but hub assignment failed');
+      }
       onCreated?.();
       onClose();
     } catch (err: unknown) {
@@ -202,6 +238,14 @@ export default function AddDriver({ onClose, onCreated }: Props) {
           { label: "Inactive", value: "Inactive" },
         ]}
         disabled={saving}
+      />
+
+      <Select
+        label="Hub"
+        value={hubId}
+        onChange={(e) => setHubId(e.target.value)}
+        options={hubOptions}
+        disabled={saving || !effectiveFleetId}
       />
 
       <div className="rounded-md border border-black/10 p-3 space-y-3">

@@ -2,6 +2,10 @@ export interface PricingPreviewRequest {
   // Location-based (for Google Maps)
   pickup?: string;
   drop?: string;
+  pickupLat?: number;
+  pickupLng?: number;
+  dropLat?: number;
+  dropLng?: number;
 
   // Fallback distance
   distanceKm?: number;
@@ -18,6 +22,7 @@ export interface PricingPreviewRequest {
 
 export interface PricingPreviewResponse {
   distanceSource: "GOOGLE_MAPS" | "CLIENT_PROVIDED";
+  distanceKm: number;
   billableDistanceKm: number;
   ratePerKm: number;
   baseFare: number;
