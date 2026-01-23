@@ -59,7 +59,11 @@ export function isTokenExpired(token: string | null | undefined): boolean {
 }
 
 export function isAuthenticated(): boolean {
-  const token = getAuthToken();
-  if (!token) return false;
-  return !isTokenExpired(token);
+  const accessToken = getAuthToken();
+  if (accessToken && !isTokenExpired(accessToken)) return true;
+
+  const refreshToken = getRefreshToken();
+  if (refreshToken && !isTokenExpired(refreshToken)) return true;
+
+  return false;
 }
