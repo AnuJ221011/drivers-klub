@@ -1,4 +1,4 @@
-import { prisma } from "@driversklub/database";
+import { prisma, vehicleSelect } from "@driversklub/database";
 import type {
   CreateFleetPayload,
   UpdateFleetStatusInput,
@@ -93,6 +93,7 @@ export class FleetHubRepository {
       data: {
         hubId: id,
       },
+      select: vehicleSelect,
     });
   }
 
@@ -116,6 +117,7 @@ export class FleetHubRepository {
       data: {
         hubId: null,
       },
+      select: vehicleSelect,
     });
   }
 

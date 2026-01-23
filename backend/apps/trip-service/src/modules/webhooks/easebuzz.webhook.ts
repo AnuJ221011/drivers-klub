@@ -4,7 +4,7 @@ import type {
     PaymentWebhookPayload,
     VirtualAccountWebhookPayload,
 } from '../../adapters/easebuzz/easebuzz.types.js';
-import { prisma } from '@driversklub/database';
+import { prisma, vehicleSelect } from '@driversklub/database';
 import { TransactionStatus, PaymentMethod } from '@prisma/client';
 import { rentalService } from '../../core/payment/rental.service.js';
 import { orderService } from '../../core/payment/order.service.js';
@@ -120,7 +120,7 @@ export const handleVirtualAccountWebhook = async (req: Request, res: Response) =
         // Find the virtual QR record
         const virtualQR = await prisma.virtualQR.findFirst({
             where: { virtualAccountId: virtual_account_id },
-            include: { vehicle: true },
+            include: { vehicle: { select: vehicleSelect } },
         });
 
         if (!virtualQR) {

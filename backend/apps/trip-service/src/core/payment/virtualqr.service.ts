@@ -1,4 +1,4 @@
-import { prisma } from "@driversklub/database";
+import { prisma, vehicleSelect } from "@driversklub/database";
 import { easebuzzAdapter } from '../../adapters/easebuzz/easebuzz.adapter.js';
 import { ApiError } from "@driversklub/common";
 import { Prisma } from "@prisma/client";
@@ -13,7 +13,12 @@ export class VirtualQRService {
 
         const vehicle = await prisma.vehicle.findUnique({
             where: { id: vehicleId },
-            include: { fleet: true },
+            select: {
+                ...vehicleSelect,
+                fleet: {
+                    select: { id: true, name: true, mobile: true },
+                },
+            },
         });
 
         if (!vehicle) {
@@ -110,7 +115,7 @@ export class VirtualQRService {
     async getVehicleQR(vehicleId: string) {
         const qr = await prisma.virtualQR.findFirst({
             where: { vehicleId },
-            include: { vehicle: true },
+            include: { vehicle: { select: vehicleSelect } },
         });
 
         // Add fallback QR if qrCodeBase64 is empty
@@ -181,6 +186,7 @@ export class VirtualQRService {
     async bulkGenerateFleetQRs(fleetId: string) {
         const vehicles = await prisma.vehicle.findMany({
             where: { fleetId },
+            select: { id: true },
         });
 
         const results = [];

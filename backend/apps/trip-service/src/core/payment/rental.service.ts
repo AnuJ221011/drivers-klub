@@ -1,4 +1,4 @@
-import { prisma } from "@driversklub/database";
+import { prisma, vehicleSelect } from "@driversklub/database";
 import { easebuzzAdapter } from '../../adapters/easebuzz/easebuzz.adapter.js';
 import { TransactionType, TransactionStatus, PaymentMethod, PaymentModel } from '@prisma/client';
 
@@ -419,7 +419,7 @@ export class RentalService {
                 endTime: null,
             },
             include: {
-                vehicle: true,
+                vehicle: { select: vehicleSelect },
             },
         });
 

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { prisma } from "@driversklub/database";
+import { prisma, vehicleSelect } from "@driversklub/database";
 import { ApiResponse, logger } from "@driversklub/common";
 import { AttendanceStatus } from "@prisma/client";
 import { checkGeoLocation } from "./attendance.service.js";
@@ -84,7 +84,7 @@ export class AttendanceController {
               fleet: true,
               assignments: {
                 where: { status: "ACTIVE" },
-                include: { vehicle: true },
+                include: { vehicle: { select: vehicleSelect } },
                 orderBy: { createdAt: "desc" }
               }
             }
@@ -407,7 +407,7 @@ export class AttendanceController {
                 fleet: true,
                 assignments: {
                   where: { status: "ACTIVE" },
-                  include: { vehicle: true },
+                  include: { vehicle: { select: vehicleSelect } },
                   orderBy: { createdAt: "desc" },
                 },
               },

@@ -1,4 +1,5 @@
-import { FleetHub, Vehicle, Driver  } from "@prisma/client";
+import type { FleetHub, Driver } from "@prisma/client";
+import type { VehicleRow } from "@driversklub/database";
 
 export type CreateFleetHubInput = {
   location: {
@@ -15,5 +16,5 @@ export type AssignManagerInput = {
 }
 
 export type FleetHubEntity = FleetHub;
-export type VehicleEntity = Vehicle;
+export type VehicleEntity = VehicleRow;
 export type DriverEntity = Driver;

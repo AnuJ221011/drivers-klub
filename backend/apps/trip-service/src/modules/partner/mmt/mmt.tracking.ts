@@ -1,6 +1,6 @@
 import { logger } from "@driversklub/common";
 import axios from "axios";
-import { prisma } from "@driversklub/database";
+import { prisma, vehicleSelect } from "@driversklub/database";
 
 /**
  * MMT Tracking API Configuration
@@ -85,7 +85,7 @@ export class MMTTracking {
                     status: 'ACTIVE'
                 },
                 include: {
-                    vehicle: true
+                    vehicle: { select: vehicleSelect }
                 }
             });
 

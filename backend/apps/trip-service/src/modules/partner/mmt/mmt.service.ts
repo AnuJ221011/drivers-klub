@@ -1,4 +1,4 @@
-import { prisma } from "@driversklub/database";
+import { prisma, vehicleSelect } from "@driversklub/database";
 import { PricingEngine } from "../../pricing/pricing.engine.js";
 import { TripType } from "@prisma/client";
 import { ApiError } from "@driversklub/common";
@@ -509,7 +509,7 @@ export class MMTService {
                     status: 'ACTIVE'
                 },
                 include: {
-                    vehicle: true
+                    vehicle: { select: vehicleSelect }
                 }
             });
 

@@ -1,4 +1,4 @@
-import { prisma } from "@driversklub/database";
+import { prisma, vehicleSelect } from "@driversklub/database";
 import type {
   CreateVehicleInput,
   UpdateVehicleDocsInput,
@@ -9,15 +9,15 @@ import type {
 
 export class VehicleRepository {
   async create(data: CreateVehicleInput): Promise<VehicleEntity> {
-    return prisma.vehicle.create({ data });
+    return prisma.vehicle.create({ data, select: vehicleSelect });
   }
 
   async findById(id: string): Promise<VehicleEntity | null> {
-    return prisma.vehicle.findUnique({ where: { id } });
+    return prisma.vehicle.findUnique({ where: { id }, select: vehicleSelect });
   }
 
   async findByFleet(fleetId: string): Promise<VehicleEntity[]> {
-    return prisma.vehicle.findMany({ where: { fleetId } });
+    return prisma.vehicle.findMany({ where: { fleetId }, select: vehicleSelect });
   }
 
   async findByFleetAndHubs(fleetId: string, hubIds: string[]): Promise<VehicleEntity[]> {
@@ -26,17 +26,21 @@ export class VehicleRepository {
         fleetId,
         hubId: { in: hubIds },
       },
+      select: vehicleSelect,
     });
   }
 
   async findByHub(hubId: string): Promise<VehicleEntity[]> {
-    return prisma.vehicle.findMany({ where: { hubId } });
+    return prisma.vehicle.findMany({ where: { hubId }, select: vehicleSelect });
   }
 
   async findByVehicleNumber(
     vehicleNumber: string
   ): Promise<VehicleEntity | null> {
-    return prisma.vehicle.findUnique({ where: { vehicleNumber } });
+    return prisma.vehicle.findUnique({
+      where: { vehicleNumber },
+      select: vehicleSelect,
+    });
   }
 
   async updateDocs(
@@ -57,6 +61,7 @@ export class VehicleRepository {
           ? new Date(data.insuranceExpiry)
           : undefined,
       },
+      select: vehicleSelect,
     });
   }
 
@@ -64,13 +69,13 @@ export class VehicleRepository {
     id: string,
     data: UpdateVehicleStatusInput
   ): Promise<VehicleEntity> {
-    return prisma.vehicle.update({ where: { id }, data });
+    return prisma.vehicle.update({ where: { id }, data, select: vehicleSelect });
   }
 
   async updateDetails(
     id: string,
     data: UpdateVehicleInput
   ): Promise<VehicleEntity> {
-    return prisma.vehicle.update({ where: { id }, data });
+    return prisma.vehicle.update({ where: { id }, data, select: vehicleSelect });
   }
 }

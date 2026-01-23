@@ -31,7 +31,10 @@ async function assertVehicleInScope(req: Request, vehicleId: string) {
     const { role, fleetId, hubIds } = getScope(req);
     if (role === 'SUPER_ADMIN') return;
     if (!fleetId) throw new Error('Fleet scope not set');
-    const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
+    const vehicle = await prisma.vehicle.findUnique({
+        where: { id: vehicleId },
+        select: { id: true, fleetId: true, hubId: true },
+    });
     if (!vehicle) throw new Error('Vehicle not found');
     if (vehicle.fleetId !== fleetId) throw new Error('Access denied');
     if (role === 'OPERATIONS') {

@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { DriverService } from "./driver.service.js";
 import { S3Service, ApiResponse } from "@driversklub/common";
-import { prisma } from "@driversklub/database";
+import { prisma, vehicleSelect } from "@driversklub/database";
 
 const driverService = new DriverService();
 
@@ -64,7 +64,7 @@ export const getMyProfile = async (req: Request, res: Response) => {
       fleet: true,
       assignments: {
         where: { status: "ACTIVE" },
-        include: { vehicle: true },
+        include: { vehicle: { select: vehicleSelect } },
         orderBy: { createdAt: "desc" },
         take: 1
       }
@@ -203,7 +203,7 @@ export const getActivePlan = async (req: Request, res: Response) => {
       endTime: null
     },
     include: {
-      vehicle: true
+      vehicle: { select: vehicleSelect }
     }
   });
 

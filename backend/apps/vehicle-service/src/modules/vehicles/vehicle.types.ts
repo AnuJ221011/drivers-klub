@@ -1,9 +1,9 @@
 import type {
-  Vehicle,
   VehicleStatus,
   VehicleOwnership,
   FuelType
 } from "@prisma/client";
+import type { VehicleRow } from "@driversklub/database";
 
 export type CreateVehicleInput = {
   fleetId: string;
@@ -45,4 +45,4 @@ export type UpdateVehicleInput = {
   fleetMobileNumber?: string;
 };
 
-export type VehicleEntity = Vehicle;
+export type VehicleEntity = VehicleRow;

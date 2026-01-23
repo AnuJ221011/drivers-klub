@@ -1,4 +1,4 @@
-import { prisma } from "@driversklub/database";
+import { prisma, vehicleSelect } from "@driversklub/database";
 import { easebuzzAdapter } from '../../adapters/easebuzz/easebuzz.adapter.js';
 import { TransactionType, TransactionStatus, PaymentMethod, PaymentModel } from '@prisma/client';
 
@@ -245,7 +245,7 @@ export class PayoutService {
             where: { id },
             include: {
                 driver: true,
-                vehicle: true,
+                vehicle: { select: vehicleSelect },
                 virtualQR: true,
             },
         });

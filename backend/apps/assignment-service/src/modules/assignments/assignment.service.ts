@@ -23,7 +23,10 @@ export class AssignmentService {
   async createAssignment(data: any, userScope?: any) {
     if (userScope) this.assertFleetScope(userScope, data.fleetId);
     const driver = await prisma.driver.findUnique({ where: { id: data.driverId } });
-    const vehicle = await prisma.vehicle.findUnique({ where: { id: data.vehicleId } });
+    const vehicle = await prisma.vehicle.findUnique({
+      where: { id: data.vehicleId },
+      select: { id: true, fleetId: true, hubId: true },
+    });
 
     if (!driver || !vehicle) {
       throw new ApiError(404, "Driver or Vehicle not found");

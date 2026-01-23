@@ -18,6 +18,8 @@ export const prisma = new PrismaClient({
 });
 
 export * from '@prisma/client';
+export { vehicleSelect } from "./vehicle.select.js";
+export type { VehicleRow } from "./vehicle.select.js";
 
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 2000; // Start with 2 seconds

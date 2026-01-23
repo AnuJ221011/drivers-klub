@@ -1,5 +1,5 @@
 
-import { prisma } from "@driversklub/database";
+import { prisma, vehicleSelect } from "@driversklub/database";
 import { ApiError, logger } from "@driversklub/common";
 import axios from "axios";
 import {
@@ -218,7 +218,7 @@ export class RapidoService {
             where: { id: driverId },
             include: {
                 fleet: true,
-                assignments: { where: { status: 'ACTIVE' }, include: { vehicle: true } },
+                assignments: { where: { status: 'ACTIVE' }, include: { vehicle: { select: vehicleSelect } } },
                 tripAssignments: { where: { status: { in: [AssignmentStatus.ASSIGNED, AssignmentStatus.ACTIVE] } }, include: { trip: true } }
             }
         });
@@ -352,7 +352,7 @@ export class RapidoService {
             include: {
                 assignments: {
                     where: { status: 'ACTIVE' },
-                    include: { vehicle: true }
+                    include: { vehicle: { select: vehicleSelect } }
                 },
                 tripAssignments: {
                     where: {
