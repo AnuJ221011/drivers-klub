@@ -251,7 +251,7 @@ export default function AddTrip({ onClose, onCreated }: Props) {
       });
       setEstimate(data);
       if (Number.isFinite(data.distanceKm)) {
-        setDistanceKm(data.distanceKm.toFixed(2));
+        setDistanceKm(String(Math.round(data.distanceKm)));
       }
     } catch {
       toast.error('Failed to fetch estimate');
