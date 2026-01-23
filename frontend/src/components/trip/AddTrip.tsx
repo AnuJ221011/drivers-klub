@@ -1,4 +1,12 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import toast from 'react-hot-toast';
 
 import Input from '../ui/Input';
@@ -7,6 +15,7 @@ import Button from '../ui/Button';
 
 import { createTrip } from '../../api/trip.api';
 import { previewPricing } from '../../api/pricing.api';
+import { geocodeAddress, getMapAutocomplete, type MapAutocompleteItem } from '../../api/maps.api';
 import type { TripEntity } from '../../models/trip/trip';
 
 function toDateTimeLocalValue(d: Date): string {
@@ -20,6 +29,148 @@ type Props = {
   onClose: () => void;
   onCreated?: (trip: TripEntity) => void;
 };
+
+type PlaceSelection = {
+  address: string;
+  lat: number;
+  lng: number;
+};
+
+function PlaceAutocompleteInput({
+  label,
+  value,
+  onChange,
+  onPlaceSelected,
+  placeholder,
+  helperText,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onPlaceSelected: (p: PlaceSelection) => void;
+  placeholder?: string;
+  helperText?: ReactNode;
+}) {
+  const [items, setItems] = useState<MapAutocompleteItem[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const lastQueryRef = useRef<string>('');
+  const blurTimeoutRef = useRef<number | null>(null);
+
+  const runSearch = useCallback(async () => {
+    const q = (value || '').trim();
+    if (q.length < 2) {
+      setItems([]);
+      setOpen(false);
+      return;
+    }
+
+    lastQueryRef.current = q;
+    setLoading(true);
+    try {
+      const res = await getMapAutocomplete(q);
+      if (lastQueryRef.current !== q) return;
+      setItems(res || []);
+      setOpen(true);
+    } catch {
+      setItems([]);
+      setOpen(false);
+    } finally {
+      if (lastQueryRef.current === q) setLoading(false);
+    }
+  }, [value]);
+
+  useEffect(() => {
+    const q = (value || '').trim();
+    const t = window.setTimeout(() => {
+      void runSearch();
+    }, q.length < 2 ? 0 : 250);
+    return () => window.clearTimeout(t);
+  }, [runSearch, value]);
+
+  const onPick = useCallback(
+    async (item: MapAutocompleteItem) => {
+      try {
+        setOpen(false);
+        setItems([]);
+        setLoading(true);
+        const geo = await geocodeAddress(item.description);
+        onPlaceSelected({
+          lat: geo.lat,
+          lng: geo.lng,
+          address: geo.formattedAddress || item.description,
+        });
+      } catch (err: unknown) {
+        const maybeAny = err as { response?: { data?: unknown } };
+        const data = maybeAny.response?.data;
+        const msg =
+          data && typeof data === 'object' && 'message' in data
+            ? String((data as Record<string, unknown>).message)
+            : 'Failed to geocode address';
+        toast.error(msg);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [onPlaceSelected]
+  );
+
+  return (
+    <div
+      className="space-y-1 relative"
+      onMouseDown={() => {
+        if (blurTimeoutRef.current) {
+          window.clearTimeout(blurTimeoutRef.current);
+          blurTimeoutRef.current = null;
+        }
+      }}
+    >
+      <label className="text-sm font-medium text-black">{label}</label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => {
+          if (items.length > 0) setOpen(true);
+        }}
+        onBlur={() => {
+          blurTimeoutRef.current = window.setTimeout(() => setOpen(false), 150);
+        }}
+        placeholder={placeholder}
+        className="
+          w-full rounded-md border border-black/20 px-3 py-2 text-sm text-black
+          placeholder:text-black/40 focus:outline-none focus:ring-2
+          focus:ring-yellow-400 focus:border-yellow-400
+        "
+      />
+      {helperText ? (
+        <div className="text-xs text-black/60">{helperText}</div>
+      ) : null}
+
+      {open && (items.length > 0 || loading) ? (
+        <div className="absolute z-10 mt-1 w-full rounded-md border border-black/10 bg-white shadow-lg overflow-hidden">
+          {loading ? (
+            <div className="px-3 py-2 text-xs text-black/60">Searching…</div>
+          ) : null}
+          {items.slice(0, 8).map((it) => (
+            <button
+              key={it.place_id}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-yellow-50"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => void onPick(it)}
+              title={it.description}
+            >
+              {it.description}
+            </button>
+          ))}
+          {!loading && items.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-black/60">No results</div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export default function AddTrip({ onClose, onCreated }: Props) {
   const [saving, setSaving] = useState(false);
@@ -50,6 +201,11 @@ export default function AddTrip({ onClose, onCreated }: Props) {
   const [destinationCity, setDestinationCity] = useState('');
   const [pickupLocation, setPickupLocation] = useState('');
   const [dropLocation, setDropLocation] = useState('');
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [dropCoords, setDropCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [passengerName, setPassengerName] = useState('');
+  const [passengerPhone, setPassengerPhone] = useState('');
+  const [bookingType, setBookingType] = useState<'PREBOOK' | 'INSTANT'>('PREBOOK');
 
   async function handleGetEstimate() {
     const distance = Number(distanceKm);
@@ -75,26 +231,85 @@ export default function AddTrip({ onClose, onCreated }: Props) {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
 
-    const distance = Number(distanceKm);
     const tripDate = new Date(tripDateLocal);
 
-    if (!distance || Number.isNaN(tripDate.getTime())) {
+    const pickupValue = pickupLocation.trim();
+    const dropValue = dropLocation.trim();
+    const phoneDigits = passengerPhone.replace(/\D/g, '');
+    const distanceValue = distanceKm.trim();
+    const distance = distanceValue ? Number(distanceValue) : undefined;
+
+    if (!pickupValue || !dropValue) {
+      toast.error('Pickup and drop locations are required');
+      return;
+    }
+
+    if (!passengerName.trim() || !phoneDigits) {
+      toast.error('Passenger name and phone are required');
+      return;
+    }
+
+    if (phoneDigits.length !== 10) {
+      toast.error('Passenger phone must be 10 digits');
+      return;
+    }
+
+    if (distanceValue && (!Number.isFinite(distance) || distance <= 0)) {
+      toast.error('Enter valid distance');
+      return;
+    }
+
+    if (Number.isNaN(tripDate.getTime())) {
       toast.error('Invalid trip details');
       return;
     }
 
     setSaving(true);
     try {
+      let resolvedPickup = pickupCoords;
+      let resolvedDrop = dropCoords;
+      let resolvedPickupAddress = pickupValue;
+      let resolvedDropAddress = dropValue;
+
+      if (!resolvedPickup) {
+        const geo = await geocodeAddress(pickupValue);
+        resolvedPickup = { lat: geo.lat, lng: geo.lng };
+        resolvedPickupAddress = geo.formattedAddress || pickupValue;
+        setPickupCoords(resolvedPickup);
+        setPickupLocation(resolvedPickupAddress);
+      }
+
+      if (!resolvedDrop) {
+        const geo = await geocodeAddress(dropValue);
+        resolvedDrop = { lat: geo.lat, lng: geo.lng };
+        resolvedDropAddress = geo.formattedAddress || dropValue;
+        setDropCoords(resolvedDrop);
+        setDropLocation(resolvedDropAddress);
+      }
+
       const created = await createTrip({
+        pickupLocation: {
+          address: resolvedPickupAddress,
+          latitude: resolvedPickup.lat,
+          longitude: resolvedPickup.lng,
+        },
+        dropLocation: {
+          address: resolvedDropAddress,
+          latitude: resolvedDrop.lat,
+          longitude: resolvedDrop.lng,
+        },
+        pickupTime: tripDate.toISOString(),
+        passengerName: passengerName.trim(),
+        passengerPhone: phoneDigits,
+        bookingType,
         distanceKm: distance,
         bookingDate: new Date().toISOString(),
         tripDate: tripDate.toISOString(),
         originCity,
         destinationCity: destinationCity || undefined,
-        pickupLocation: pickupLocation || undefined,
-        dropLocation: dropLocation || undefined,
         tripType,
         vehicleSku,
+        vehicleType: vehicleSku.includes('EV') ? 'EV' : 'NON_EV',
       });
 
       toast.success('Trip created');
@@ -129,8 +344,53 @@ export default function AddTrip({ onClose, onCreated }: Props) {
         ]}
       />
 
-      <Input label="Pickup Location" value={pickupLocation} onChange={(e) => setPickupLocation(e.target.value)} />
-      <Input label="Drop Location" value={dropLocation} onChange={(e) => setDropLocation(e.target.value)} />
+      <PlaceAutocompleteInput
+        label="Pickup Location"
+        value={pickupLocation}
+        onChange={(value) => {
+          setPickupLocation(value);
+          setPickupCoords(null);
+        }}
+        onPlaceSelected={(place) => {
+          setPickupLocation(place.address);
+          setPickupCoords({ lat: place.lat, lng: place.lng });
+        }}
+      />
+      <PlaceAutocompleteInput
+        label="Drop Location"
+        value={dropLocation}
+        onChange={(value) => {
+          setDropLocation(value);
+          setDropCoords(null);
+        }}
+        onPlaceSelected={(place) => {
+          setDropLocation(place.address);
+          setDropCoords({ lat: place.lat, lng: place.lng });
+        }}
+      />
+
+      <Select
+        label="Booking Type"
+        value={bookingType}
+        onChange={(e) => setBookingType(e.target.value as 'PREBOOK' | 'INSTANT')}
+        options={[
+          { label: 'Prebook', value: 'PREBOOK' },
+          { label: 'Instant', value: 'INSTANT' },
+        ]}
+      />
+
+      <Input
+        label="Passenger Name"
+        value={passengerName}
+        onChange={(e) => setPassengerName(e.target.value)}
+        placeholder="Passenger name"
+      />
+      <Input
+        label="Passenger Phone"
+        value={passengerPhone}
+        onChange={(e) => setPassengerPhone(e.target.value)}
+        placeholder="10-digit phone number"
+      />
 
       <Input
         label="Trip Date & Time"
