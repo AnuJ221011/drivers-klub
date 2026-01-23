@@ -51,7 +51,9 @@ export async function previewPricing(
     payload
   );
 
-  const data = res.data.data;
+  const raw = res.data as PricingPreviewApiResponse | PricingPreviewApiResponse['data'];
+  const data = 'data' in raw ? raw.data : raw;
+
   return {
     distanceKm: data.distanceKm,
     billableKm: data.billableDistanceKm,
