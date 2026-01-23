@@ -5,9 +5,18 @@
 **Base URL (Development):** `http://localhost:3000` (API Gateway)  
 **Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
 **Auth Header:** `Authorization: Bearer <ACCESS_TOKEN>`  
-**Version:** 4.1.0 (Microservices + S3 + Fleet Manager Migration)  
-**Last Updated:** January 17, 2026  
-**Last Verified:** January 17, 2026
+**Version:** 4.4.0 (MMT Tracking Events + Public Booking + Referrals)  
+**Last Updated:** January 23, 2026  
+**Last Verified:** January 23, 2026
+
+## What's New in v4.4.0
+
+- **MMT Tracking Events** - Trip actions (start, arrived, complete) automatically sync to MakeMyTrip
+- **Location Updates** - Send location every 30 seconds during active MMT trips via `POST /trips/:id/location`
+- **Referral System** - Drivers get unique referral codes to invite other drivers
+- **Enhanced Onboarding** - Full KYC submission via `/drivers/new-driver-onboard`
+- **Bank Account Details** - Required for payout processing
+- **Vehicle Documents** - Chassis, VIN, insurance dates
 
 > **Note:** All requests go through the API Gateway. The gateway routes to 6 microservices (Auth, Driver, Vehicle, Assignment, Trip, Notification).
 
@@ -24,6 +33,7 @@
 7. [Rapido Status Management](#7-rapido-status-management)
 8. [Pricing & Utilities](#8-pricing--utilities)
 9. [Google Maps Service](#9-google-maps-service)
+10. [Referral System](#10-referral-system)
 
 ---
 
@@ -91,25 +101,105 @@ Creates the `User` and empty `Driver` profile. Does NOT require Auth token (Publ
 
 > **Note:** If the signup endpoint does *not* return a token, you must call normal Login (`POST /auth/verify-otp`) immediately after signup to get the session token.
 
-#### Step 4: KYC Profile Completion
+#### Step 4: KYC Profile Completion (New Onboarding Flow)
 
-Once logged in (Token received), the driver must complete their profile using the standard Driver API:
+Once signup is complete, use the dedicated onboarding endpoint to submit full KYC:
 
-**Endpoint:** `PATCH /drivers/profile` (or `PATCH /drivers/:id`)
+**Endpoint:** `POST /drivers/new-driver-onboard`
+**Auth Required:** No (Public endpoint, uses userId from signup)
 
-**New Fields Available:**
+**Request Body:**
 
+```json
+{
+  "userId": "uuid-from-signup-response",
+  "firstName": "Raj",
+  "lastName": "Kumar",
+  "mobile": "9876543210",
+  "email": "raj@example.com",
+  "dob": "1990-05-15T00:00:00.000Z",
+  "address": "123 Main Street, Sector 29",
+  "city": "Gurgaon",
+  "pincode": 122001,
+  
+  "aadharNumber": 123456789012,
+  "panNumber": "ABCDE1234F",
+  "drivingLicenceNumber": "DL-0120230012345",
+  "gstNumber": "22AAAAA0000A1Z5",
+  
+  "aadharFront": "https://s3.aws.com/aadhaar-front.jpg",
+  "aadharBack": "https://s3.aws.com/aadhaar-back.jpg",
+  "panPhoto": "https://s3.aws.com/pan.jpg",
+  
+  "haveVehicle": true,
+  "vehicleModel": "Tata Tigor EV",
+  "vehicleType": "SEDAN",
+  "registrationNumber": "DL01AB1234",
+  "fuelType": "ELECTRIC",
+  "ownerName": "Raj Kumar",
+  "rcFrontImage": "https://s3.aws.com/rc-front.jpg",
+  "rcBackImage": "https://s3.aws.com/rc-back.jpg",
+  
+  "referralCode": "REF123ABC"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "driver-uuid",
+    "firstName": "Raj",
+    "lastName": "Kumar",
+    "kycStatus": "PENDING"
+  },
+  "message": "Documents Uploaded, KYC pending for verification"
+}
+```
+
+**Alternative: Update Existing Profile**
+
+Use `PATCH /drivers/:id` to update individual fields after onboarding.
+
+**Personal Information:**
+
+* `firstName`, `lastName`, `mobile`
 * `email`
 * `dob` (Date of Birth)
 * `address`, `city`, `pincode`
-* `aadharNumber`, `panNumber`, `dlNumber`
+* `profilePic`
 
-**Document Uploads (S3 Presigned URLs):**
+**KYC Values (Document Numbers):**
 
-* `licenseFront`, `licenseBack`
-* `aadharFront`, `aadharBack`
-* `panCardImage`
-* `livePhoto`
+* `aadharNumber` - 12-digit Aadhaar number
+* `panNumber` - 10-character PAN
+* `dlNumber` - Driving License number
+* `licenseNumber` - Alternative DL field
+* `gstNumber` - GST number (optional)
+
+**Bank Account Details (for payouts):**
+
+* `bankAccountNumber` - Bank account number
+* `bankIfscCode` - IFSC code
+* `bankAccountName` - Account holder name
+
+**Document Uploads (via S3 Presigned URLs):**
+
+* `licenseFront`, `licenseBack` - Driving License images
+* `aadharFront`, `aadharBack` - Aadhaar card images
+* `panCardImage` - PAN card image
+* `livePhoto` - Live selfie for verification
+* `bankIdProof` - Bank passbook/statement image
+
+**Vehicle Documents (if driver has assigned vehicle):**
+
+* `rcFrontImage`, `rcBackImage` - RC images
+* `fitnessImage`, `fitnessExpiry` - Fitness certificate
+* `insuranceImage`, `insuranceStart`, `insuranceExpiry` - Insurance documents
+* `chassisNumber` - Vehicle chassis number
+* `vinNumber` - Vehicle Identification Number
 
 ### 1.2 Send OTP
 
@@ -814,16 +904,60 @@ Trips assigned from MakeMyTrip can be identified by:
 
  **Endpoint:** `PATCH /drivers/:id`
  **Auth Required:** Yes
- **Role:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+ **Role:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`, `DRIVER`
 
- **Request Body:**
+ **Request Body (all fields optional):**
 
  ```json
  {
    "firstName": "Rajesh",
-   "email": "rajesh@example.com"
+   "lastName": "Kumar",
+   "mobile": "9876543210",
+   "email": "rajesh@example.com",
+   "dob": "1990-05-15T00:00:00.000Z",
+   "address": "123 Main Street",
+   "city": "Delhi",
+   "pincode": "110001",
+   
+   "aadharNumber": "123456789012",
+   "panNumber": "ABCDE1234F",
+   "dlNumber": "DL-0120230012345",
+   "gstNumber": "22AAAAA0000A1Z5",
+   
+   "bankAccountNumber": "1234567890123456",
+   "bankIfscCode": "HDFC0001234",
+   "bankAccountName": "Rajesh Kumar",
+   
+   "licenseFront": "https://s3.aws.com/license-front.jpg",
+   "licenseBack": "https://s3.aws.com/license-back.jpg",
+   "aadharFront": "https://s3.aws.com/aadhaar-front.jpg",
+   "aadharBack": "https://s3.aws.com/aadhaar-back.jpg",
+   "panCardImage": "https://s3.aws.com/pan.jpg",
+   "bankIdProof": "https://s3.aws.com/bank-proof.jpg",
+   
+   "rcFrontImage": "https://s3.aws.com/rc-front.jpg",
+   "rcBackImage": "https://s3.aws.com/rc-back.jpg",
+   "fitnessImage": "https://s3.aws.com/fitness.jpg",
+   "fitnessExpiry": "2026-12-31",
+   "insuranceImage": "https://s3.aws.com/insurance.jpg",
+   "insuranceStart": "2024-01-01",
+   "insuranceExpiry": "2025-12-31",
+   "chassisNumber": "MA1AB2CD3EF456789",
+   "vinNumber": "1HGBH41JXMN109186"
  }
  ```
+
+ **Field Categories:**
+
+ | Category | Fields |
+ |----------|--------|
+ | Basic Info | `firstName`, `lastName`, `mobile`, `email`, `dob`, `address`, `city`, `pincode` |
+ | KYC Values | `aadharNumber`, `panNumber`, `dlNumber`, `gstNumber` |
+ | Bank Details | `bankAccountNumber`, `bankIfscCode`, `bankAccountName` |
+ | KYC Attachments | `licenseFront`, `licenseBack`, `aadharFront`, `aadharBack`, `panCardImage`, `bankIdProof` |
+ | Vehicle Docs | `rcFrontImage`, `rcBackImage`, `fitnessImage`, `fitnessExpiry`, `insuranceImage`, `insuranceStart`, `insuranceExpiry`, `chassisNumber`, `vinNumber` |
+
+ **Note:** Vehicle document fields are only updated if the driver has an assigned vehicle (`vehicleId` is set).
 
 **Response (200):**
 
@@ -1374,3 +1508,102 @@ These endpoints allow the app to proxy Google Maps requests through the backend,
 **Endpoint:** `GET /maps/geocode`
 **Query Parameters:** `address` (required)
 **Use Case:** Convert address to Lat/Lng.
+
+---
+
+## 10. Referral System
+
+Drivers can invite other drivers to join the platform and earn rewards.
+
+### 10.1 How Referrals Work
+
+1. **Every driver gets a unique referral code** automatically after completing signup
+2. New drivers can enter a referral code during registration
+3. When the referred driver meets activity criteria, the referrer receives an incentive
+
+### 10.2 Using Referral Code During Signup
+
+When calling `POST /users/drivers/signup`, include the referral code:
+
+```json
+{
+  "name": "New Driver",
+  "phone": "9876543210",
+  "referralCode": "REF123ABC"
+}
+```
+
+**Validation Errors:**
+
+| Error | Meaning |
+|-------|---------|
+| "Invalid referral code" | Code doesn't exist |
+| "Referral code belongs to an inactive account" | Referrer is deactivated |
+| "Referral code has reached the maximum usage limit" | Referrer hit 50 referral limit |
+
+### 10.3 Viewing Your Referral Code
+
+Your referral code is available in your profile response (`GET /drivers/me`):
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "driver-uuid",
+    "firstName": "Raj",
+    // ... other fields
+    "user": {
+      "referralCode": "RAJ123XYZ"
+    }
+  }
+}
+```
+
+### 10.4 Referral Eligibility Criteria
+
+The referred driver must meet these criteria for you to receive the reward:
+
+| Criteria | Requirement |
+|----------|-------------|
+| Active Days | At least 30 days with approved attendance |
+| Average Rides | At least 8 completed trips per active day |
+
+### 10.5 Referral Rewards
+
+When eligibility is met:
+- An **INCENTIVE** of the configured amount (default: ₹500) is created
+- Incentive category: `REFERRAL`
+- Visible in your incentives list (`GET /payments/incentives`)
+- Can be paid out via bank transfer
+
+### 10.6 UI Implementation Tips
+
+```dart
+// Share referral code
+void shareReferralCode(String code) {
+  Share.share(
+    'Join DriversKlub using my referral code: $code\n'
+    'Download the app and start earning today!'
+  );
+}
+
+// Display referral section
+Widget buildReferralCard(String referralCode) {
+  return Card(
+    child: Column(
+      children: [
+        Text('Your Referral Code'),
+        Text(referralCode, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        ElevatedButton(
+          onPressed: () => copyToClipboard(referralCode),
+          child: Text('Copy Code'),
+        ),
+        TextButton(
+          onPressed: () => shareReferralCode(referralCode),
+          child: Text('Share with Friends'),
+        ),
+      ],
+    ),
+  );
+}
+```

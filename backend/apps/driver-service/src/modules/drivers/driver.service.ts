@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+import path from "path";
 import { DriverRepository } from "./driver.repository.js";
 import { prisma } from "@driversklub/database";
 import { ApiError } from "@driversklub/common";
@@ -11,6 +13,8 @@ import type {
 import { PreferencesRequestStatus, VehicleOwnership, Prisma } from "@prisma/client";
 import { ReferralService } from "../referral/referral.service.js";
 import { VehicleRepository } from "./vehicle.repository.js";
+
+dotenv.config({ path: path.join(process.cwd(), "../../.env") });
 
 export class DriverService {
   private driverRepo = new DriverRepository();
@@ -35,6 +39,23 @@ export class DriverService {
       const hubIds = Array.isArray(user?.hubIds) ? user.hubIds : [];
       if (!driver.hubId || !hubIds.includes(driver.hubId)) throw new ApiError(403, "Access denied");
     }
+  }
+
+  private async getDefaultFleetId() {
+    const defaultFleetName = process.env.DEFAULT_FLEET_NAME;
+    if(!defaultFleetName) {
+      throw new ApiError(403, "Default Fleet not set");
+    }
+
+    const fleet = await prisma.fleet.findFirst({
+      where: { name: process.env.DEFAULT_FLEET_NAME },
+    });
+
+    if (!fleet) {
+      throw new ApiError(404, "Default Fleet not found");
+    }
+
+    return fleet.id;
   }
 
   async createDriver(data: CreateDriverInput, userScope?: any) {
@@ -108,13 +129,16 @@ export class DriverService {
       );
     }
 
+    const defaultFleetId = await this.getDefaultFleetId();
+
     // Create driver
-    let driver = await this.driverRepo.createNewDriver(data);
+    let driver = await this.driverRepo.createNewDriver(defaultFleetId, data);
 
     // Create vehicle if driver has one
     let vehicle = null;
     if (data.haveVehicle) {
       vehicle = await this.vehicleRepo.create({
+        fleetId: defaultFleetId,
         vehicleNumber: data.registrationNumber,
         vehicleName: data.vehicleType,
         vehicleModel: data.vehicleModel,
@@ -138,13 +162,16 @@ export class DriverService {
         referrerUser.id,
         data.userId
       );
-
-      // Update user's referredById
-      await prisma.user.update({
-        where: { id: data.userId },
-        data: { referredById: referrerUser.id },
-      });
     }
+
+    // Always update user's fleetId, and referredById if referrer exists
+    await prisma.user.update({
+      where: { id: data.userId },
+      data: { 
+        fleetId: defaultFleetId,
+        ...(referrerUser && { referredById: referrerUser.id }),
+      },
+    });
 
     await this.referralService.ensureUserHasReferralCode(data.userId);
 
@@ -188,11 +215,31 @@ export class DriverService {
     const driver = await this.getDriverById(id, userScope);
 
     const update: UpdateDriverInput = {};
+    
+    // Basic Info
     if (typeof data.firstName === "string") update.firstName = data.firstName;
     if (typeof data.lastName === "string") update.lastName = data.lastName;
     if (typeof data.mobile === "string") update.mobile = data.mobile;
-    if (typeof data.profilePic === "string")
-      update.profilePic = data.profilePic;
+    if (typeof data.email === "string") update.email = data.email;
+    if (data.dob) update.dob = new Date(data.dob);
+    if (typeof data.address === "string") update.address = data.address;
+    if (typeof data.city === "string") update.city = data.city;
+    if (typeof data.pincode === "string") update.pincode = data.pincode;
+    if (typeof data.profilePic === "string") update.profilePic = data.profilePic;
+    
+    // KYC Value Fields
+    if (typeof data.aadharNumber === "string") update.aadharNumber = data.aadharNumber;
+    if (typeof data.panNumber === "string") update.panNumber = data.panNumber;
+    if (typeof data.dlNumber === "string") update.dlNumber = data.dlNumber;
+    if (typeof data.licenseNumber === "string") update.licenseNumber = data.licenseNumber;
+    if (typeof data.gstNumber === "string") update.gstNumber = data.gstNumber;
+    
+    // Bank Details
+    if (typeof data.bankAccountNumber === "string") update.bankAccountNumber = data.bankAccountNumber;
+    if (typeof data.bankIfscCode === "string") update.bankIfscCode = data.bankIfscCode;
+    if (typeof data.bankAccountName === "string") update.bankAccountName = data.bankAccountName;
+    
+    // KYC Attachment Fields
     if (typeof data.licenseFront === "string") update.licenseFront = data.licenseFront;
     if (typeof data.licenseBack === "string") update.licenseBack = data.licenseBack;
     if (typeof data.aadharFront === "string") update.aadharFront = data.aadharFront;
@@ -201,13 +248,29 @@ export class DriverService {
     if (typeof data.livePhoto === "string") update.livePhoto = data.livePhoto;
     if (typeof data.bankIdProof === "string") update.bankIdProof = data.bankIdProof;
 
-    // Handle Vehicle RC Images if provided
-    if (data.rcFrontImage || data.rcBackImage) {
-      if (driver.vehicleId) {
-        await this.vehicleRepo.updateDocs(driver.vehicleId, {
-          rcFrontImage: data.rcFrontImage,
-          rcBackImage: data.rcBackImage,
-        });
+    // Handle Vehicle Documents if driver has a vehicle
+    if (driver.vehicleId) {
+      const vehicleUpdate: any = {};
+      
+      // RC Images
+      if (typeof data.rcFrontImage === "string") vehicleUpdate.rcFrontImage = data.rcFrontImage;
+      if (typeof data.rcBackImage === "string") vehicleUpdate.rcBackImage = data.rcBackImage;
+      
+      // Fitness Documents
+      if (typeof data.fitnessImage === "string") vehicleUpdate.fitnessImage = data.fitnessImage;
+      if (data.fitnessExpiry) vehicleUpdate.fitnessExpiry = new Date(data.fitnessExpiry);
+      
+      // Insurance Documents
+      if (typeof data.insuranceImage === "string") vehicleUpdate.insuranceImage = data.insuranceImage;
+      if (data.insuranceStart) vehicleUpdate.insuranceStart = new Date(data.insuranceStart);
+      if (data.insuranceExpiry) vehicleUpdate.insuranceExpiry = new Date(data.insuranceExpiry);
+      
+      // Vehicle Identification
+      if (typeof data.chassisNumber === "string") vehicleUpdate.chassisNumber = data.chassisNumber;
+      if (typeof data.vinNumber === "string") vehicleUpdate.vinNumber = data.vinNumber;
+      
+      if (Object.keys(vehicleUpdate).length > 0) {
+        await this.vehicleRepo.updateDocs(driver.vehicleId, vehicleUpdate);
       }
     }
 

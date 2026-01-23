@@ -44,7 +44,13 @@ export class PenaltyService {
         // Handle monetary penalty with automatic deposit deduction for RENTAL model
         if (data.type === PenaltyType.MONETARY && data.amount && data.amount > 0) {
             if (driver.paymentModel === PaymentModel.RENTAL) {
-                return this.handleRentalModelPenalty(penalty.id, data.driverId, data.amount, driver);
+                const depositResult = await this.handleRentalModelPenalty(penalty.id, data.driverId, data.amount, driver);
+                // Return the penalty with deposit processing details
+                const updatedPenalty = await prisma.penalty.findUnique({ where: { id: penalty.id } });
+                return {
+                    ...updatedPenalty,
+                    depositProcessing: depositResult,
+                };
             }
             // For PAYOUT model, penalty will be deducted from next payout
         }

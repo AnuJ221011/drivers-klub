@@ -4,57 +4,7 @@ import { OtpRepository } from "./otp.repository.js";
 import { ApiError } from "@driversklub/common";
 
 const repo = new OtpRepository();
-const DEFAULT_EXOTEL_BASE_URL = "https://api.exotel.com";
-const DEFAULT_EXOTEL_SMS_ENDPOINT = "send";
-const DEFAULT_OTP_TEMPLATE = "Dear user, Your OTP for login to Driver's Klub platform is {{otp}}, Regards, Tribore Technologies";
-
-const getExotelBaseUrl = () => {
-    const rawBaseUrl = process.env.EXOTEL_BASE_URL;
-    if (!rawBaseUrl) {
-        return DEFAULT_EXOTEL_BASE_URL;
-    }
-    const trimmed = rawBaseUrl.trim().replace(/\/+$/, "");
-    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-        return trimmed;
-    }
-    return `https://${trimmed}`;
-};
-
-const getExotelSmsEndpoint = () => {
-    const rawEndpoint = process.env.EXOTEL_SMS_ENDPOINT;
-    if (!rawEndpoint) {
-        return DEFAULT_EXOTEL_SMS_ENDPOINT;
-    }
-    return rawEndpoint.trim().replace(/^\/+|\/+$/g, "");
-};
-
-const renderOtpTemplate = (template: string, otp: string) => {
-    return template
-        .replace(/#var#/gi, otp)
-        .replace(/\{\{\s*otp\s*\}\}/gi, otp)
-        .replace(/\{otp\}/gi, otp);
-};
-
-const buildOtpBody = (otp: string) => {
-    const rawTemplate = process.env.EXOTEL_SMS_BODY_TEMPLATE?.trim();
-    const template = rawTemplate || DEFAULT_OTP_TEMPLATE;
-    return renderOtpTemplate(template, otp);
-};
-
-const buildExotelSendUrl = (accountSid: string) => {
-    const endpoint = getExotelSmsEndpoint();
-    return `${getExotelBaseUrl()}/v1/Accounts/${accountSid}/Sms/${endpoint}`;
-};
-
-const appendIfPresent = (
-    params: URLSearchParams,
-    key: string,
-    value?: string
-) => {
-    if (value) {
-        params.append(key, value);
-    }
-};
+const sqsProducer = new SqsProducer();
 
 export class OtpService {
     generateOtp(): string {
@@ -64,7 +14,8 @@ export class OtpService {
     async sendOtp(phone: string) {
         await repo.invalidateOld(phone);
 
-        const otp = this.generateOtp();
+        const otp = process.env.NODE_ENV === "development" ? "000000" : this.generateOtp();
+
         const expiresAt = new Date(
             Date.now() + Number(process.env.OTP_EXPIRY_MINUTES || 5) * 60 * 1000
         );
@@ -103,40 +54,14 @@ export class OtpService {
             throw new ApiError(500, "Failed to persist OTP");
         }
 
-        // 🔹 EXOTEL SEND OTP (IF CONFIGURED)
-        if (exotelAccountSid && exotelApiKey && exotelApiToken && exotelSenderId) {
-            try {
-                const payload = new URLSearchParams({
-                    From: exotelSenderId,
-                    To: phone,
-                    Body: buildOtpBody(otp)
-                });
-                appendIfPresent(payload, "DltEntityId", exotelDltEntityId);
-                appendIfPresent(payload, "DltTemplateId", exotelDltTemplateId);
-                appendIfPresent(payload, "SmsType", exotelSmsType);
-                appendIfPresent(payload, "Priority", exotelSmsPriority);
-                appendIfPresent(payload, "EncodingType", exotelEncodingType);
-                appendIfPresent(payload, "CustomField", exotelCustomField);
-                appendIfPresent(payload, "StatusCallback", exotelStatusCallback);
-                await axios.post(
-                    buildExotelSendUrl(exotelAccountSid),
-                    payload.toString(),
-                    {
-                        headers: {
-                            "Content-Type": "application/x-www-form-urlencoded"
-                        },
-                        auth: {
-                            username: exotelApiKey,
-                            password: exotelApiToken
-                        }
-                    }
-                );
-            } catch (error) {
-                console.error("Exotel OTP Send Failed:", error);
-                throw new ApiError(500, "Failed to send OTP via SMS provider");
-            }
+        if(process.env.NODE_ENV !== "development") {
+        try {
+            sqsProducer.sendOtpMessage({phone, otp});
+        } catch(err) {
+            console.error(err);
+            throw new ApiError(500, "Error Sending OTP");
         }
-
+        }
         return { success: true };
     }
 

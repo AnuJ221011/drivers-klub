@@ -12,13 +12,21 @@ export class TripCreateService {
     TripValidator.validateCity(input.originCity);
     TripValidator.validateVehicle(input.vehicleSku);
 
+    const isPrebook = input.bookingType
+      ? input.bookingType === "PREBOOK"
+      : true;
+
+    const resolvedVehicleType =
+      input.vehicleType ||
+      (input.vehicleSku.toUpperCase().includes("EV") ? "EV" : "NON_EV");
+
     // Apply constraint engine rules (T-1 booking, distance limits, etc.)
     const constraintResult = ConstraintEngine.validate({
       tripType: input.tripType as TripType,
       pickupTime: new Date(input.tripDate),
       distanceKm: input.distanceKm,
-      vehicleType: "EV",
-      isPrebook: true,
+      vehicleType: resolvedVehicleType,
+      isPrebook,
       originCity: input.originCity
     });
 
@@ -32,7 +40,7 @@ export class TripCreateService {
       tripType: input.tripType as TripType,
       pickupTime: new Date(input.tripDate),
       bookingTime: new Date(input.bookingDate),
-      vehicleType: "EV",
+      vehicleType: resolvedVehicleType,
     });
 
     const billableKm = Math.max(
@@ -41,21 +49,47 @@ export class TripCreateService {
     );
 
     // Persist trip to database
+    const providerMeta = {
+      ...(input.providerMeta || {}),
+    } as Record<string, unknown>;
+
+    if (input.passengerName) providerMeta.passengerName = input.passengerName;
+    if (input.passengerPhone) providerMeta.passengerPhone = input.passengerPhone;
+    if (input.bookingType) providerMeta.bookingType = input.bookingType;
+    if (input.requestedVehicleType) {
+      providerMeta.requestedVehicleType = input.requestedVehicleType;
+    }
+    if (input.vehicleType) providerMeta.vehicleType = input.vehicleType;
+
+    const hasProviderMeta = Object.keys(providerMeta).length > 0;
+    const toOptionalNumber = (value?: number) =>
+      typeof value === "number" ? value : undefined;
+
+    const rideData: any = {
+      tripType: input.tripType as TripType,
+      originCity: input.originCity,
+      destinationCity: input.destinationCity || "Unknown",
+      pickupLocation: input.pickupLocation,
+      dropLocation: input.dropLocation,
+      pickupLat: toOptionalNumber(input.pickupLat),
+      pickupLng: toOptionalNumber(input.pickupLng),
+      dropLat: toOptionalNumber(input.dropLat),
+      dropLng: toOptionalNumber(input.dropLng),
+      pickupTime: new Date(input.tripDate),
+      distanceKm: input.distanceKm,
+      billableKm,
+      ratePerKm: PRICE_PER_KM,
+      price: pricing.finalFare,
+      vehicleSku: input.vehicleSku,
+      status: "CREATED",
+    };
+
+    if (hasProviderMeta) {
+      rideData.providerMeta = providerMeta as any;
+    }
+
     return prisma.ride.create({
-      data: {
-        tripType: input.tripType as TripType,
-        originCity: input.originCity,
-        destinationCity: input.destinationCity || "Unknown",
-        pickupLocation: input.pickupLocation,
-        dropLocation: input.dropLocation,
-        pickupTime: new Date(input.tripDate),
-        distanceKm: input.distanceKm,
-        billableKm,
-        ratePerKm: PRICE_PER_KM,
-        price: pricing.finalFare,
-        vehicleSku: input.vehicleSku,
-        status: "CREATED",
-      },
+      data: rideData,
     });
   }
 }

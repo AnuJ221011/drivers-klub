@@ -109,14 +109,28 @@ model Vehicle {
   ownership        VehicleOwnership
   ownerName        String?
   fuelType         FuelType
+  
+  // Vehicle Identification
+  chassisNumber    String?
+  vinNumber        String?
+  
+  // RC Documents
   rcFrontImage     String?
   rcBackImage      String?
+  
+  // Permit Documents
   permitImage      String?
   permitExpiry     DateTime?
+  
+  // Fitness Documents
   fitnessImage     String?
   fitnessExpiry    DateTime?
+  
+  // Insurance Documents
   insuranceImage   String?
+  insuranceStart   DateTime?
   insuranceExpiry  DateTime?
+  
   status           VehicleStatus      @default(ACTIVE)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt

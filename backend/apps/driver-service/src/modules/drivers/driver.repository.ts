@@ -18,13 +18,14 @@ export class DriverRepository {
     return prisma.driver.create({ data });
   }
 
-  async createNewDriver(data: CreateNewDriverInput): Promise<DriverEntity> {
+  async createNewDriver(fleetId: string, data: CreateNewDriverInput): Promise<DriverEntity> {
     return prisma.driver.create({
       data: {
         userId: data.userId,
         firstName: data.firstName,
         lastName: data.lastName,
         mobile: data.mobile,
+        fleetId: fleetId,
         dob: new Date(data.dob),
         city: data.city,
         address: data.address,

@@ -5,9 +5,17 @@
 **Base URL (Development):** `http://localhost:3000` (API Gateway)  
 **Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
 **Auth:** Requires `Authorization: Bearer <TOKEN>` with Role `SUPER_ADMIN`, `OPERATIONS`, or `MANAGER`  
-**Version:** 4.1.0 (Microservices + S3 + Fleet Manager Migration)  
-**Last Updated:** January 17, 2026  
-**Last Verified:** January 17, 2026
+**Version:** 4.4.0 (MMT Tracking Events + Public Booking + Referrals)  
+**Last Updated:** January 23, 2026  
+**Last Verified:** January 23, 2026
+
+## What's New in v4.4.0
+
+- **MMT Tracking Integration** - Automatic notifications to MMT when assigning/reassigning/unassigning drivers
+- **FLEET_ADMIN Role** - Fleet-level administration with scoped access
+- **Public Booking API** - Customers can book trips without auth
+- **Referral System** - Driver referral tracking and rewards
+- **Enhanced KYC** - Full driver/vehicle document management
 
 > **Note:** All requests route through the API Gateway to 6 microservices. The gateway handles authentication and routing automatically.
 
@@ -52,7 +60,14 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 }
 ```
 
-**Action:** Check `user.role`. Redirect to dashboard only if `SUPER_ADMIN` or `OPERATIONS`.
+**Action:** Check `user.role`. Redirect to dashboard based on role permissions.
+
+**Allowed Admin Roles:**
+
+- `SUPER_ADMIN` - Full system access (all fleets)
+- `FLEET_ADMIN` - Fleet-level admin (scoped to their fleet)
+- `OPERATIONS` - Operations team access
+- `MANAGER` - Hub/Fleet manager access
 
 **Token Expiry:**
 
@@ -464,8 +479,8 @@ Trips originating from MakeMyTrip will have:
   "firstName": "Raj",
   "lastName": "Kumar",
   "mobile": "9812345678",
-  "licenseNumber": "DL-12345-67890",
-  "email": "raj@example.com"
+  "email": "raj@example.com",
+  "licenseNumber": "DL-12345-67890"
 }
 ```
 
@@ -482,6 +497,64 @@ Trips originating from MakeMyTrip will have:
   }
 }
 ```
+
+#### Update Driver (Full KYC)
+
+**Endpoint:** `PATCH /drivers/:id`  
+**Roles:** `SUPER_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Request Body (All fields optional):**
+
+```json
+{
+  "firstName": "Raj",
+  "lastName": "Kumar",
+  "mobile": "9812345678",
+  "email": "raj@example.com",
+  "dob": "1990-05-15T00:00:00.000Z",
+  "address": "123 Main Street",
+  "city": "Delhi",
+  "pincode": "110001",
+  
+  "aadharNumber": "123456789012",
+  "panNumber": "ABCDE1234F",
+  "dlNumber": "DL-12345-67890",
+  "gstNumber": "22AAAAA0000A1Z5",
+  
+  "bankAccountNumber": "1234567890123456",
+  "bankIfscCode": "HDFC0001234",
+  "bankAccountName": "Raj Kumar",
+  
+  "licenseFront": "https://s3.aws.com/license-front.jpg",
+  "licenseBack": "https://s3.aws.com/license-back.jpg",
+  "aadharFront": "https://s3.aws.com/aadhaar-front.jpg",
+  "aadharBack": "https://s3.aws.com/aadhaar-back.jpg",
+  "panCardImage": "https://s3.aws.com/pan.jpg",
+  "bankIdProof": "https://s3.aws.com/bank-proof.jpg",
+  
+  "rcFrontImage": "https://s3.aws.com/rc-front.jpg",
+  "rcBackImage": "https://s3.aws.com/rc-back.jpg",
+  "fitnessImage": "https://s3.aws.com/fitness.jpg",
+  "fitnessExpiry": "2026-12-31",
+  "insuranceImage": "https://s3.aws.com/insurance.jpg",
+  "insuranceStart": "2024-01-01",
+  "insuranceExpiry": "2025-12-31",
+  "chassisNumber": "MA1AB2CD3EF456789",
+  "vinNumber": "1HGBH41JXMN109186"
+}
+```
+
+**Field Categories:**
+
+| Category | Fields | Description |
+|----------|--------|-------------|
+| Basic Info | `firstName`, `lastName`, `mobile`, `email`, `dob`, `address`, `city`, `pincode` | Personal details |
+| KYC Values | `aadharNumber`, `panNumber`, `dlNumber`, `gstNumber` | Document numbers |
+| Bank Details | `bankAccountNumber`, `bankIfscCode`, `bankAccountName` | For payouts |
+| KYC Attachments | `licenseFront`, `licenseBack`, `aadharFront`, `aadharBack`, `panCardImage`, `bankIdProof` | Document images (upload via S3) |
+| Vehicle Docs | `rcFrontImage`, `rcBackImage`, `fitnessImage`, `fitnessExpiry`, `insuranceImage`, `insuranceStart`, `insuranceExpiry`, `chassisNumber`, `vinNumber` | Updated on driver's assigned vehicle |
+
+**Note:** Vehicle fields are only saved if the driver has an assigned vehicle.
 
 #### List Drivers by Fleet
 

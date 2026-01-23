@@ -1,11 +1,23 @@
 # 📚 Complete API Reference
 
-**Version:** 4.1.0 (Microservices + S3 + Fleet Manager Migration)  
+**Version:** 4.4.0 (MMT Tracking Events + Public Booking + Referrals)  
 **Base URL (Development):** `http://localhost:3000` (API Gateway)  
 **Base URL (Staging):** `https://driversklub-backend.onrender.com`  
 **Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
-**Last Updated:** January 17, 2026  
-**Last Verified:** January 17, 2026
+**Last Updated:** January 23, 2026  
+**Last Verified:** January 23, 2026
+
+## What's New in v4.4.0
+
+- **MMT Tracking Events** - Complete outbound tracking integration with MakeMyTrip
+  - Dispatch events: assign, reassign, detach
+  - Track events: start, arrived, boarded, alight, not-boarded
+  - Live location updates every 30 seconds
+- **Public Booking API** - Customers can now book trips without authentication
+- **Referral System** - Drivers can refer other drivers and earn incentives
+- **Enhanced KYC** - Full driver KYC with Aadhar, PAN, Bank details, and vehicle documents
+- **FLEET_ADMIN Role** - New role for fleet-level administration
+- **Vehicle Identification** - Chassis number, VIN, and insurance date fields
 
 ## Architecture Overview
 
@@ -19,7 +31,7 @@ This API is built on a **microservices architecture** with 6 independent service
 - **Trip Service** (Port 3005) - Trips, payments, pricing & partners
 - **Notification Service** (Port 3006) - Real-time notifications
 
-**Total Endpoints:** 104
+**Total Endpoints:** 120+
 
 > **Note:** All requests should go through the API Gateway. Individual service ports are for internal communication only.
 
@@ -34,6 +46,8 @@ This API is built on a **microservices architecture** with 6 independent service
   - [Users](#users)
   - [Drivers](#drivers)
   - [Fleet Management](#fleet-management)
+- [Public Booking API](#public-booking-api)
+- [Referral System](#referral-system)
 
   - [Vehicles](#vehicles)
   - [Assignments](#assignments)
@@ -63,6 +77,7 @@ Authorization: Bearer <access_token>
 ### User Roles
 
 - `SUPER_ADMIN` - Full system access
+- `FLEET_ADMIN` - Fleet-level administration (manages their own fleet)
 - `OPERATIONS` - Operations team access
 - `MANAGER` - Fleet/Hub manager access
 - `DRIVER` - Driver-specific access
@@ -522,12 +537,80 @@ Deactivate a user.
 
 All driver endpoints require authentication.
 
+#### POST `/drivers/new-driver-onboard`
+
+Complete driver onboarding with full KYC (Public - for driver app signup flow).
+
+**Authentication:** None (Public endpoint)
+
+**Request Body:**
+
+```json
+{
+  "userId": "uuid-from-signup",
+  "firstName": "Raj",
+  "lastName": "Kumar",
+  "mobile": "9876543210",
+  "email": "raj@example.com",
+  "dob": "1990-05-15T00:00:00.000Z",
+  "address": "123 Main Street, Sector 29",
+  "city": "Gurgaon",
+  "pincode": 122001,
+  
+  "aadharNumber": 123456789012,
+  "panNumber": "ABCDE1234F",
+  "drivingLicenceNumber": "DL-0120230012345",
+  "gstNumber": "22AAAAA0000A1Z5",
+  
+  "aadharFront": "https://s3.aws.com/aadhaar-front.jpg",
+  "aadharBack": "https://s3.aws.com/aadhaar-back.jpg",
+  "panPhoto": "https://s3.aws.com/pan.jpg",
+  
+  "haveVehicle": true,
+  "vehicleModel": "Tata Tigor EV",
+  "vehicleType": "SEDAN",
+  "registrationNumber": "DL01AB1234",
+  "fuelType": "ELECTRIC",
+  "ownerName": "Raj Kumar",
+  "rcFrontImage": "https://s3.aws.com/rc-front.jpg",
+  "rcBackImage": "https://s3.aws.com/rc-back.jpg",
+  
+  "referralCode": "REF123ABC"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "driver-uuid",
+    "firstName": "Raj",
+    "lastName": "Kumar",
+    "mobile": "9876543210",
+    "kycStatus": "PENDING",
+    "vehicleId": "vehicle-uuid"
+  },
+  "message": "Documents Uploaded, KYC pending for verification"
+}
+```
+
+**Process:**
+
+1. Creates driver profile with all KYC data
+2. If `haveVehicle: true`, creates vehicle and links it to driver
+3. If `referralCode` provided, creates referral record
+4. Generates unique referral code for new driver
+
+---
+
 #### POST `/drivers`
 
-Create a new driver profile.
+Create a new driver profile (Admin).
 
 **Authentication:** Required  
-**Roles:** `SUPER_ADMIN`, `OPERATIONS`
+**Roles:** `SUPER_ADMIN`, `FLEET_ADMIN`, `OPERATIONS`, `MANAGER`
 
 **Request Body:**
 
@@ -718,9 +801,54 @@ Update driver details.
   "firstName": "Rajesh",
   "lastName": "Kumar",
   "mobile": "9876543210",
-  "licenseNumber": "DL-0120230012345"
+  "email": "rajesh@example.com",
+  "dob": "1990-05-15T00:00:00.000Z",
+  "address": "123 Main Street",
+  "city": "Delhi",
+  "pincode": "110001",
+  "profilePic": "https://example.com/photo.jpg",
+  
+  "aadharNumber": "123456789012",
+  "panNumber": "ABCDE1234F",
+  "dlNumber": "DL-0120230012345",
+  "licenseNumber": "DL-0120230012345",
+  "gstNumber": "22AAAAA0000A1Z5",
+  
+  "bankAccountNumber": "1234567890123456",
+  "bankIfscCode": "HDFC0001234",
+  "bankAccountName": "Rajesh Kumar",
+  
+  "licenseFront": "https://example.com/license-front.jpg",
+  "licenseBack": "https://example.com/license-back.jpg",
+  "aadharFront": "https://example.com/aadhaar-front.jpg",
+  "aadharBack": "https://example.com/aadhaar-back.jpg",
+  "panCardImage": "https://example.com/pan.jpg",
+  "livePhoto": "https://example.com/live.jpg",
+  "bankIdProof": "https://example.com/bank-proof.jpg",
+  
+  "rcFrontImage": "https://example.com/rc-front.jpg",
+  "rcBackImage": "https://example.com/rc-back.jpg",
+  "fitnessImage": "https://example.com/fitness.jpg",
+  "fitnessExpiry": "2026-12-31T00:00:00.000Z",
+  "insuranceImage": "https://example.com/insurance.jpg",
+  "insuranceStart": "2024-01-01T00:00:00.000Z",
+  "insuranceExpiry": "2025-12-31T00:00:00.000Z",
+  "chassisNumber": "MA1AB2CD3EF456789",
+  "vinNumber": "1HGBH41JXMN109186"
 }
 ```
+
+**Field Categories:**
+
+| Category | Fields |
+|----------|--------|
+| Basic Info | `firstName`, `lastName`, `mobile`, `email`, `dob`, `address`, `city`, `pincode`, `profilePic` |
+| KYC Values | `aadharNumber`, `panNumber`, `dlNumber`, `licenseNumber`, `gstNumber` |
+| Bank Details | `bankAccountNumber`, `bankIfscCode`, `bankAccountName` |
+| KYC Attachments | `licenseFront`, `licenseBack`, `aadharFront`, `aadharBack`, `panCardImage`, `livePhoto`, `bankIdProof` |
+| Vehicle Documents | `rcFrontImage`, `rcBackImage`, `fitnessImage`, `fitnessExpiry`, `insuranceImage`, `insuranceStart`, `insuranceExpiry`, `chassisNumber`, `vinNumber` |
+
+**Note:** Vehicle document fields (`rcFrontImage`, `rcBackImage`, `fitnessImage`, `insuranceImage`, `chassisNumber`, `vinNumber`, etc.) are only updated if the driver has an assigned vehicle.
 
 **Response:**
 
@@ -1305,7 +1433,12 @@ Create a new vehicle.
   "vehicleColor": "White",
   "fuelType": "ELECTRIC",
   "ownership": "OWNED",
+  "ownerName": "Fleet Owner Name",
   "status": "ACTIVE",
+  
+  "chassisNumber": "MA1AB2CD3EF456789",
+  "vinNumber": "1HGBH41JXMN109186",
+  
   "rcFrontImage": "https://example.com/rc-front.jpg",
   "rcBackImage": "https://example.com/rc-back.jpg",
   "permitImage": "https://example.com/permit.jpg",
@@ -1313,9 +1446,25 @@ Create a new vehicle.
   "fitnessImage": "https://example.com/fitness.jpg",
   "fitnessExpiry": "2026-12-31",
   "insuranceImage": "https://example.com/insurance.jpg",
+  "insuranceStart": "2024-01-01",
   "insuranceExpiry": "2025-12-31"
 }
 ```
+
+**Vehicle Identification Fields:**
+
+| Field | Description |
+|-------|-------------|
+| `chassisNumber` | Vehicle chassis number (stamped on frame) |
+| `vinNumber` | Vehicle Identification Number (17-character unique identifier) |
+
+**Insurance Fields:**
+
+| Field | Description |
+|-------|-------------|
+| `insuranceImage` | URL to insurance document image |
+| `insuranceStart` | Insurance policy start date |
+| `insuranceExpiry` | Insurance policy end/expiry date |
 
 **Fuel Types:**
 
@@ -2682,6 +2831,167 @@ Get pricing preview for a trip.
 
 ---
 
+## Public Booking API
+
+Public endpoints for customers to book trips without authentication.
+
+### POST `/public/trips/pricing`
+
+Get pricing estimate for a trip (no authentication required).
+
+**Authentication:** None
+
+**Request Body:**
+
+```json
+{
+  "pickupLocation": "Connaught Place, New Delhi",
+  "dropLocation": "IGI Airport, Terminal 3",
+  "tripDate": "2026-01-25",
+  "tripTime": "10:00",
+  "tripType": "AIRPORT"
+}
+```
+
+**Trip Types:** `AIRPORT`, `INTER_CITY`, `RENTAL`
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "vehicleSku": "TATA_TIGOR_EV",
+    "vehicleType": "EV",
+    "tripType": "AIRPORT",
+    "distanceKm": 25.5,
+    "billableDistanceKm": 26,
+    "ratePerKm": 25,
+    "baseFare": 650,
+    "totalFare": 780,
+    "breakdown": {
+      "distanceFare": 650,
+      "tripTypeMultiplier": 1.2,
+      "bookingTimeMultiplier": 1.0,
+      "vehicleMultiplier": 1.0
+    },
+    "currency": "INR"
+  },
+  "message": "Fare calculated successfully"
+}
+```
+
+**Constraints Applied:**
+
+- T-1 Booking: Trip must be > 24 hours from now
+- Distance limits based on trip type
+- City-specific rules
+
+---
+
+### POST `/public/trips/create`
+
+Create a trip booking (no authentication required).
+
+**Authentication:** None
+
+**Request Body:**
+
+```json
+{
+  "pickupLocation": "Connaught Place, New Delhi",
+  "dropLocation": "IGI Airport, Terminal 3",
+  "tripDate": "2026-01-25",
+  "tripTime": "10:00",
+  "tripType": "AIRPORT",
+  "customerName": "John Doe",
+  "customerPhone": "9876543210"
+}
+```
+
+**Response (201):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "tripId": "uuid",
+    "status": "CREATED",
+    "vehicleSku": "TATA_TIGOR_EV",
+    "vehicleType": "EV",
+    "tripType": "AIRPORT",
+    "price": 780,
+    "pickupLocation": "Connaught Place, New Delhi",
+    "dropLocation": "IGI Airport, Terminal 3",
+    "tripDate": "2026-01-25T10:00:00.000Z",
+    "customerName": "John Doe",
+    "customerPhone": "9876543210"
+  },
+  "message": "Trip created successfully"
+}
+```
+
+**Note:** The system automatically:
+- Calculates distance via Google Maps
+- Extracts city from address
+- Gets coordinates for geofencing
+- Stores customer info in provider metadata
+
+---
+
+## Referral System
+
+Driver referral system with automated reward processing.
+
+### How Referrals Work
+
+1. **Driver A** gets a unique referral code automatically upon signup
+2. **Driver B** signs up using Driver A's referral code
+3. System tracks Driver B's activity (active days, rides per day)
+4. When Driver B meets eligibility criteria, Driver A receives an incentive
+
+### Eligibility Criteria (Configurable)
+
+- **Minimum Active Days:** 30 days (with approved attendance)
+- **Minimum Rides Per Day:** 8 completed trips on average
+- **Max Referrals Per Driver:** 50 (limit per referrer)
+
+### Referral Statuses
+
+| Status | Description |
+|--------|-------------|
+| `PENDING` | Referral created, waiting for eligibility check |
+| `COMPLETED` | Referral reward has been processed |
+| `CANCELLED` | Referral was cancelled |
+| `EXPIRED` | Referral expired without completion |
+
+### How Referral Code is Used
+
+During driver signup (`POST /users/drivers/signup`), include the referral code:
+
+```json
+{
+  "name": "New Driver",
+  "phone": "9876543210",
+  "referralCode": "REF123ABC"
+}
+```
+
+The system validates:
+- Referral code exists and is active
+- Referrer hasn't exceeded max referrals
+- New user isn't already referred
+
+### Reward Processing
+
+Rewards are processed automatically via a background worker that:
+1. Checks all `PENDING` referrals periodically
+2. Validates eligibility criteria for each referred driver
+3. Creates `REFERRAL` category incentive for referrer
+4. Updates referral status to `COMPLETED`
+
+---
+
 ## Partner Integrations
 
 ### MakeMyTrip (MMT)
@@ -2908,6 +3218,189 @@ Confirm reschedule request (MMT → Driver's Klub).
 
 ---
 
+### MMT Tracking Events (Outbound)
+
+These are **outbound** API calls that DriversKlub makes TO MMT to notify them about ride status changes.
+
+**Base URL:** `https://cabs-partners-staging.makemytrip.com/tracking/pp2/api/partner/v1`  
+**Authentication:** Basic Auth (`fooSnapecabs:barSnapecabs`)
+
+#### Dispatch Events
+
+##### POST `/dispatch/{booking_id}/assign`
+
+Notify MMT when a driver is assigned to a booking.
+
+**Triggered by:** `POST /admin/trips/assign` or `POST /trips/:id/assign`
+
+**Request Body (sent to MMT):**
+
+```json
+{
+  "chauffeur": {
+    "id": "driver-uuid",
+    "name": "Rajesh Kumar",
+    "mobile_number": "9876543210",
+    "image": "https://s3.aws.com/driver-photo.jpg"
+  },
+  "vehicle": {
+    "id": "vehicle-uuid",
+    "name": "Tata Tigor EV",
+    "color": "White",
+    "registration_number": "DL01AB1234",
+    "vehicle_type": "sedan"
+  }
+}
+```
+
+---
+
+##### POST `/dispatch/{booking_id}/reassign`
+
+Notify MMT when a different driver is assigned to an existing booking.
+
+**Triggered by:** `POST /admin/trips/reassign`
+
+**Request Body:** Same structure as assign.
+
+---
+
+##### POST `/dispatch/{booking_id}/detach`
+
+Notify MMT when a driver is unassigned from a booking.
+
+**Triggered by:** `POST /admin/trips/unassign`
+
+**Request Body (sent to MMT):**
+
+```json
+{
+  "reason": "Driver Unassigned by Admin"
+}
+```
+
+---
+
+#### Track Events
+
+##### POST `/track/{booking_id}/start`
+
+Notify MMT when the driver starts the trip.
+
+**Triggered by:** `POST /trips/:id/start`
+
+**Request Body (sent to MMT):**
+
+```json
+{
+  "latitude": 28.4595,
+  "longitude": 77.0266,
+  "timestamp": 1706025600000
+}
+```
+
+---
+
+##### POST `/track/{booking_id}/arrived`
+
+Notify MMT when driver arrives at pickup location.
+
+**Triggered by:** `POST /trips/:id/arrived`
+
+**Request Body:** Same as start (lat, lng, timestamp).
+
+---
+
+##### POST `/track/{booking_id}/boarded`
+
+Notify MMT when passenger boards the vehicle.
+
+**Triggered by:** `POST /trips/:id/onboard`
+
+**Request Body:** Same as start (lat, lng, timestamp).
+
+---
+
+##### POST `/track/{booking_id}/alight`
+
+Notify MMT when passenger alights (trip complete).
+
+**Triggered by:** `POST /trips/:id/complete`
+
+**Request Body (sent to MMT):**
+
+```json
+{
+  "latitude": 28.5562,
+  "longitude": 77.1000,
+  "timestamp": 1706029200000,
+  "extra_charges": {
+    "toll_charges": 100,
+    "parking_charges": 50,
+    "waiting_charges": 0,
+    "other_charges": 0
+  }
+}
+```
+
+**Note:** `extra_charges` is optional - only include if applicable.
+
+---
+
+##### POST `/track/{booking_id}/not-boarded`
+
+Notify MMT when passenger is a no-show.
+
+**Triggered by:** `POST /trips/:id/noshow`
+
+**Request Body (sent to MMT):**
+
+```json
+{
+  "latitude": 28.4595,
+  "longitude": 77.0266,
+  "timestamp": 1706025600000,
+  "reason": "Customer no show"
+}
+```
+
+---
+
+##### PUT `/track/{booking_id}/location`
+
+Send live driver location during an active trip.
+
+**Triggered by:** `POST /trips/:id/location`
+
+**Frequency:** Should be called every 30 seconds from `start` until `alight`.
+
+**Request Body (sent to MMT):**
+
+```json
+{
+  "latitude": 28.5000,
+  "longitude": 77.0500,
+  "timestamp": 1706026500000
+}
+```
+
+---
+
+### MMT Test Case Flows
+
+| Test | Flow | Description |
+|------|------|-------------|
+| 1 | Assign → Start → Arrived → Boarded → Alight | Happy path |
+| 2 | Assign → Reassign → Start → Arrived → Boarded → Alight | Driver change mid-booking |
+| 3 | Assign → Start → Arrived → Not-Boarded | Customer no-show |
+| 4 | Assign → Start → Arrived → Detach | Driver unassigned after arrival |
+| 5 | Assign → Detach | Driver unassigned before trip |
+| 6 | Detach | Unassign without prior assignment |
+| 7 | Full flow with extra_charges in Alight | Toll/parking charges |
+| 8 | Location updates every 30 seconds | Start to Alight |
+
+---
+
 #### POST `/trips/:id/location`
 
 Update driver live location for a trip.
@@ -2941,7 +3434,7 @@ Webhooks allow real-time notifications for system events, primarily payment upda
 
 ### Easebuzz Payment Webhook
 
-#### POST `/webhooks/easebuzz`
+#### POST `/webhooks/easebuzz/payment`
 
 Webhook endpoint for Easebuzz payment gateway notifications.
 
@@ -2959,6 +3452,47 @@ Webhook endpoint for Easebuzz payment gateway notifications.
   "message": "Webhook processed successfully"
 }
 ```
+
+---
+
+#### POST `/webhooks/easebuzz/virtual-account`
+
+Webhook for Virtual Account (QR Code) payment notifications.
+
+**Authentication:** Signature Verification (Salt-based)
+
+**Description:** Called by Easebuzz when a payment is received on a Virtual Account (Vehicle QR or Order QR).
+
+---
+
+### Payment Redirect Handlers
+
+These are public redirect URLs used after Easebuzz payment completion.
+
+#### GET `/webhooks/payment/success`
+
+Payment success redirect page. Shows success message and redirects to mobile app.
+
+**Query Parameters:**
+
+- `txnid` - Transaction ID
+- `amount` - Payment amount
+- `status` - Payment status
+
+**Response:** HTML page with deep link to `driversklub://payment/success`
+
+---
+
+#### GET `/webhooks/payment/failure`
+
+Payment failure redirect page. Shows error message and redirects to mobile app.
+
+**Query Parameters:**
+
+- `txnid` - Transaction ID
+- `error_Message` - Error description
+
+**Response:** HTML page with deep link to `driversklub://payment/failure`
 
 ---
 

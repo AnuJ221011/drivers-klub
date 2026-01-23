@@ -3,10 +3,9 @@ import { TripAssignmentService } from "../../core/trip/services/trip-assignment.
 import { ApiResponse, logger } from "@driversklub/common";
 
 import { prisma } from "@driversklub/database";
-import { MMTWebhook } from "../partner/mmt/mmt.webhook.js";
+import { mmtTracking } from "../partner/mmt/mmt.tracking.js";
 
 export class AdminTripController {
-  private mmtWebhook = new MMTWebhook();
 
   private getScope(req: Request): {
     id?: string;
@@ -206,7 +205,7 @@ export class AdminTripController {
       if (mapping && mapping.providerType === "MMT") {
         const driver = await prisma.driver.findUnique({ where: { id: driverId } });
         if (driver) {
-          await this.mmtWebhook.pushDriverAssignment(mapping.externalBookingId, driver);
+          await mmtTracking.assignChauffeur(mapping.externalBookingId, driver);
         }
       }
     } catch (e) {
@@ -220,7 +219,7 @@ export class AdminTripController {
       if (mapping && mapping.providerType === "MMT") {
         const driver = await prisma.driver.findUnique({ where: { id: driverId } });
         if (driver) {
-          await this.mmtWebhook.pushReassignChauffeur(mapping.externalBookingId, driver);
+          await mmtTracking.reassignChauffeur(mapping.externalBookingId, driver);
         }
       }
     } catch (e) {
@@ -228,11 +227,11 @@ export class AdminTripController {
     }
   }
 
-  private async pushDetachDetails(tripId: string) {
+  private async pushDetachDetails(tripId: string, reason?: string) {
     try {
       const mapping = await prisma.rideProviderMapping.findUnique({ where: { rideId: tripId } });
       if (mapping && mapping.providerType === "MMT") {
-        await this.mmtWebhook.pushDetachTrip(mapping.externalBookingId, "Driver Unassigned by Admin");
+        await mmtTracking.detachChauffeur(mapping.externalBookingId, reason || "Driver Unassigned by Admin");
       }
     } catch (e) {
       logger.error(`[AdminTripController] Failed to push MMT detach for trip ${tripId}:`, e);

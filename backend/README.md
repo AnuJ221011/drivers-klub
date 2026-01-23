@@ -7,11 +7,13 @@ Production-ready Backend for Driver's Klub Mobility Platform built on modern mic
 **✅ PRODUCTION-READY** - Microservices architecture deployed and running
 
 - ✅ **Microservices Architecture** - 6 independent services + API Gateway
-- ✅ **106 API Endpoints** - Fully tested and documented
+- ✅ **128+ API Endpoints** - Fully tested and documented
 - ✅ **Scalable Design** - Handles 500-10,000+ concurrent users
 - ✅ **Role-Based Access Control** - SUPER_ADMIN, OPERATIONS, MANAGER, DRIVER
 - ✅ **Payment System Complete** - Easebuzz integration, InstaCollect, Bulk Payouts, **Virtual QRs (Independent Drivers)**
-- ✅ **Partner Integrations** - Rapido, MMT, MojoBoxx, Google Maps
+- ✅ **Partner Integrations** - Rapido, MMT (with tracking events), MojoBoxx, Google Maps
+- ✅ **MMT Tracking Events** - Real-time trip status sync (assign, start, arrived, complete)
+- ✅ **Enhanced KYC** - Full driver KYC with Aadhar, PAN, Bank details, vehicle docs
 - ✅ **Attendance System** - Check-in/out with cash collection tracking
 - ✅ **S3 Image Upload** - Presigned URLs for selfies and odometer images
 - ✅ **Dynamic Token Expiry** - Client-based refresh token duration (Web: 1d, App: 30d)
@@ -63,14 +65,14 @@ Production-ready Backend for Driver's Klub Mobility Platform built on modern mic
 | Service | Port | Endpoints | Responsibility |
 |---------|------|-----------|----------------|
 | **API Gateway** | 3000 | - | Routes requests, health checks |
-| **Auth Service** | 3001 | 11 | Authentication, user management, public signup |
-| **Driver Service** | 3002 | 20 | Driver profiles, attendance tracking |
-| **Vehicle Service** | 3003 | 26 | Vehicles, fleets |
-| **Assignment Service** | 3004 | 4 | Driver-vehicle assignments |
-| **Trip Service** | 3005 | 44 | Trips, payments, pricing, partners |
-| **Notification Service** | 3006 | 1 | Real-time notifications |
+| **Auth Service** | 3001 | 13 | Authentication, user management, public signup |
+| **Driver Service** | 3002 | 28 | Driver profiles, attendance, preferences |
+| **Vehicle Service** | 3003 | 32 | Vehicles, fleets, hubs, managers |
+| **Assignment Service** | 3004 | 6 | Driver-vehicle assignments |
+| **Trip Service** | 3005 | 68 | Trips, payments, pricing, MMT, Rapido, maps |
+| **Notification Service** | 3006 | 2 | Real-time notifications |
 
-**Total: 106 Endpoints**
+**Total: 128+ Endpoints**
 
 ---
 
@@ -235,11 +237,20 @@ AWS_SECRET_ACCESS_KEY="your-secret-key"
 AWS_DEFAULT_REGION="ap-south-1"
 AWS_S3_BUCKET_NAME="driversklub-assets"
 
-# Partner APIs
+# Partner APIs - Rapido
 RAPIDO_API_KEY="your-rapido-key"
 RAPIDO_BASE_URL="https://api.rapido.bike"
-RAPIDO_BASE_URL="https://api.rapido.bike"
-MMT_WEBHOOK_URL="https://api.mmt.com/webhook"
+
+# Partner APIs - MMT (MakeMyTrip)
+MMT_INBOUND_USERNAME="mmt_inbound_service"
+MMT_INBOUND_PASSWORD="your_mmt_inbound_password"
+MMT_BASE_URL="https://api.mmt.com"
+MMT_AUTH_URL="https://api-cert.makemytrip.com/v1/auth"
+MMT_CLIENT_ID="your_mmt_client_id"
+MMT_CLIENT_SECRET="your_mmt_client_secret"
+MMT_TRACKING_URL="https://cabs-partners-staging.makemytrip.com/tracking/pp2/api/partner/v1"
+MMT_TRACKING_USER=""
+MMT_TRACKING_PASS=""
 
 # Google Maps (Pricing Engine)
 GOOGLE_MAPS_API_KEY="your-google-maps-key"
@@ -456,4 +467,4 @@ Proprietary - Driver's Klub
 
 ---
 
-**Status:** ✅ **PRODUCTION-READY** | **Last Updated:** January 17, 2026 | **Version:** 4.1.0 (Microservices + S3)
+**Status:** ✅ **PRODUCTION-READY** | **Last Updated:** January 23, 2026 | **Version:** 4.4.0 (MMT Tracking + Enhanced KYC)
