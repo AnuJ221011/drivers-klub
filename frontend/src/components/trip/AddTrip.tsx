@@ -14,7 +14,7 @@ import Select from '../ui/Select';
 import Button from '../ui/Button';
 
 import { createTrip } from '../../api/trip.api';
-import { previewPricing } from '../../api/pricing.api';
+import { previewPricing, type PricingPreviewResult } from '../../api/pricing.api';
 import { geocodeAddress, getMapAutocomplete, type MapAutocompleteItem } from '../../api/maps.api';
 import type { TripEntity } from '../../models/trip/trip';
 
@@ -175,15 +175,7 @@ function PlaceAutocompleteInput({
 export default function AddTrip({ onClose, onCreated }: Props) {
   const [saving, setSaving] = useState(false);
   const [loadingEstimate, setLoadingEstimate] = useState(false);
-  const [estimate, setEstimate] = useState<null | {
-    baseFare: number;
-    distanceCharge: number;
-    totalFare: number;
-    breakdown: {
-      minBillableKm: number;
-      ratePerKm: number;
-    };
-  }>(null);
+  const [estimate, setEstimate] = useState<PricingPreviewResult | null>(null);
 
   const [tripType, setTripType] = useState<'AIRPORT'>('AIRPORT');
   const [originCity, setOriginCity] = useState<'DELHI' | 'NOIDA' | 'GURGAON' | 'FARIDABAD' | 'GHAZIABAD'>('DELHI');
@@ -208,19 +200,59 @@ export default function AddTrip({ onClose, onCreated }: Props) {
   const [bookingType, setBookingType] = useState<'PREBOOK' | 'INSTANT'>('PREBOOK');
 
   async function handleGetEstimate() {
-    const distance = Number(distanceKm);
-    if (!Number.isFinite(distance) || distance <= 0) {
-      toast.error('Enter valid distance');
+    const pickupValue = pickupLocation.trim();
+    const dropValue = dropLocation.trim();
+    const tripDate = new Date(tripDateLocal);
+
+    if (!pickupValue || !dropValue) {
+      toast.error('Pickup and drop locations are required');
+      return;
+    }
+
+    if (Number.isNaN(tripDate.getTime())) {
+      toast.error('Select a valid trip date and time');
       return;
     }
 
     setLoadingEstimate(true);
     try {
+      let resolvedPickup = pickupCoords;
+      let resolvedDrop = dropCoords;
+      let resolvedPickupAddress = pickupValue;
+      let resolvedDropAddress = dropValue;
+
+      if (!resolvedPickup) {
+        const geo = await geocodeAddress(pickupValue);
+        resolvedPickup = { lat: geo.lat, lng: geo.lng };
+        resolvedPickupAddress = geo.formattedAddress || pickupValue;
+        setPickupCoords(resolvedPickup);
+        setPickupLocation(resolvedPickupAddress);
+      }
+
+      if (!resolvedDrop) {
+        const geo = await geocodeAddress(dropValue);
+        resolvedDrop = { lat: geo.lat, lng: geo.lng };
+        resolvedDropAddress = geo.formattedAddress || dropValue;
+        setDropCoords(resolvedDrop);
+        setDropLocation(resolvedDropAddress);
+      }
+
       const data = await previewPricing({
-        distanceKm: distance,
         tripType,
+        tripDate: tripDate.toISOString(),
+        bookingDate: new Date().toISOString(),
+        pickup: resolvedPickupAddress,
+        drop: resolvedDropAddress,
+        pickupLat: resolvedPickup.lat,
+        pickupLng: resolvedPickup.lng,
+        dropLat: resolvedDrop.lat,
+        dropLng: resolvedDrop.lng,
+        vehicleType: vehicleSku.includes('EV') ? 'EV' : 'NON_EV',
       });
       setEstimate(data);
+      if (Number.isFinite(data.distanceKm)) {
+        setDistanceKm(data.distanceKm.toFixed(2));
+      }
     } catch {
       toast.error('Failed to fetch estimate');
     } finally {
@@ -405,6 +437,7 @@ export default function AddTrip({ onClose, onCreated }: Props) {
         min={1}
         value={distanceKm}
         onChange={(e) => setDistanceKm(e.target.value)}
+        helperText="Auto-calculated from route distance. You can override if needed."
       />
 
       {/* Get Estimate */}
@@ -435,7 +468,7 @@ export default function AddTrip({ onClose, onCreated }: Props) {
           </div>
 
           <div className="text-xs text-black/60">
-            Min {estimate.breakdown.minBillableKm} km · ₹{estimate.breakdown.ratePerKm}/km
+            Billable {estimate.billableKm} km · ₹{estimate.ratePerKm}/km
           </div>
 
           <Button

@@ -1,26 +1,63 @@
 import axios from './axios';
 
-type PricingPreviewResponse = {
+type PricingPreviewApiResponse = {
   success: boolean;
   data: {
+    distanceSource: 'GOOGLE_MAPS' | 'CLIENT_PROVIDED';
+    distanceKm: number;
+    billableDistanceKm: number;
+    ratePerKm: number;
     baseFare: number;
-    distanceCharge: number;
     totalFare: number;
     breakdown: {
-      minBillableKm: number;
-      ratePerKm: number;
+      distanceFare: number;
+      tripTypeMultiplier: number;
+      bookingTimeMultiplier: number;
+      vehicleMultiplier: number;
     };
+    currency: 'INR';
   };
 };
 
-export async function previewPricing(payload: {
-  distanceKm: number;
+export type PricingPreviewInput = {
   tripType: string;
-}): Promise<PricingPreviewResponse['data']> {
-  const res = await axios.post<PricingPreviewResponse>(
+  tripDate: string;
+  bookingDate: string;
+  pickup?: string;
+  drop?: string;
+  pickupLat?: number;
+  pickupLng?: number;
+  dropLat?: number;
+  dropLng?: number;
+  distanceKm?: number;
+  vehicleType?: 'EV' | 'NON_EV';
+  vehicleSku?: string;
+};
+
+export type PricingPreviewResult = {
+  distanceKm: number;
+  billableKm: number;
+  ratePerKm: number;
+  baseFare: number;
+  distanceCharge: number;
+  totalFare: number;
+};
+
+export async function previewPricing(
+  payload: PricingPreviewInput
+): Promise<PricingPreviewResult> {
+  const res = await axios.post<PricingPreviewApiResponse>(
     '/pricing/preview',
     payload
   );
 
-  return res.data.data;
+  const data = res.data.data;
+  return {
+    distanceKm: data.distanceKm,
+    billableKm: data.billableDistanceKm,
+    ratePerKm: data.ratePerKm,
+    baseFare: data.baseFare,
+    distanceCharge: data.breakdown.distanceFare ?? data.baseFare,
+    totalFare: data.totalFare,
+  };
 }
