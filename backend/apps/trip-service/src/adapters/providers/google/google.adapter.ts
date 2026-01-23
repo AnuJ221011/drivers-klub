@@ -117,6 +117,83 @@ export class GoogleMapsAdapter {
     }
 
     /**
+     * Get distance and duration between two coordinates using Routes API (computeRoutes).
+     * Uses lat/lng directly to avoid geocoding ambiguity.
+     */
+    async getDistanceByCoordinates(
+        origin: { lat: number; lng: number },
+        destination: { lat: number; lng: number }
+    ): Promise<{ distanceKm: number; durationMins: number } | null> {
+        if (!this.apiKey) return null;
+
+        const key = [
+            origin.lat.toFixed(6),
+            origin.lng.toFixed(6),
+            destination.lat.toFixed(6),
+            destination.lng.toFixed(6),
+        ].join("_");
+        const cacheKey = `route_ll_${key}`;
+        const cachedResult = this.cache.get<{ distanceKm: number; durationMins: number }>(cacheKey);
+        if (cachedResult) {
+            logger.info("Google Routes API: lat/lng cache hit", { origin, destination });
+            return cachedResult;
+        }
+
+        try {
+            const response = await axios.post(
+                this.routesUrl,
+                {
+                    origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
+                    destination: { location: { latLng: { latitude: destination.lat, longitude: destination.lng } } },
+                    travelMode: "DRIVE",
+                    routingPreference: "TRAFFIC_AWARE",
+                    computeAlternativeRoutes: false
+                },
+                {
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Goog-Api-Key": this.apiKey,
+                        "X-Goog-FieldMask": "routes.distanceMeters,routes.duration,routes.staticDuration"
+                    },
+                    timeout: 8000
+                }
+            );
+
+            const route = response.data.routes?.[0];
+            if (!route) {
+                logger.warn("Google Routes API (lat/lng): No route found", { origin, destination });
+                return null;
+            }
+
+            const distanceMeters = route.distanceMeters || 0;
+            const durationString = route.duration || "0s";
+            const durationSeconds = parseInt(durationString.replace("s", ""), 10);
+
+            const result = {
+                distanceKm: distanceMeters / 1000,
+                durationMins: Math.ceil(durationSeconds / 60)
+            };
+
+            this.cache.set(cacheKey, result);
+            logger.info("Google Routes API (lat/lng): Success", {
+                origin,
+                destination,
+                distanceKm: result.distanceKm
+            });
+
+            return result;
+        } catch (error: any) {
+            logger.error("Failed to fetch route from Google Routes API (lat/lng)", {
+                message: error.message,
+                origin,
+                destination,
+                response: error.response?.data
+            });
+            return null;
+        }
+    }
+
+    /**
      * Geocode an address to Lat/Lng.
      * Used internally for routing and externally for location pin.
      */

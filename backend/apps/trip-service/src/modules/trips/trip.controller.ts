@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { TripOrchestrator } from "../../core/trip/orchestrator/trip.orchestrator.js";
 import { RideProviderMappingRepository } from "../../core/trip/repositories/ride-provider-mapping.repo.js";
 import { prisma } from "@driversklub/database";
-import { ApiResponse, GeoUtils, logger } from "@driversklub/common";
+import { ApiResponse, logger } from "@driversklub/common";
 import { MMTWebhook } from "../partner/mmt/mmt.webhook.js";
 import { TripService } from "./trip.service.js";
 import { GoogleMapsAdapter } from "../../adapters/providers/google/google.adapter.js";
@@ -116,21 +116,29 @@ export class TripController {
       }
 
       if (distanceKm === undefined) {
-        const googleDistance = await this.googleMaps.getDistance(
-          pickupAddress,
-          dropAddress
-        );
+        let googleDistance = null;
 
-        if (googleDistance) {
-          distanceKm = googleDistance.distanceKm;
-        } else if (
+        if (
           pickupLat !== undefined &&
           pickupLng !== undefined &&
           dropLat !== undefined &&
           dropLng !== undefined
         ) {
-          distanceKm =
-            GeoUtils.getDistanceInMeters(pickupLat, pickupLng, dropLat, dropLng) / 1000;
+          googleDistance = await this.googleMaps.getDistanceByCoordinates(
+            { lat: pickupLat, lng: pickupLng },
+            { lat: dropLat, lng: dropLng }
+          );
+        }
+
+        if (!googleDistance) {
+          googleDistance = await this.googleMaps.getDistance(
+            pickupAddress,
+            dropAddress
+          );
+        }
+
+        if (googleDistance) {
+          distanceKm = googleDistance.distanceKm;
         } else {
           return res.status(400).json({
             message: "Unable to calculate distance. Provide distanceKm or valid coordinates.",
