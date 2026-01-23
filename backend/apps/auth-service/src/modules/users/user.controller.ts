@@ -43,7 +43,8 @@ export const updateUser = async (req: Request, res: Response) => {
     throw new ApiError(401, "Unauthorized");
   }
 
-  const user = await userService.updateUser(req.user, req.params.id, {
+  const { id } = req.params as { id: string };
+  const user = await userService.updateUser(req.user, id, {
     name,
     role,
     fleetId,
@@ -60,12 +61,14 @@ export const getAllUsers = async (_req: Request, res: Response) => {
 };
 
 export const getUserById = async (req: Request, res: Response) => {
-  const user = await userService.getUserById(req.params.id);
+  const { id } = req.params as { id: string };
+  const user = await userService.getUserById(id);
   ApiResponse.send(res, 200, user, "User retrieved successfully");
 };
 
 export const deactivateUser = async (req: Request, res: Response) => {
-  const user = await userService.deactivateUser(req.params.id);
+  const { id } = req.params as { id: string };
+  const user = await userService.deactivateUser(id);
   ApiResponse.send(res, 200, user, "User deactivated successfully");
 };
 

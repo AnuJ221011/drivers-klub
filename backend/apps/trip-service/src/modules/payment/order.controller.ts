@@ -45,7 +45,7 @@ export const createOrder = async (req: Request, res: Response) => {
  * GET /payment/orders/:id
  */
 export const getOrder = async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
 
     const order = await orderService.getOrder(id);
 

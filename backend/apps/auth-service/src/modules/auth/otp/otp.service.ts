@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import axios from "axios";
 import { OtpRepository } from "./otp.repository.js";
-import { ApiError } from "@driversklub/common";
+import { ApiError, SqsProducer } from "@driversklub/common";
 
 const repo = new OtpRepository();
 const sqsProducer = new SqsProducer();
