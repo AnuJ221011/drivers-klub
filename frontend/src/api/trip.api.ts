@@ -51,7 +51,16 @@ export async function getTripsByFleet(fleetId: string): Promise<TripEntity[]> {
   return res.data;
 }
 
-export type CreateTripInput = {
+export type TripLocationInput = {
+  address: string;
+  latitude?: number;
+  longitude?: number;
+  lat?: number;
+  lng?: number;
+  description?: string;
+};
+
+export type LegacyCreateTripInput = {
   distanceKm: number;
   bookingDate: string; // ISO datetime
   tripDate: string; // ISO datetime
@@ -62,6 +71,29 @@ export type CreateTripInput = {
   tripType: string;
   vehicleSku: string;
 };
+
+export type NewCreateTripInput = {
+  pickupLocation: string | TripLocationInput;
+  dropLocation: string | TripLocationInput;
+  pickupTime: string; // ISO datetime
+  passengerName?: string;
+  passengerPhone?: string;
+  vehicleType?: string;
+  bookingType?: "PREBOOK" | "INSTANT";
+  pickupLat?: number;
+  pickupLng?: number;
+  dropLat?: number;
+  dropLng?: number;
+  distanceKm?: number;
+  bookingDate?: string;
+  tripDate?: string;
+  originCity?: string;
+  destinationCity?: string;
+  tripType?: string;
+  vehicleSku?: string;
+};
+
+export type CreateTripInput = LegacyCreateTripInput | NewCreateTripInput;
 
 export async function createTrip(input: CreateTripInput): Promise<TripEntity> {
   const res = await api.post<TripEntity>('/trips', input);
