@@ -1,6 +1,7 @@
 import api from './axios';
 
 import type { Driver, DriverEntity } from '../models/driver/driver';
+import { addDriverToHub } from './fleetHub.api';
 
 function toUiDriver(entity: DriverEntity): Driver {
   return {
@@ -23,6 +24,7 @@ export type CreateDriverInput = {
   name: string;
   phone: string;
   isActive: boolean;
+  hubId?: string;
   identityLivePhoto?: File | string | null;
   aadhaarCardFile?: File | string | null;
   panCardFile?: File | string | null;
@@ -64,7 +66,7 @@ function normalizeDriverDocList(
  */
 export async function createDriver(
   input: CreateDriverInput & { fleetId: string },
-): Promise<Driver> {
+): Promise<{ driver: Driver; hubAssigned: boolean }> {
   const { firstName, lastName } = splitName(input.name);
 
   // Create a DRIVER user first (required by backend)
@@ -99,8 +101,18 @@ export async function createDriver(
   if (additionalDocuments) payload.providerMetadata = { additionalDocuments };
 
   const res = await api.post<DriverEntity>('/drivers', payload);
+  const driver = toUiDriver(res.data);
 
-  return toUiDriver(res.data);
+  let hubAssigned = true;
+  if (input.hubId) {
+    try {
+      await addDriverToHub(input.hubId, driver.id);
+    } catch {
+      hubAssigned = false;
+    }
+  }
+
+  return { driver, hubAssigned };
 }
 
 export type UpdateDriverInput = {
