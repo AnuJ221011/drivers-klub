@@ -24,7 +24,7 @@ export const configureSecurity = (app: Express) => {
             message: "You have exceeded the request limit.",
             code: "RATE_LIMIT_EXCEEDED"
         }
-    }) as RequestHandler;
+    }) as unknown as RequestHandler;
     app.use(limiter);
 };
 

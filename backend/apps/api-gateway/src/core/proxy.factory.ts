@@ -1,5 +1,5 @@
 import { createProxyMiddleware, Options } from "http-proxy-middleware";
-import type { Request, Response, RequestHandler } from "express";
+import type { RequestHandler } from "express";
 
 export const createProxy = (target: string, options: Options = {}): RequestHandler => {
     return createProxyMiddleware({
@@ -7,7 +7,7 @@ export const createProxy = (target: string, options: Options = {}): RequestHandl
         changeOrigin: true,
         proxyTimeout: 30000, // 30s
         timeout: 30000,
-        onError: (err: any, req: Request, res: Response) => {
+        onError: (err, req, res) => {
             console.error(`[GATEWAY] Proxy error for ${req.url} -> ${target}:`, err.message);
 
             if (!res.headersSent) {
@@ -27,5 +27,5 @@ export const createProxy = (target: string, options: Options = {}): RequestHandl
             }
         },
         ...options
-    }) as RequestHandler;
+    }) as unknown as RequestHandler;
 };
