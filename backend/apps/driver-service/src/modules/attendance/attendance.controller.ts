@@ -9,6 +9,9 @@ import { checkGeoLocation } from "./attendance.service.js";
 // const rapidoService = new RapidoService();
 
 export class AttendanceController {
+  private getParam(value: string | string[] | undefined): string | undefined {
+    return Array.isArray(value) ? value[0] : value;
+  }
 
   async checkIn(req: Request, res: Response) {
     try {
@@ -73,7 +76,10 @@ export class AttendanceController {
 
   async getById(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = this.getParam(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Attendance id is required" });
+      }
 
       const attendance = await prisma.attendance.findUnique({
         where: { id },
@@ -312,7 +318,10 @@ export class AttendanceController {
   // Admin Approve
   async approve(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = this.getParam(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Attendance id is required" });
+      }
       const { adminId, remarks } = req.body; // In real app, adminId from req.user
 
       const updated = await prisma.attendance.update({
@@ -335,7 +344,10 @@ export class AttendanceController {
   // Admin Reject
   async reject(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = this.getParam(req.params.id);
+      if (!id) {
+        return res.status(400).json({ message: "Attendance id is required" });
+      }
       const { adminId, remarks } = req.body;
 
       const updated = await prisma.attendance.update({

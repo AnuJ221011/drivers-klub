@@ -1,7 +1,7 @@
 import { createProxyMiddleware, Options } from "http-proxy-middleware";
-import { Request, Response } from "express";
+import type { Request, Response, RequestHandler } from "express";
 
-export const createProxy = (target: string, options: Options = {}) => {
+export const createProxy = (target: string, options: Options = {}): RequestHandler => {
     return createProxyMiddleware({
         target,
         changeOrigin: true,
@@ -27,5 +27,5 @@ export const createProxy = (target: string, options: Options = {}) => {
             }
         },
         ...options
-    });
+    }) as RequestHandler;
 };

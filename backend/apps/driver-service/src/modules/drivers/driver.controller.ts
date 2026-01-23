@@ -4,6 +4,8 @@ import { S3Service, ApiResponse } from "@driversklub/common";
 import { prisma } from "@driversklub/database";
 
 const driverService = new DriverService();
+const getParam = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
 
 export const getUploadUrl = async (req: Request, res: Response) => {
   const { folder, fileType } = req.query;
@@ -39,17 +41,23 @@ export const createNewDriver = async (req: Request, res: Response) => {
 };
 
 export const getDriversByFleet = async (req: Request, res: Response) => {
-  const drivers = await driverService.getDriversByFleet(req.params.fleetId, req.user);
+  const fleetId = getParam(req.params.fleetId);
+  if (!fleetId) return res.status(400).json({ message: "fleetId is required" });
+  const drivers = await driverService.getDriversByFleet(fleetId, req.user);
   ApiResponse.send(res, 200, drivers, "Drivers retrieved successfully");
 };
 
 export const getDriversByHub = async (req: Request, res: Response) => {
-  const drivers = await driverService.getDriversByHub(req.params.hubId, req.user);
+  const hubId = getParam(req.params.hubId);
+  if (!hubId) return res.status(400).json({ message: "hubId is required" });
+  const drivers = await driverService.getDriversByHub(hubId, req.user);
   ApiResponse.send(res, 200, drivers, "Drivers retrieved successfully");
 };
 
 export const getDriverById = async (req: Request, res: Response) => {
-  const driver = await driverService.getDriverById(req.params.id, req.user);
+  const id = getParam(req.params.id);
+  if (!id) return res.status(400).json({ message: "id is required" });
+  const driver = await driverService.getDriverById(id, req.user);
   ApiResponse.send(res, 200, driver, "Driver retrieved successfully");
 };
 
@@ -76,13 +84,17 @@ export const getMyProfile = async (req: Request, res: Response) => {
 };
 
 export const updateDriver = async (req: Request, res: Response) => {
-  const driver = await driverService.updateDriver(req.params.id, req.body, req.user);
+  const id = getParam(req.params.id);
+  if (!id) return res.status(400).json({ message: "id is required" });
+  const driver = await driverService.updateDriver(id, req.body, req.user);
   ApiResponse.send(res, 200, driver, "Driver updated successfully");
 };
 
 export const updateDriverStatus = async (req: Request, res: Response) => {
+  const id = getParam(req.params.id);
+  if (!id) return res.status(400).json({ message: "id is required" });
   const driver = await driverService.updateDriverStatus(
-    req.params.id,
+    id,
     req.body,
     req.user
   );
@@ -90,8 +102,10 @@ export const updateDriverStatus = async (req: Request, res: Response) => {
 };
 
 export const updateDriverAvailability = async (req: Request, res: Response) => {
+  const id = getParam(req.params.id);
+  if (!id) return res.status(400).json({ message: "id is required" });
   const driver = await driverService.updateDriverAvailability(
-    req.params.id,
+    id,
     req.body,
     req.user
   );
@@ -104,8 +118,10 @@ export const updateDriverAvailability = async (req: Request, res: Response) => {
 };
 
 export const getDriverPreferences = async (req: Request, res: Response) => {
+  const id = getParam(req.params.id);
+  if (!id) return res.status(400).json({ message: "id is required" });
   const driverPreference = await driverService.getDriverPreferences(
-    req.params.id,
+    id,
     req.user
   );
   ApiResponse.send(
@@ -120,8 +136,10 @@ export const createDriverPreferencesChangeRequest = async (
   req: Request,
   res: Response
 ) => {
+  const id = getParam(req.params.id);
+  if (!id) return res.status(400).json({ message: "id is required" });
   const driverPreferenceChangeRequest =
-    await driverService.driverPreferencesChangeRequest(req.params.id, req.body);
+    await driverService.driverPreferencesChangeRequest(id, req.body);
   ApiResponse.send(
     res,
     200,
@@ -169,7 +187,8 @@ export const updatePreferenceChangeRequestStatus = async (
  * GET /drivers/:id/active-plan
  */
 export const getActivePlan = async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = getParam(req.params.id);
+  if (!id) return res.status(400).json({ message: "id is required" });
 
   const activePlan = await prisma.driverRental.findFirst({
     where: {
@@ -221,7 +240,8 @@ export const getActivePlan = async (req: Request, res: Response) => {
  * GET /drivers/:id/plan-history
  */
 export const getPlanHistory = async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = getParam(req.params.id);
+  if (!id) return res.status(400).json({ message: "id is required" });
 
   const planHistory = await prisma.driverRental.findMany({
     where: { driverId: id },

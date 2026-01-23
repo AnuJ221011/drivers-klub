@@ -2,6 +2,9 @@ import type { Request, Response } from 'express';
 import { orderService } from '../../core/payment/order.service.js';
 import { ApiResponse, logger } from '@driversklub/common';
 
+const getParam = (value: string | string[] | undefined): string | undefined =>
+    Array.isArray(value) ? value[0] : value;
+
 /**
  * Create a new Payment Order
  * POST /payment/orders
@@ -45,7 +48,10 @@ export const createOrder = async (req: Request, res: Response) => {
  * GET /payment/orders/:id
  */
 export const getOrder = async (req: Request, res: Response) => {
-    const { id } = req.params;
+    const id = getParam(req.params.id);
+    if (!id) {
+        return res.status(400).json({ message: 'Order id is required' });
+    }
 
     const order = await orderService.getOrder(id);
 

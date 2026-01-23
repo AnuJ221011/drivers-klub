@@ -9,6 +9,8 @@ import { ApiResponse, ApiError } from "@driversklub/common";
 const fleetService = new FleetService();
 const fleetHubService = new FleetHubService();
 const hubManagerService = new HubManagerService();
+const getParam = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
 
 export const createFleet = async (req: Request, res: Response) => {
   const fleet = await fleetService.createFleet(req.body);
@@ -32,43 +34,51 @@ export const getAllFleets = async (_req: Request, res: Response) => {
 };
 
 export const getFleetById = async (req: Request, res: Response) => {
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Fleet id is required");
   const role = String(req.user?.role || "");
   if (role !== "SUPER_ADMIN") {
     const scopedFleetId = req.user?.fleetId;
     if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
-    if (scopedFleetId !== req.params.id) throw new ApiError(403, "Access denied");
+    if (scopedFleetId !== id) throw new ApiError(403, "Access denied");
   }
-  const fleet = await fleetService.getFleetById(req.params.id);
+  const fleet = await fleetService.getFleetById(id);
   ApiResponse.send(res, 200, fleet, "Fleet retrieved successfully");
 };
 
 export const deactivateFleet = async (req: Request, res: Response) => {
-  const fleet = await fleetService.deactivateFleet(req.params.id);
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Fleet id is required");
+  const fleet = await fleetService.deactivateFleet(id);
   ApiResponse.send(res, 200, fleet, "Fleet deactivated successfully");
 };
 
 export const createFleetHub = async (req: Request, res: Response) => {
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Fleet id is required");
   const role = String(req.user?.role || "");
   if (role !== "SUPER_ADMIN") {
     const scopedFleetId = req.user?.fleetId;
     if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
-    if (scopedFleetId !== req.params.id) throw new ApiError(403, "Access denied");
+    if (scopedFleetId !== id) throw new ApiError(403, "Access denied");
   }
   const fleetHub = await fleetHubService.createFleetHub(
-    req.params.id,
+    id,
     req.body
   );
   ApiResponse.send(res, 201, fleetHub, "Fleet Hub created successfully");
 };
 
 export const getAllFleetHubs = async (req: Request, res: Response) => {
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Fleet id is required");
   const role = String(req.user?.role || "");
   if (role !== "SUPER_ADMIN") {
     const scopedFleetId = req.user?.fleetId;
     if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
-    if (scopedFleetId !== req.params.id) throw new ApiError(403, "Access denied");
+    if (scopedFleetId !== id) throw new ApiError(403, "Access denied");
   }
-  const hubs = await fleetHubService.getAllFleetHubs(req.params.id);
+  const hubs = await fleetHubService.getAllFleetHubs(id);
   const hubIds = Array.isArray(req.user?.hubIds) ? req.user.hubIds : [];
   const fleetHubs = role === "OPERATIONS" ? hubs.filter((h) => hubIds.includes(h.id)) : hubs;
   ApiResponse.send(res, 200, fleetHubs, "Fleet hubs retrieved successfully");
@@ -76,7 +86,9 @@ export const getAllFleetHubs = async (req: Request, res: Response) => {
 
 export const getFleetHubById = async (req: Request, res: Response) => {
   const role = String(req.user?.role || "");
-  const hub = await fleetHubService.getFleetHubById(req.params.id);
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Hub id is required");
+  const hub = await fleetHubService.getFleetHubById(id);
   if (role !== "SUPER_ADMIN") {
     const scopedFleetId = req.user?.fleetId;
     if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
@@ -90,8 +102,10 @@ export const getFleetHubById = async (req: Request, res: Response) => {
 };
 
 export const assignHubManager = async (req: Request, res: Response) => {
+  const hubId = getParam(req.params.hubId);
+  if (!hubId) throw new ApiError(400, "Hub id is required");
   const assignedHubManager = await fleetHubService.assignManager(
-    req.params.hubId,
+    hubId,
     req.body
   );
   ApiResponse.send(
@@ -103,15 +117,19 @@ export const assignHubManager = async (req: Request, res: Response) => {
 };
 
 export const createHubManager = async (req: Request, res: Response) => {
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Fleet id is required");
   const hubManager = await hubManagerService.createHubManager(
-    req.params.id,
+    id,
     req.body
   );
   ApiResponse.send(res, 201, hubManager, "Hub Manager created successfully");
 };
 
 export const getAllHubManagers = async (req: Request, res: Response) => {
-  const hubManagers = await hubManagerService.getAllHubManagers(req.params.id);
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Fleet id is required");
+  const hubManagers = await hubManagerService.getAllHubManagers(id);
   ApiResponse.send(
     res,
     200,
@@ -121,7 +139,9 @@ export const getAllHubManagers = async (req: Request, res: Response) => {
 };
 
 export const getHubManagerById = async (req: Request, res: Response) => {
-  const hubManager = await hubManagerService.getHubManagerById(req.params.id);
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Hub manager id is required");
+  const hubManager = await hubManagerService.getHubManagerById(id);
   ApiResponse.send(
     res,
     200,
@@ -131,21 +151,29 @@ export const getHubManagerById = async (req: Request, res: Response) => {
 };
 
 export const addVehicleToHub = async (req: Request, res: Response) => {
-  const vehicle = await fleetHubService.addVehicle(req.params.id, req.body);
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Hub id is required");
+  const vehicle = await fleetHubService.addVehicle(id, req.body);
   ApiResponse.send(res, 200, vehicle, "Vehicle added to hub successfully");
 };
 
 export const addDriverToHub = async (req: Request, res: Response) => {
-  const driver = await fleetHubService.addDriver(req.params.id, req.body);
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Hub id is required");
+  const driver = await fleetHubService.addDriver(id, req.body);
   ApiResponse.send(res, 200, driver, "Driver added to hub successfully");
 };
 
 export const removeVehicleFromHub = async (req: Request, res: Response) => {
-  const vehicle = await fleetHubService.removeVehicle(req.params.id, req.body);
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Hub id is required");
+  const vehicle = await fleetHubService.removeVehicle(id, req.body);
   ApiResponse.send(res, 200, vehicle, "Vehicle removed from hub successfully");
 };
 
 export const removeDriverFromHub = async (req: Request, res: Response) => {
-  const driver = await fleetHubService.removeDriver(req.params.id, req.body);
+  const id = getParam(req.params.id);
+  if (!id) throw new ApiError(400, "Hub id is required");
+  const driver = await fleetHubService.removeDriver(id, req.body);
   ApiResponse.send(res, 200, driver, "Driver removed from hub successfully");
 };
