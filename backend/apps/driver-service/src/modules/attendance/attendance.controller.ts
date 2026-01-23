@@ -73,7 +73,7 @@ export class AttendanceController {
 
   async getById(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
 
       const attendance = await prisma.attendance.findUnique({
         where: { id },
@@ -312,7 +312,7 @@ export class AttendanceController {
   // Admin Approve
   async approve(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { adminId, remarks } = req.body; // In real app, adminId from req.user
 
       const updated = await prisma.attendance.update({
@@ -335,7 +335,7 @@ export class AttendanceController {
   // Admin Reject
   async reject(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { adminId, remarks } = req.body;
 
       const updated = await prisma.attendance.update({

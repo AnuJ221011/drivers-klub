@@ -215,7 +215,7 @@ export class TripController {
 
   async getTrip(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
 
       const trip = await prisma.ride.findUnique({
         where: { id },
@@ -240,7 +240,7 @@ export class TripController {
 
   async assignDriver(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { driverId } = req.body;
 
       const ride = await prisma.ride.findUnique({ where: { id } });
@@ -278,7 +278,7 @@ export class TripController {
 
   async startTrip(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { lat, lng } = req.body; // Expect location
       const userId = (req.user as any)?.id; // Need userId for auth
 
@@ -300,7 +300,7 @@ export class TripController {
 
   async arriveTrip(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { lat, lng } = req.body;
       const userId = (req.user as any)?.id;
 
@@ -318,7 +318,7 @@ export class TripController {
   }
 
   async onboardTrip(req: Request, res: Response) {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const { lat, lng } = req.body;
 
     const updated = await prisma.ride.update({
@@ -336,7 +336,7 @@ export class TripController {
 
   async noShowTrip(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { lat, lng, reason } = req.body;
       const userId = (req.user as any)?.id;
 
@@ -355,7 +355,7 @@ export class TripController {
 
   async completeTrip(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { lat, lng, fare, extraCharges } = req.body;
       const userId = (req.user as any)?.id;
 
@@ -418,7 +418,7 @@ export class TripController {
   }
 
   async getTracking(req: Request, res: Response) {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
 
     const mapping = await this.mappingRepo.findByRideId(id);
     if (!mapping) {
@@ -442,7 +442,7 @@ export class TripController {
 
   async updateLocation(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { lat, lng } = req.body;
 
       // Validate input

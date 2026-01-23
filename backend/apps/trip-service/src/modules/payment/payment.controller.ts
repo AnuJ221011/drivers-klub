@@ -494,7 +494,7 @@ export const createRentalPlan = async (req: Request, res: Response) => {
  * GET /admin/payment/rental-plans/:fleetId
  */
 export const getRentalPlans = async (req: Request, res: Response) => {
-    const { fleetId } = req.params;
+    const { fleetId } = req.params as { fleetId: string };
     const { activeOnly = 'true' } = req.query;
 
     const scope = getScope(req);
@@ -552,7 +552,7 @@ export const createPenalty = async (req: Request, res: Response) => {
  */
 export const waivePenalty = async (req: Request, res: Response) => {
     const { id: userId } = req.user as any;
-    const { id: penaltyId } = req.params;
+    const { id: penaltyId } = req.params as { id: string };
     const { waiverReason } = req.body;
 
     const scope = getScope(req);
@@ -606,7 +606,7 @@ export const createIncentive = async (req: Request, res: Response) => {
  * POST /admin/payment/incentive/:id/payout
  */
 export const payoutIncentive = async (req: Request, res: Response) => {
-    const { id: incentiveId } = req.params;
+    const { id: incentiveId } = req.params as { id: string };
 
     const scope = getScope(req);
     if (scope.role !== 'SUPER_ADMIN') {
@@ -632,7 +632,7 @@ export const payoutIncentive = async (req: Request, res: Response) => {
  */
 export const reconcileCollection = async (req: Request, res: Response) => {
     const { id: userId } = req.user as any;
-    const { id: collectionId } = req.params;
+    const { id: collectionId } = req.params as { id: string };
     const { expectedRevenue, reconciliationNotes } = req.body;
 
     const collection = await payoutService.reconcileCollection({
@@ -650,7 +650,7 @@ export const reconcileCollection = async (req: Request, res: Response) => {
  * POST /admin/payment/collection/:id/payout
  */
 export const processPayout = async (req: Request, res: Response) => {
-    const { id: collectionId } = req.params;
+    const { id: collectionId } = req.params as { id: string };
 
     const result = await payoutService.processPayout(collectionId);
 
@@ -689,7 +689,7 @@ export const getPendingPayouts = async (req: Request, res: Response) => {
  */
 export const generateVehicleQR = async (req: Request, res: Response) => {
     try {
-        const { id: vehicleId } = req.params;
+        const { id: vehicleId } = req.params as { id: string };
 
         try {
             await assertVehicleInScope(req, vehicleId);
@@ -741,7 +741,7 @@ export const generateVehicleQR = async (req: Request, res: Response) => {
  */
 export const getVehicleQR = async (_req: Request, res: Response) => {
     try {
-        const { id: vehicleId } = _req.params;
+        const { id: vehicleId } = _req.params as { id: string };
 
         try {
             await assertVehicleInScope(_req, vehicleId);

@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -24,7 +24,7 @@ export const configureSecurity = (app: Express) => {
             message: "You have exceeded the request limit.",
             code: "RATE_LIMIT_EXCEEDED"
         }
-    });
+    }) as unknown as RequestHandler;
     app.use(limiter);
 };
 
