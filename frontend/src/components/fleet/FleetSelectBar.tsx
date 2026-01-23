@@ -53,7 +53,7 @@ export default function FleetSelectBar({
       `}
     >
       <Select
-        label={label}
+       
         value={activeFleetId || ''}
         onChange={(e) => {
           const id = e.target.value;

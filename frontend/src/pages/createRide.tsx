@@ -1,5 +1,3 @@
-
-
 import {
   useEffect,
   useMemo,
@@ -20,6 +18,7 @@ import {
 } from 'lucide-react';
 import {
   createPublicTrip,
+  getPublicTripPricing,
   type PublicTripCreateResponse,
   type PublicTripPricing,
   type PublicTripType,
@@ -49,56 +48,26 @@ function normalizePhone(value: string): string {
 }
 
 function formatCurrency(value: number, currency = 'INR'): string {
-  if (!Number.isFinite(value)) return '';
   return `${currency} ${value}`;
-}
-
-function getDummyEstimate(tripType: PublicTripType): PublicTripPricing {
-  const distanceKm = 48.702;
-  const billableDistanceKm = 49;
-  const ratePerKm = 25;
-  const distanceFare = Math.round(billableDistanceKm * ratePerKm);
-  const tripTypeMultiplier =
-    tripType === 'RENTAL' ? 1.1 : tripType === 'INTER_CITY' ? 1.2 : 1;
-  const totalFare = Math.round(distanceFare * tripTypeMultiplier);
-
-  return {
-    vehicleSku: 'TATA_TIGOR_EV',
-    vehicleType: 'EV',
-    tripType,
-    distanceKm,
-    billableDistanceKm,
-    ratePerKm,
-    baseFare: distanceFare,
-    totalFare,
-    breakdown: {
-      distanceFare,
-      tripTypeMultiplier,
-      bookingTimeMultiplier: 1,
-      vehicleMultiplier: 1,
-    },
-    currency: 'INR',
-  };
 }
 
 function getErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object') {
     if (err instanceof Error && err.message) return err.message;
-    const maybeAny = err as { response?: { data?: unknown } };
-    const data = maybeAny.response?.data;
-    if (data && typeof data === 'object' && 'message' in data) {
-      return String((data as Record<string, unknown>).message);
-    }
+    const anyErr = err as { response?: { data?: { message?: string } } };
+    return anyErr.response?.data?.message || fallback;
   }
   return fallback;
 }
 
+/* ---------------- Constants ---------------- */
+
 const CITY_SUGGESTIONS = [
-  'Delhi',
-  'Noida',
-  'Gurgaon',
-  'Faridabad',
-  'Ghaziabad',
+  'DELHI',
+  'NOIDA',
+  'GURGAON',
+  'FARIDABAD',
+  'GHAZIABAD',
 ];
 
 const TRIP_TYPE_OPTIONS = [
@@ -112,15 +81,12 @@ const TRIP_TYPE_OPTIONS = [
 type SegmentInputProps = {
   icon: ReactNode;
   label: string;
-  placeholder: string;
+  placeholder?: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
   min?: string;
   inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode'];
-  pattern?: string;
-  maxLength?: number;
-  autoComplete?: string;
   list?: string;
 };
 
@@ -133,9 +99,6 @@ function SegmentInput({
   type = 'text',
   min,
   inputMode,
-  pattern,
-  maxLength,
-  autoComplete,
   list,
 }: SegmentInputProps) {
   return (
@@ -150,20 +113,9 @@ function SegmentInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         inputMode={inputMode}
-        pattern={pattern}
-        maxLength={maxLength}
-        autoComplete={autoComplete}
         list={list}
         placeholder={placeholder}
-        className="
-          w-full
-          bg-transparent
-          text-base
-          font-semibold
-          text-black
-          placeholder:text-black/30
-          focus:outline-none
-        "
+        className="w-full bg-transparent text-base font-semibold text-black placeholder:text-black/30 focus:outline-none"
       />
     </label>
   );
@@ -214,106 +166,72 @@ export default function CreateRide() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [loadingEstimate, setLoadingEstimate] = useState(false);
   const [savingTrip, setSavingTrip] = useState(false);
-  const [estimate, setEstimate] = useState<PublicTripPricing | null>(
-    null
-  );
-  const [createdTrip, setCreatedTrip] =
-    useState<PublicTripCreateResponse | null>(null);
+  const [estimate, setEstimate] = useState<PublicTripPricing | null>(null);
 
+  /* RESET ESTIMATE WHEN TOP FIELDS CHANGE */
   useEffect(() => {
     setEstimate(null);
   }, [pickupLocation, dropLocation, tripType, pickupDate, pickupTime]);
 
-  useEffect(() => {
-    setCreatedTrip(null);
-  }, [
-    pickupLocation,
-    dropLocation,
-    tripType,
-    pickupDate,
-    pickupTime,
-    customerName,
-    customerPhone,
-  ]);
-
   function getBaseIssues(): string[] {
     const issues: string[] = [];
-    const pickupDateTime = new Date(
-      `${pickupDate}T${pickupTime}`
-    );
-    const minDate = minPickupDate;
-    const hour = pickupTime
-      ? Number(pickupTime.split(':')[0])
-      : Number.NaN;
+    const hour = Number(pickupTime.split(':')[0]);
 
-    if (!pickupLocation.trim()) issues.push('Enter a pickup location');
-    if (!dropLocation.trim()) issues.push('Enter a drop location');
-    if (!tripType) issues.push('Select a trip type');
-    if (
-      !pickupDate ||
-      !pickupTime ||
-      Number.isNaN(pickupDateTime.getTime())
-    ) {
-      issues.push('Select a valid pickup date and time');
-    }
-    if (pickupDate && pickupDate < minDate) {
+    if (!pickupLocation) issues.push('Enter pickup location');
+    if (!dropLocation) issues.push('Enter drop location');
+    if (pickupDate < minPickupDate)
       issues.push('Trips must be booked at least 1 day in advance');
-    }
-    if (!Number.isNaN(hour) && hour < 4) {
-      issues.push(
-        'Trips are not available between 12:00 AM and 04:00 AM'
-      );
-    }
+    if (hour < 4)
+      issues.push('Trips are not available between 12AM and 4AM');
 
     return issues;
   }
 
   async function handleGetEstimate() {
     const issues = getBaseIssues();
-    if (issues.length > 0) {
-      toast.error(issues[0]);
-      return;
-    }
+    if (issues.length) return toast.error(issues[0]);
 
     setLoadingEstimate(true);
-    setTimeout(() => {
-      setEstimate(getDummyEstimate(tripType));
-      setLoadingEstimate(false);
-    }, 300);
-  }
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    const issues = getBaseIssues();
-    const phoneDigits = normalizePhone(customerPhone);
-
-    if (!customerName.trim())
-      issues.push('Enter customer name');
-    if (!phoneDigits)
-      issues.push('Enter customer phone');
-    if (phoneDigits && phoneDigits.length !== 10)
-      issues.push('Customer phone must be 10 digits');
-
-    if (issues.length > 0) {
-      toast.error(issues[0]);
-      return;
-    }
-
-    setSavingTrip(true);
-    setCreatedTrip(null);
     try {
-      const trip = await createPublicTrip({
-        pickupLocation,
-        dropLocation,
+      const pricing = await getPublicTripPricing({
+        pickupLocation: pickupLocation.toUpperCase(),
+        dropLocation: dropLocation.toUpperCase(),
         tripDate: pickupDate,
         tripTime: pickupTime,
         tripType,
-        customerName: customerName.trim(),
-        customerPhone: phoneDigits,
       });
-      setCreatedTrip(trip);
+      setEstimate(pricing);
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to fetch pricing'));
+    } finally {
+      setLoadingEstimate(false);
+    }
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const phone = normalizePhone(customerPhone);
+    const issues = getBaseIssues();
+
+    if (!customerName) issues.push('Enter customer name');
+    if (phone.length !== 10) issues.push('Phone must be 10 digits');
+
+    if (issues.length) return toast.error(issues[0]);
+
+    setSavingTrip(true);
+    try {
+      await createPublicTrip({
+        pickupLocation: pickupLocation.toUpperCase(),
+        dropLocation: dropLocation.toUpperCase(),
+        tripDate: pickupDate,
+        tripTime: pickupTime,
+        tripType,
+        customerName,
+        customerPhone: phone,
+      });
+
       toast.success('Trip created successfully');
-    } catch (err: unknown) {
+    } catch (err) {
       toast.error(getErrorMessage(err, 'Failed to create trip'));
     } finally {
       setSavingTrip(false);
@@ -322,128 +240,74 @@ export default function CreateRide() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="mx-auto flex w-full max-w-6xl flex-shrink-0 items-center justify-between px-4 py-4">
-        <div className="flex items-center gap-2">
-          <span className="rounded-md bg-yellow-400 px-2 py-1">
-            <img
-              src={logo}
-              alt="Drivers Klub"
-              height={48}
-              width={48}
-            />
-          </span>
-          <span className="text-lg font-bold text-black">
-            Driver&apos;s Klub
-          </span>
-        </div>
+      <header className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-4">
+        <span className="rounded-md bg-yellow-400 px-2 py-1">
+          <img src={logo} alt="Drivers Klub" height={48} width={48} />
+        </span>
+        <span className="text-lg font-bold">Driver&apos;s Klub</span>
       </header>
 
-      {/* Main */}
       <main className="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-4 pb-6">
         <section className="w-full rounded-3xl bg-gradient-to-r from-yellow-300 via-yellow-400 to-yellow-300 p-6 shadow-md">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              {TRIP_TYPE_OPTIONS.map((option) => (
+            <div className="flex justify-center gap-3">
+              {TRIP_TYPE_OPTIONS.map((o) => (
                 <button
-                  key={option.value}
+                  key={o.value}
                   type="button"
-                  onClick={() => setTripType(option.value)}
-                  className={`rounded-md bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide transition border-b-2 ${
-                    tripType === option.value
-                      ? 'border-black text-black'
-                      : 'border-transparent text-black/70 hover:border-black/60'
+                  onClick={() => setTripType(o.value)}
+                  className={`rounded-md bg-white px-4 py-2 text-xs font-semibold uppercase border-b-2 ${
+                    tripType === o.value
+                      ? 'border-black'
+                      : 'border-transparent'
                   }`}
                 >
-                  {option.label}
+                  {o.label}
                 </button>
               ))}
             </div>
 
-            <datalist id="supported-cities" className="hidden">
-              {CITY_SUGGESTIONS.map((city) => (
-                <option key={city} value={city} />
+            <datalist id="supported-cities">
+              {CITY_SUGGESTIONS.map((c) => (
+                <option key={c} value={c} />
               ))}
             </datalist>
 
-            <div className="grid overflow-hidden rounded-2xl border border-black/10 bg-white shadow-lg divide-y divide-black/10 lg:grid-cols-[1.5fr_1.5fr_1fr_0.9fr_1fr] lg:divide-y-0 lg:divide-x">
-              <SegmentInput
-                icon={<MapPin size={14} />}
-                label="From"
-                placeholder="Pickup location"
-                value={pickupLocation}
-                onChange={setPickupLocation}
-                list="supported-cities"
-              />
-              <SegmentInput
-                icon={<MapPinOff size={14} />}
-                label="To"
-                placeholder="Drop location"
-                value={dropLocation}
-                onChange={setDropLocation}
-                list="supported-cities"
-              />
-              <SegmentInput
-                icon={<CalendarDays size={14} />}
-                label="Pickup Date"
-                type="date"
-                min={minPickupDate}
-                placeholder="Select date"
-                value={pickupDate}
-                onChange={setPickupDate}
-              />
-              <SegmentInput
-                icon={<Clock size={14} />}
-                label="Pickup Time"
-                type="time"
-                placeholder="Select time"
-                value={pickupTime}
-                onChange={setPickupTime}
-              />
-              <div className="flex flex-col justify-center bg-white-400 px-4 py-4">
-                <span className="text-sm font-semibold uppercase tracking-wide text-black/80">
+            {/* ROW 1 */}
+            <div className="grid overflow-hidden rounded-2xl border bg-white shadow-lg lg:grid-cols-[1.5fr_1.5fr_1fr_0.9fr_1fr]">
+              <SegmentInput icon={<MapPin size={14} />} label="From" placeholder="Pickup location" value={pickupLocation} onChange={setPickupLocation} list="supported-cities" />
+              <SegmentInput icon={<MapPinOff size={14} />} label="To" placeholder="Drop location" value={dropLocation} onChange={setDropLocation} list="supported-cities" />
+              <SegmentInput icon={<CalendarDays size={14} />} label="Pickup Date" type="date" min={minPickupDate} value={pickupDate} onChange={setPickupDate} />
+              <SegmentInput icon={<Clock size={14} />} label="Pickup Time" type="time" value={pickupTime} onChange={setPickupTime} />
+
+              <div className="flex flex-col justify-center px-4 py-4">
+                <span className="text-sm font-semibold uppercase text-black/80">
                   Estimate
                 </span>
                 <button
                   type="button"
                   onClick={handleGetEstimate}
                   disabled={loadingEstimate || savingTrip}
-                  className="
-                    mt-2
-                    flex
-                    items-center
-                    justify-center
-                    rounded-md
-                    bg-amber-400
-                    px-4
-                    py-2
-                    text-xs
-                    font-semibold
-                    text-black
-                    transition
-                    hover:bg-yellow/20
-                    disabled:cursor-not-allowed
-                    disabled:opacity-60
-                  "
+                  className="mt-2 rounded-md bg-amber-400 px-4 py-2 text-xs font-semibold"
                 >
                   {loadingEstimate
                     ? 'Calculating...'
                     : estimate
-                    ? 'Update Estimate'
+                    ? formatCurrency(estimate.totalFare, estimate.currency)
                     : 'Get Estimated Price'}
                 </button>
               </div>
             </div>
 
+            {/* ROW 2 */}
             <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
-              <div className="grid overflow-hidden rounded-2xl border border-black/10 bg-white shadow-lg divide-y divide-black/10 lg:grid-cols-[1.1fr_1.3fr] lg:divide-y-0 lg:divide-x">
+              <div className="grid overflow-hidden rounded-2xl border bg-white shadow-lg lg:grid-cols-[1.1fr_1.3fr]">
                 <SegmentInput
                   icon={<User size={14} />}
                   label="Customer Name"
                   placeholder="Your name"
                   value={customerName}
                   onChange={setCustomerName}
-                  autoComplete="name"
                 />
                 <SegmentSlot icon={<Phone size={14} />} label="Phone Number">
                   <PhoneInput
@@ -452,8 +316,8 @@ export default function CreateRide() {
                     placeholder="9876543210"
                     wrapperClassName="space-y-0"
                     labelClassName="hidden"
-                    prefixClassName="px-0 py-0 text-base font-semibold text-black/60 bg-transparent border-0"
-                    inputClassName="border-0 rounded-none px-0 py-0 text-base font-semibold text-black placeholder:text-black/30 focus:ring-0 focus:border-0"
+                    prefixClassName="px-0 py-0 bg-transparent border-0"
+                    inputClassName="border-0 px-0 py-0 text-base font-semibold"
                     helperClassName="hidden"
                   />
                 </SegmentSlot>
@@ -462,104 +326,16 @@ export default function CreateRide() {
               <button
                 type="submit"
                 disabled={savingTrip}
-                className="
-                  flex
-                  w-full
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-2xl
-                  bg-white
-                  px-4
-                  py-3
-                  text-2xl
-                  font-bold
-                  text-black
-                  shadow-sm
-                  transition
-                  hover:bg-white/90
-                  disabled:cursor-not-allowed
-                  disabled:opacity-60
-                "
+                className="flex w-full items-center justify-center rounded-2xl bg-white px-4 py-3 text-2xl font-bold shadow-sm"
               >
                 {savingTrip ? 'Booking...' : 'Book Ride'}
               </button>
             </div>
-
-            {estimate && (
-              <div className="flex justify-end">
-                <div className="w-full max-w-sm rounded-2xl border border-yellow-200 bg-white p-4 text-xs text-black/70 shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-black">
-                      Estimated Fare
-                    </span>
-                    <span className="text-sm font-semibold text-black">
-                      {formatCurrency(
-                        estimate.totalFare,
-                        estimate.currency
-                      )}
-                    </span>
-                  </div>
-                  <div className="mt-3 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span>Distance</span>
-                      <span>{estimate.distanceKm.toFixed(2)} km</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Billable Distance</span>
-                      <span>{estimate.billableDistanceKm} km</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Rate Per Km</span>
-                      <span>
-                        {formatCurrency(
-                          estimate.ratePerKm,
-                          estimate.currency
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Vehicle</span>
-                      <span>{estimate.vehicleSku}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {createdTrip && (
-              <div className="flex justify-end">
-                <div className="w-full max-w-sm rounded-2xl border border-emerald-200 bg-white p-4 text-xs text-black/70 shadow-lg">
-                  <div className="text-sm font-semibold text-black">
-                    Trip created
-                  </div>
-                  <div className="mt-3 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span>Trip ID</span>
-                      <span className="font-medium text-black">
-                        {createdTrip.tripId}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Status</span>
-                      <span>{createdTrip.status}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Price</span>
-                      <span>
-                        {formatCurrency(createdTrip.price, 'INR')}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </form>
         </section>
       </main>
     </div>
   );
 }
-
 
 

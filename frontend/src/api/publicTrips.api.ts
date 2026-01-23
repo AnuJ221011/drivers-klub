@@ -1,4 +1,9 @@
+
+
+
 import api from './axios';
+
+/* ---------------- Types ---------------- */
 
 export type PublicTripType = 'AIRPORT' | 'RENTAL' | 'INTER_CITY';
 
@@ -53,6 +58,8 @@ export type PublicTripCreateResponse = {
   customerPhone: string;
 };
 
+/* ---------------- Helpers ---------------- */
+
 type PublicResponse<T> = {
   success: boolean;
   message?: string;
@@ -61,16 +68,14 @@ type PublicResponse<T> = {
 
 function unwrapPublic<T>(data: unknown, fallback: string): T {
   if (data && typeof data === 'object' && 'success' in data) {
-    const payload = data as PublicResponse<T>;
-    if (!payload.success) {
-      throw new Error(payload.message || fallback);
-    }
-    if (payload.data !== undefined) {
-      return payload.data;
-    }
+    const res = data as PublicResponse<T>;
+    if (!res.success) throw new Error(res.message || fallback);
+    return res.data as T;
   }
   return data as T;
 }
+
+/* ---------------- API Calls ---------------- */
 
 export async function getPublicTripPricing(
   payload: PublicTripPricingInput
@@ -78,7 +83,8 @@ export async function getPublicTripPricing(
   const res = await api.post<
     PublicTripPricing | PublicResponse<PublicTripPricing>
   >('/public/trips/pricing', payload);
-  return unwrapPublic(res.data, 'Failed to fetch trip pricing');
+
+  return unwrapPublic(res.data, 'Failed to fetch pricing');
 }
 
 export async function createPublicTrip(
@@ -87,5 +93,7 @@ export async function createPublicTrip(
   const res = await api.post<
     PublicTripCreateResponse | PublicResponse<PublicTripCreateResponse>
   >('/public/trips/create', payload);
+
   return unwrapPublic(res.data, 'Failed to create trip');
 }
+

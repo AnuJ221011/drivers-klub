@@ -144,7 +144,9 @@ export default function Team() {
     const phoneNeedle = (searchPhone || "").trim();
     const roleNeedle = (roleFilter || "").trim();
 
-    return members.filter((m) => {
+    return members
+    .filter((m) => m.role !== "DRIVER")
+    .filter((m) => {
       const nameOk = !nameNeedle || (m.name || "").toLowerCase().includes(nameNeedle);
       const phoneOk = !phoneNeedle || (m.phone || "").includes(phoneNeedle);
       const statusOk = !statusFilter || m.status === statusFilter;
