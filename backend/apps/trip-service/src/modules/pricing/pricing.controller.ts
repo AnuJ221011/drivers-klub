@@ -85,7 +85,7 @@ export class PricingController {
                     dropLng: resolvedDropLng
                 });
 
-                const googleResult = await this.googleMaps.getDistanceByCoordinates(
+                const googleResult = await this.googleMaps.getDistance(
                     { lat: resolvedPickupLat, lng: resolvedPickupLng },
                     { lat: resolvedDropLat, lng: resolvedDropLng }
                 );

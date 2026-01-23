@@ -124,7 +124,7 @@ export class TripController {
           dropLat !== undefined &&
           dropLng !== undefined
         ) {
-          googleDistance = await this.googleMaps.getDistanceByCoordinates(
+          googleDistance = await this.googleMaps.getDistance(
             { lat: pickupLat, lng: pickupLng },
             { lat: dropLat, lng: dropLng }
           );
