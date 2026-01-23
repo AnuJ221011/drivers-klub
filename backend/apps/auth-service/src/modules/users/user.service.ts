@@ -36,9 +36,9 @@ export class UserService {
     }
 
     private assertCreatePermissions(actor: { role: UserRole; fleetId?: string | null }, targetRole: UserRole) {
-        // MANAGER can only create OPERATIONS
-        if (actor.role === "MANAGER" && targetRole !== "OPERATIONS") {
-            throw new ApiError(403, "Manager can only create Operations users");
+        // MANAGER can only create OPERATIONS or DRIVER
+        if (actor.role === "MANAGER" && targetRole !== "OPERATIONS" && targetRole !== "DRIVER") {
+            throw new ApiError(403, "Manager can only create Operations or Driver users");
         }
 
         // FLEET_ADMIN cannot create SUPER_ADMIN or another FLEET_ADMIN
