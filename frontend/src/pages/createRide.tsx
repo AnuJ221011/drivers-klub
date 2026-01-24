@@ -18,11 +18,10 @@ import {
 } from 'lucide-react';
 import {
   createPublicTrip,
-  getPublicTripPricing,
-  type PublicTripCreateResponse,
-  type PublicTripPricing,
   type PublicTripType,
 } from '../api/publicTrips.api';
+import { previewPricing, type PricingPreviewResult } from '../api/pricing.api';
+import { geocodeAddress } from '../api/maps.api';
 import PhoneInput from '../components/ui/PhoneInput';
 
 /* ---------------- Utilities ---------------- */
@@ -58,6 +57,15 @@ function getErrorMessage(err: unknown, fallback: string): string {
     return anyErr.response?.data?.message || fallback;
   }
   return fallback;
+}
+
+function toPickupDateTime(pickupDate: string, pickupTime: string): Date | null {
+  const datePart = (pickupDate || '').trim();
+  const timePart = (pickupTime || '').trim();
+  if (!datePart || !timePart) return null;
+  const dt = new Date(`${datePart}T${timePart}`);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt;
 }
 
 /* ---------------- Constants ---------------- */
@@ -144,14 +152,9 @@ function SegmentSlot({ icon, label, children }: SegmentSlotProps) {
 export default function CreateRide() {
   const defaultPickupDateTime = useMemo(() => {
     const d = addDays(new Date(), 1);
-    d.setHours(10, 30, 0, 0);
+    d.setHours(4, 0, 0, 0);
     return d;
   }, []);
-
-  const minPickupDate = useMemo(
-    () => toDateValue(addDays(new Date(), 1)),
-    []
-  );
 
   const [pickupLocation, setPickupLocation] = useState('');
   const [dropLocation, setDropLocation] = useState('');
@@ -166,7 +169,13 @@ export default function CreateRide() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [loadingEstimate, setLoadingEstimate] = useState(false);
   const [savingTrip, setSavingTrip] = useState(false);
-  const [estimate, setEstimate] = useState<PublicTripPricing | null>(null);
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [dropCoords, setDropCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [estimate, setEstimate] = useState<{
+    totalFare: number;
+    currency: string;
+    distanceKm: number;
+  } | null>(null);
 
   /* RESET ESTIMATE WHEN TOP FIELDS CHANGE */
   useEffect(() => {
@@ -175,16 +184,46 @@ export default function CreateRide() {
 
   function getBaseIssues(): string[] {
     const issues: string[] = [];
-    const hour = Number(pickupTime.split(':')[0]);
 
     if (!pickupLocation) issues.push('Enter pickup location');
     if (!dropLocation) issues.push('Enter drop location');
-    if (pickupDate < minPickupDate)
-      issues.push('Trips must be booked at least 1 day in advance');
-    if (hour < 4)
-      issues.push('Trips are not available between 12AM and 4AM');
+    if (!toPickupDateTime(pickupDate, pickupTime)) {
+      issues.push('Select a valid pickup date and time');
+    }
 
     return issues;
+  }
+
+  async function resolveLocations() {
+    const pickupValue = pickupLocation.trim();
+    const dropValue = dropLocation.trim();
+    let resolvedPickup = pickupCoords;
+    let resolvedDrop = dropCoords;
+    let resolvedPickupAddress = pickupValue;
+    let resolvedDropAddress = dropValue;
+
+    if (!resolvedPickup) {
+      const geo = await geocodeAddress(pickupValue);
+      resolvedPickup = { lat: geo.lat, lng: geo.lng };
+      resolvedPickupAddress = geo.formattedAddress || pickupValue;
+      setPickupCoords(resolvedPickup);
+      setPickupLocation(resolvedPickupAddress);
+    }
+
+    if (!resolvedDrop) {
+      const geo = await geocodeAddress(dropValue);
+      resolvedDrop = { lat: geo.lat, lng: geo.lng };
+      resolvedDropAddress = geo.formattedAddress || dropValue;
+      setDropCoords(resolvedDrop);
+      setDropLocation(resolvedDropAddress);
+    }
+
+    return {
+      pickupAddress: resolvedPickupAddress,
+      dropAddress: resolvedDropAddress,
+      pickupCoords: resolvedPickup,
+      dropCoords: resolvedDrop,
+    };
   }
 
   async function handleGetEstimate() {
@@ -193,14 +232,32 @@ export default function CreateRide() {
 
     setLoadingEstimate(true);
     try {
-      const pricing = await getPublicTripPricing({
-        pickupLocation: pickupLocation.toUpperCase(),
-        dropLocation: dropLocation.toUpperCase(),
-        tripDate: pickupDate,
-        tripTime: pickupTime,
+      const pickupDateTime = toPickupDateTime(pickupDate, pickupTime);
+      if (!pickupDateTime) {
+        toast.error('Select a valid pickup date and time');
+        return;
+      }
+      const { pickupAddress, dropAddress, pickupCoords, dropCoords } =
+        await resolveLocations();
+      const vehicleSku = 'TATA_TIGOR_EV';
+      const data: PricingPreviewResult = await previewPricing({
         tripType,
+        tripDate: pickupDateTime.toISOString(),
+        bookingDate: new Date().toISOString(),
+        pickup: pickupAddress,
+        drop: dropAddress,
+        pickupLat: pickupCoords?.lat,
+        pickupLng: pickupCoords?.lng,
+        dropLat: dropCoords?.lat,
+        dropLng: dropCoords?.lng,
+        vehicleSku,
+        vehicleType: vehicleSku.includes('EV') ? 'EV' : 'NON_EV',
       });
-      setEstimate(pricing);
+      setEstimate({
+        totalFare: data.totalFare,
+        currency: 'INR',
+        distanceKm: data.distanceKm,
+      });
     } catch (err) {
       toast.error(getErrorMessage(err, 'Failed to fetch pricing'));
     } finally {
@@ -220,13 +277,19 @@ export default function CreateRide() {
 
     setSavingTrip(true);
     try {
+      const pickupDateTime = toPickupDateTime(pickupDate, pickupTime);
+      if (!pickupDateTime) {
+        toast.error('Select a valid pickup date and time');
+        return;
+      }
+      const { pickupAddress, dropAddress } = await resolveLocations();
       await createPublicTrip({
-        pickupLocation: pickupLocation.toUpperCase(),
-        dropLocation: dropLocation.toUpperCase(),
+        pickupLocation: pickupAddress,
+        dropLocation: dropAddress,
         tripDate: pickupDate,
         tripTime: pickupTime,
         tripType,
-        customerName,
+        customerName: customerName.trim(),
         customerPhone: phone,
       });
 
@@ -275,9 +338,35 @@ export default function CreateRide() {
 
             {/* ROW 1 */}
             <div className="grid overflow-hidden rounded-2xl border bg-white shadow-lg lg:grid-cols-[1.5fr_1.5fr_1fr_0.9fr_1fr]">
-              <SegmentInput icon={<MapPin size={14} />} label="From" placeholder="Pickup location" value={pickupLocation} onChange={setPickupLocation} list="supported-cities" />
-              <SegmentInput icon={<MapPinOff size={14} />} label="To" placeholder="Drop location" value={dropLocation} onChange={setDropLocation} list="supported-cities" />
-              <SegmentInput icon={<CalendarDays size={14} />} label="Pickup Date" type="date" min={minPickupDate} value={pickupDate} onChange={setPickupDate} />
+              <SegmentInput
+                icon={<MapPin size={14} />}
+                label="From"
+                placeholder="Pickup location"
+                value={pickupLocation}
+                onChange={(value) => {
+                  setPickupLocation(value);
+                  setPickupCoords(null);
+                }}
+                list="supported-cities"
+              />
+              <SegmentInput
+                icon={<MapPinOff size={14} />}
+                label="To"
+                placeholder="Drop location"
+                value={dropLocation}
+                onChange={(value) => {
+                  setDropLocation(value);
+                  setDropCoords(null);
+                }}
+                list="supported-cities"
+              />
+              <SegmentInput
+                icon={<CalendarDays size={14} />}
+                label="Pickup Date"
+                type="date"
+                value={pickupDate}
+                onChange={setPickupDate}
+              />
               <SegmentInput icon={<Clock size={14} />} label="Pickup Time" type="time" value={pickupTime} onChange={setPickupTime} />
 
               <div className="flex flex-col justify-center px-4 py-4">
