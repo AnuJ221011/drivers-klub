@@ -435,8 +435,18 @@ export default function VehicleDrawer({
   const [vehicleColor, setVehicleColor] = useState('');
   const [fleetMobileNumber, setFleetMobileNumber] = useState('');
   const [ownership, setOwnership] = useState<Ownership | ''>('');
+  const [ownerName, setOwnerName] = useState('');
   const [fuelType, setFuelType] = useState<FuelType>('PETROL');
+  const [chassisNumber, setChassisNumber] = useState('');
+  const [vinNumber, setVinNumber] = useState('');
+  const [rcFrontImage, setRcFrontImage] = useState<File | null>(null);
+  const [rcBackImage, setRcBackImage] = useState<File | null>(null);
+  const [permitImage, setPermitImage] = useState<File | null>(null);
   const [permitExpiry, setPermitExpiry] = useState('');
+  const [fitnessImage, setFitnessImage] = useState<File | null>(null);
+  const [fitnessExpiry, setFitnessExpiry] = useState('');
+  const [insuranceImage, setInsuranceImage] = useState<File | null>(null);
+  const [insuranceStart, setInsuranceStart] = useState('');
   const [insuranceExpiry, setInsuranceExpiry] = useState('');
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active');
 
@@ -446,6 +456,10 @@ export default function VehicleDrawer({
   >([{ label: 'Unassigned', value: '' }]);
 
   const [saving, setSaving] = useState(false);
+
+  function formatFileName(file: File | null): string {
+    return file ? file.name : 'No file selected';
+  }
 
   /* ---------------- populate form ---------------- */
   useEffect(() => {
@@ -458,7 +472,17 @@ export default function VehicleDrawer({
     setFleetMobileNumber(vehicle.fleetMobileNumber || '');
     setOwnership(vehicle.ownership || '');
     setFuelType(coerceFuelType(vehicle.fuelType));
+    setOwnerName('');
+    setChassisNumber('');
+    setVinNumber('');
+    setRcFrontImage(null);
+    setRcBackImage(null);
+    setPermitImage(null);
     setPermitExpiry(vehicle.permitExpiry || '');
+    setFitnessImage(null);
+    setFitnessExpiry('');
+    setInsuranceImage(null);
+    setInsuranceStart('');
     setInsuranceExpiry(vehicle.insuranceExpiry || '');
     setStatus(vehicle.isActive ? 'Active' : 'Inactive');
     setHubId(vehicle.hubId || '');
@@ -510,7 +534,17 @@ export default function VehicleDrawer({
         vehicleColor: vehicleColor.trim() || undefined,
         fuelType,
         ownership: ownership || undefined,
+        ownerName: ownerName.trim() || undefined,
+        chassisNumber: chassisNumber.trim() || undefined,
+        vinNumber: vinNumber.trim() || undefined,
+        rcFrontImage: rcFrontImage ?? undefined,
+        rcBackImage: rcBackImage ?? undefined,
+        permitImage: permitImage ?? undefined,
         permitExpiry: permitExpiry || undefined,
+        fitnessImage: fitnessImage ?? undefined,
+        fitnessExpiry: fitnessExpiry || undefined,
+        insuranceImage: insuranceImage ?? undefined,
+        insuranceStart: insuranceStart || undefined,
         insuranceExpiry: insuranceExpiry || undefined,
         fleetMobileNumber: fleetMobileNumber.trim() || undefined,
       });
@@ -546,95 +580,174 @@ export default function VehicleDrawer({
   /* ---------------- UI ---------------- */
   return (
     <div className="space-y-4">
-      <Input label="Vehicle Number" value={number} disabled />
+      <div className="rounded-md border border-black/10 p-3 space-y-3">
+        <div className="text-sm font-semibold text-black">Basic Information</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Input label="Vehicle Number" value={number} disabled />
+          <Input
+            label="Vehicle Name"
+            value={brand}
+            onChange={(e) => setBrand(e.target.value)}
+            disabled={saving}
+          />
+          <Input
+            label="Vehicle Model"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            disabled={saving}
+          />
+          <Input
+            label="Vehicle Color"
+            value={vehicleColor}
+            onChange={(e) => setVehicleColor(e.target.value)}
+            disabled={saving}
+          />
+          <Select
+            label="Ownership"
+            value={ownership}
+            onChange={(e) => setOwnership(e.target.value as Ownership | '')}
+            options={[
+              { label: 'Select ownership', value: '' },
+              { label: 'Owned', value: 'OWNED' },
+              { label: 'Leased', value: 'LEASED' },
+            ]}
+            disabled={saving}
+          />
+          <Input
+            label="Owner Name"
+            value={ownerName}
+            onChange={(e) => setOwnerName(e.target.value)}
+            disabled={saving}
+          />
+          <Select
+            label="Fuel Type"
+            value={fuelType}
+            onChange={(e) => setFuelType(e.target.value as FuelType)}
+            options={[
+              { label: 'PETROL', value: 'PETROL' },
+              { label: 'DIESEL', value: 'DIESEL' },
+              { label: 'CNG', value: 'CNG' },
+              { label: 'EV', value: 'EV' },
+            ]}
+            disabled={saving}
+          />
+          <Input
+            label="Chassis Number"
+            value={chassisNumber}
+            onChange={(e) => setChassisNumber(e.target.value)}
+            disabled={saving}
+          />
+          <Input
+            label="VIN Number"
+            value={vinNumber}
+            onChange={(e) => setVinNumber(e.target.value)}
+            disabled={saving}
+          />
+          <Input
+            label="Fleet Mobile Number"
+            value={fleetMobileNumber}
+            onChange={(e) => setFleetMobileNumber(e.target.value)}
+            disabled={saving}
+          />
+        </div>
+      </div>
 
-      <Input
-        label="Vehicle Name"
-        value={brand}
-        onChange={(e) => setBrand(e.target.value)}
-        disabled={saving}
-      />
+      <div className="rounded-md border border-black/10 p-3 space-y-3">
+        <div className="text-sm font-semibold text-black">Documents</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Input
+            label="RC Front Image"
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => setRcFrontImage(e.target.files?.[0] || null)}
+            helperText={formatFileName(rcFrontImage)}
+            disabled={saving}
+          />
+          <Input
+            label="RC Back Image"
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => setRcBackImage(e.target.files?.[0] || null)}
+            helperText={formatFileName(rcBackImage)}
+            disabled={saving}
+          />
+          <Input
+            label="Permit Image"
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => setPermitImage(e.target.files?.[0] || null)}
+            helperText={formatFileName(permitImage)}
+            disabled={saving}
+          />
+          <Input
+            label="Permit Expiry Date"
+            type="date"
+            value={permitExpiry}
+            onChange={(e) => setPermitExpiry(e.target.value)}
+            disabled={saving}
+          />
+          <Input
+            label="Fitness Image"
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => setFitnessImage(e.target.files?.[0] || null)}
+            helperText={formatFileName(fitnessImage)}
+            disabled={saving}
+          />
+          <Input
+            label="Fitness Expiry Date"
+            type="date"
+            value={fitnessExpiry}
+            onChange={(e) => setFitnessExpiry(e.target.value)}
+            disabled={saving}
+          />
+          <Input
+            label="Insurance Image"
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => setInsuranceImage(e.target.files?.[0] || null)}
+            helperText={formatFileName(insuranceImage)}
+            disabled={saving}
+          />
+          <Input
+            label="Insurance Start Date"
+            type="date"
+            value={insuranceStart}
+            onChange={(e) => setInsuranceStart(e.target.value)}
+            disabled={saving}
+          />
+          <Input
+            label="Insurance Expiry Date"
+            type="date"
+            value={insuranceExpiry}
+            onChange={(e) => setInsuranceExpiry(e.target.value)}
+            disabled={saving}
+          />
+        </div>
+      </div>
 
-      <Input
-        label="Vehicle Model"
-        value={model}
-        onChange={(e) => setModel(e.target.value)}
-        disabled={saving}
-      />
-
-      <Input
-        label="Vehicle Color"
-        value={vehicleColor}
-        onChange={(e) => setVehicleColor(e.target.value)}
-        disabled={saving}
-      />
-
-      <Input
-        label="Fleet Mobile Number"
-        value={fleetMobileNumber}
-        onChange={(e) => setFleetMobileNumber(e.target.value)}
-        disabled={saving}
-      />
-
-      <Select
-        label="Ownership"
-        value={ownership}
-        onChange={(e) => setOwnership(e.target.value as Ownership | '')}
-        options={[
-          { label: 'Select ownership', value: '' },
-          { label: 'Owned', value: 'OWNED' },
-          { label: 'Leased', value: 'LEASED' },
-        ]}
-        disabled={saving}
-      />
-
-      <Select
-        label="Fuel Type"
-        value={fuelType}
-        onChange={(e) => setFuelType(e.target.value as FuelType)}
-        options={[
-          { label: 'PETROL', value: 'PETROL' },
-          { label: 'DIESEL', value: 'DIESEL' },
-          { label: 'CNG', value: 'CNG' },
-          { label: 'EV', value: 'EV' },
-        ]}
-        disabled={saving}
-      />
-
-      <Input
-        label="Permit Expiry Date"
-        type="date"
-        value={permitExpiry}
-        onChange={(e) => setPermitExpiry(e.target.value)}
-        disabled={saving}
-      />
-
-      <Input
-        label="Insurance Expiry Date"
-        type="date"
-        value={insuranceExpiry}
-        onChange={(e) => setInsuranceExpiry(e.target.value)}
-        disabled={saving}
-      />
-
-      <Select
-        label="Status"
-        value={status}
-        onChange={(e) => setStatus(e.target.value as typeof status)}
-        options={[
-          { label: 'Active', value: 'Active' },
-          { label: 'Inactive', value: 'Inactive' },
-        ]}
-        disabled={saving}
-      />
-
-      <Select
-        label="Hub"
-        value={hubId}
-        onChange={(e) => setHubId(e.target.value)}
-        options={hubOptions}
-        disabled={saving || !fleetId}
-      />
+      <div className="rounded-md border border-black/10 p-3 space-y-3">
+        <div className="text-sm font-semibold text-black">Status & Hub</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Select
+            label="Status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as typeof status)}
+            options={[
+              { label: 'Active', value: 'Active' },
+              { label: 'Inactive', value: 'Inactive' },
+            ]}
+            disabled={saving}
+          />
+          <Select
+            label="Hub"
+            value={hubId}
+            onChange={(e) => setHubId(e.target.value)}
+            options={hubOptions}
+            disabled={saving || !fleetId}
+          />
+        </div>
+      </div>
 
       <Button
         className="w-full"

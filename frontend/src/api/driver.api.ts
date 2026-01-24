@@ -200,12 +200,40 @@ export async function createDriver(
 
 export type UpdateDriverInput = {
   name?: string;
+  firstName?: string;
+  lastName?: string;
   phone?: string;
+  email?: string;
+  dob?: string;
+  address?: string;
+  city?: string;
+  pincode?: string;
+  profilePic?: File | string | null;
+  aadharNumber?: string;
+  panNumber?: string;
+  dlNumber?: string;
+  licenseNumber?: string;
+  gstNumber?: string;
+  paymentModel?: 'RENTAL' | 'PAYOUT';
+  depositBalance?: number | string;
+  revSharePercentage?: number | string;
+  bankAccountNumber?: string;
+  bankIfscCode?: string;
+  bankAccountName?: string;
+  licenseFront?: File | string | null;
+  licenseBack?: File | string | null;
+  aadharFront?: File | string | null;
+  aadharBack?: File | string | null;
+  panCardImage?: File | string | null;
+  livePhoto?: File | string | null;
+  bankIdProof?: File | string | null;
+  providerMetadata?: Record<string, unknown> | null;
+  additionalDocuments?: Array<File | string>;
+  // Backwards compatible field names
   identityLivePhoto?: File | string | null;
   aadhaarCardFile?: File | string | null;
   panCardFile?: File | string | null;
   bankDetailsFile?: File | string | null;
-  additionalDocuments?: Array<File | string>;
 };
 
 export async function updateDriverDetails(
@@ -213,22 +241,81 @@ export async function updateDriverDetails(
   input: UpdateDriverInput,
 ): Promise<Driver> {
   const patch: Record<string, unknown> = {};
-  if (typeof input.name === 'string') {
-    const { firstName, lastName } = splitName(input.name);
-    patch.firstName = firstName;
-    patch.lastName = lastName;
+  const firstName = normalizeOptionalString(input.firstName);
+  const lastName = normalizeOptionalString(input.lastName);
+  if (firstName) patch.firstName = firstName;
+  if (lastName) patch.lastName = lastName;
+
+  const normalizedName = normalizeOptionalString(input.name);
+  if (!firstName && !lastName && normalizedName) {
+    const split = splitName(normalizedName);
+    patch.firstName = split.firstName;
+    patch.lastName = split.lastName;
   }
-  if (typeof input.phone === 'string') patch.mobile = input.phone;
-  const livePhoto = normalizeDriverDoc(input.identityLivePhoto);
-  const aadharFront = normalizeDriverDoc(input.aadhaarCardFile);
-  const panCardImage = normalizeDriverDoc(input.panCardFile);
-  const bankIdProof = normalizeDriverDoc(input.bankDetailsFile);
+
+  const phone = normalizeOptionalString(input.phone);
+  if (phone) patch.mobile = phone;
+
+  const email = normalizeOptionalString(input.email);
+  const dob = normalizeOptionalString(input.dob);
+  const address = normalizeOptionalString(input.address);
+  const city = normalizeOptionalString(input.city);
+  const pincode = normalizeOptionalString(input.pincode);
+  const profilePic = normalizeDriverDoc(input.profilePic);
+  const aadharNumber = normalizeOptionalString(input.aadharNumber);
+  const panNumber = normalizeOptionalString(input.panNumber);
+  const dlNumber = normalizeOptionalString(input.dlNumber);
+  const licenseNumber = normalizeOptionalString(input.licenseNumber);
+  const gstNumber = normalizeOptionalString(input.gstNumber);
+  const paymentModel = normalizeOptionalString(input.paymentModel);
+  const depositBalance = normalizeOptionalNumber(input.depositBalance);
+  const revSharePercentage = normalizeOptionalNumber(input.revSharePercentage);
+  const bankAccountNumber = normalizeOptionalString(input.bankAccountNumber);
+  const bankIfscCode = normalizeOptionalString(input.bankIfscCode);
+  const bankAccountName = normalizeOptionalString(input.bankAccountName);
+
+  if (email) patch.email = email;
+  if (dob) patch.dob = dob;
+  if (address) patch.address = address;
+  if (city) patch.city = city;
+  if (pincode) patch.pincode = pincode;
+  if (profilePic) patch.profilePic = profilePic;
+  if (aadharNumber) patch.aadharNumber = aadharNumber;
+  if (panNumber) patch.panNumber = panNumber;
+  if (dlNumber) patch.dlNumber = dlNumber;
+  if (licenseNumber) patch.licenseNumber = licenseNumber;
+  if (gstNumber) patch.gstNumber = gstNumber;
+  if (paymentModel) patch.paymentModel = paymentModel;
+  if (depositBalance !== undefined) patch.depositBalance = depositBalance;
+  if (revSharePercentage !== undefined) patch.revSharePercentage = revSharePercentage;
+  if (bankAccountNumber) patch.bankAccountNumber = bankAccountNumber;
+  if (bankIfscCode) patch.bankIfscCode = bankIfscCode;
+  if (bankAccountName) patch.bankAccountName = bankAccountName;
+
+  const livePhoto = normalizeDriverDoc(input.livePhoto ?? input.identityLivePhoto);
+  const aadharFront = normalizeDriverDoc(input.aadharFront ?? input.aadhaarCardFile);
+  const aadharBack = normalizeDriverDoc(input.aadharBack);
+  const licenseFront = normalizeDriverDoc(input.licenseFront);
+  const licenseBack = normalizeDriverDoc(input.licenseBack);
+  const panCardImage = normalizeDriverDoc(input.panCardImage ?? input.panCardFile);
+  const bankIdProof = normalizeDriverDoc(input.bankIdProof ?? input.bankDetailsFile);
   const additionalDocuments = normalizeDriverDocList(input.additionalDocuments);
+
   if (livePhoto) patch.livePhoto = livePhoto;
   if (aadharFront) patch.aadharFront = aadharFront;
+  if (aadharBack) patch.aadharBack = aadharBack;
+  if (licenseFront) patch.licenseFront = licenseFront;
+  if (licenseBack) patch.licenseBack = licenseBack;
   if (panCardImage) patch.panCardImage = panCardImage;
   if (bankIdProof) patch.bankIdProof = bankIdProof;
-  if (additionalDocuments) patch.providerMetadata = { additionalDocuments };
+  const providerMetadata =
+    input.providerMetadata && typeof input.providerMetadata === 'object'
+      ? { ...(input.providerMetadata as Record<string, unknown>) }
+      : {};
+  if (additionalDocuments) providerMetadata.additionalDocuments = additionalDocuments;
+  if (Object.keys(providerMetadata).length > 0) {
+    patch.providerMetadata = providerMetadata;
+  }
 
   const res = await api.patch<DriverEntity>(`/drivers/${driverId}`, patch);
   return toUiDriver(res.data);
