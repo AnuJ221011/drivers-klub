@@ -14,6 +14,8 @@ function fromUiFuelType(fuelType: UiFuelType): VehicleEntity['fuelType'] {
 function toUiVehicle(entity: VehicleEntity): Vehicle {
   const permitExpiry = entity.permitExpiry ? String(entity.permitExpiry).slice(0, 10) : '';
   const insuranceExpiry = entity.insuranceExpiry ? String(entity.insuranceExpiry).slice(0, 10) : '';
+  const insuranceStart = entity.insuranceStart ? String(entity.insuranceStart).slice(0, 10) : '';
+  const fitnessExpiry = entity.fitnessExpiry ? String(entity.fitnessExpiry).slice(0, 10) : '';
 
   return {
     id: entity.id,
@@ -27,8 +29,13 @@ function toUiVehicle(entity: VehicleEntity): Vehicle {
     hubId: entity.hubId ?? null,
     createdAt: entity.createdAt,
     vehicleColor: entity.vehicleColor ?? '',
+    ownerName: entity.ownerName ?? '',
+    chassisNumber: entity.chassisNumber ?? '',
+    vinNumber: entity.vinNumber ?? '',
     ownership: entity.ownership,
     permitExpiry,
+    fitnessExpiry,
+    insuranceStart,
     insuranceExpiry,
   };
 }

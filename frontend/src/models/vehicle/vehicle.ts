@@ -17,8 +17,13 @@ export type Vehicle = {
   hubId?: string | null;
   createdAt: string;
   vehicleColor?: string;
+  ownerName?: string;
+  chassisNumber?: string;
+  vinNumber?: string;
   ownership?: VehicleOwnership;
   permitExpiry?: string | null;
+  fitnessExpiry?: string | null;
+  insuranceStart?: string | null;
   insuranceExpiry?: string | null;
   fleetMobileNumber?: string;
 };
@@ -31,6 +36,9 @@ export type VehicleEntity = {
   vehicleName: string;
   vehicleModel: string;
   vehicleColor: string | null;
+  ownerName: string | null;
+  chassisNumber: string | null;
+  vinNumber: string | null;
   ownership: VehicleOwnership;
   fuelType: FuelType;
   status: VehicleStatus;
@@ -43,5 +51,6 @@ export type VehicleEntity = {
   fitnessImage: string | null;
   fitnessExpiry: string | null;
   insuranceImage: string | null;
+  insuranceStart: string | null;
   insuranceExpiry: string | null;
 };
