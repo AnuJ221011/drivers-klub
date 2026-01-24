@@ -215,7 +215,7 @@ export class TripController {
 
   async getTrip(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
 
       const trip = await prisma.ride.findUnique({
         where: { id },
@@ -240,7 +240,7 @@ export class TripController {
 
   async assignDriver(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { driverId } = req.body;
 
       const ride = await prisma.ride.findUnique({ where: { id } });
@@ -278,17 +278,20 @@ export class TripController {
 
   async startTrip(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { lat, lng } = req.body; // Expect location
       const userId = (req.user as any)?.id; // Need userId for auth
 
       // Use TripService for logic & auth
       const updated = await this.tripService.startTrip(id, userId);
 
+      // Get driver for MMT tracking
+      const driver = await prisma.driver.findUnique({ where: { userId } });
+
       // MMT Tracking - Start Trip
       const mapping = await this.mappingRepo.findByRideId(id);
       if (mapping && mapping.providerType === "MMT") {
-        await mmtTracking.trackStart(mapping.externalBookingId, lat || 0, lng || 0);
+        await mmtTracking.trackStart(mapping.externalBookingId, lat || 0, lng || 0, driver?.id);
       }
 
       return ApiResponse.send(res, 200, updated, "Trip started successfully");
@@ -300,16 +303,19 @@ export class TripController {
 
   async arriveTrip(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { lat, lng } = req.body;
       const userId = (req.user as any)?.id;
 
       await this.tripService.arriveTrip(id, userId, lat, lng);
 
+      // Get driver for MMT tracking
+      const driver = await prisma.driver.findUnique({ where: { userId } });
+
       // MMT Tracking - Arrived
       const mapping = await this.mappingRepo.findByRideId(id);
       if (mapping && mapping.providerType === "MMT") {
-        await mmtTracking.trackArrived(mapping.externalBookingId, lat || 0, lng || 0);
+        await mmtTracking.trackArrived(mapping.externalBookingId, lat || 0, lng || 0, driver?.id);
       }
       return ApiResponse.send(res, 200, { id, status: "ARRIVED_EVENT_SENT" }, "Driver marked as arrived");
     } catch (error: any) {
@@ -318,34 +324,41 @@ export class TripController {
   }
 
   async onboardTrip(req: Request, res: Response) {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const { lat, lng } = req.body;
+    const userId = (req.user as any)?.id;
 
     const updated = await prisma.ride.update({
       where: { id },
       data: { status: "STARTED" } // Re-confirming start
     });
 
+    // Get driver for MMT tracking
+    const driver = await prisma.driver.findUnique({ where: { userId } });
+
     // MMT Tracking - Boarded
     const mapping = await this.mappingRepo.findByRideId(id);
     if (mapping && mapping.providerType === "MMT") {
-      await mmtTracking.trackBoarded(mapping.externalBookingId, lat || 0, lng || 0);
+      await mmtTracking.trackBoarded(mapping.externalBookingId, lat || 0, lng || 0, driver?.id);
     }
     return ApiResponse.send(res, 200, updated, "Passenger boarded");
   }
 
   async noShowTrip(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { lat, lng, reason } = req.body;
       const userId = (req.user as any)?.id;
 
       const updated = await this.tripService.noShowTrip(id, userId);
 
+      // Get driver for MMT tracking
+      const driver = await prisma.driver.findUnique({ where: { userId } });
+
       // MMT Tracking - Not Boarded (No Show)
       const mapping = await this.mappingRepo.findByRideId(id);
       if (mapping && mapping.providerType === "MMT") {
-        await mmtTracking.trackNotBoarded(mapping.externalBookingId, lat || 0, lng || 0, reason);
+        await mmtTracking.trackNotBoarded(mapping.externalBookingId, lat || 0, lng || 0, driver?.id, reason);
       }
       return ApiResponse.send(res, 200, updated, "Trip marked as No Show");
     } catch (error: any) {
@@ -355,17 +368,20 @@ export class TripController {
 
   async completeTrip(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { lat, lng, fare, extraCharges } = req.body;
       const userId = (req.user as any)?.id;
 
       // Use TripService
       const updated = await this.tripService.completeTrip(id, userId, fare);
 
+      // Get driver for MMT tracking
+      const driver = await prisma.driver.findUnique({ where: { userId } });
+
       // MMT Tracking - Alight (Complete)
       const mapping = await this.mappingRepo.findByRideId(id);
       if (mapping && mapping.providerType === "MMT") {
-        await mmtTracking.trackAlight(mapping.externalBookingId, lat || 0, lng || 0, extraCharges);
+        await mmtTracking.trackAlight(mapping.externalBookingId, lat || 0, lng || 0, driver?.id, extraCharges);
       }
 
       return ApiResponse.send(res, 200, updated, "Trip completed successfully");
@@ -418,7 +434,7 @@ export class TripController {
   }
 
   async getTracking(req: Request, res: Response) {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
 
     const mapping = await this.mappingRepo.findByRideId(id);
     if (!mapping) {
@@ -442,18 +458,22 @@ export class TripController {
 
   async updateLocation(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const { id } = req.params as { id: string };
       const { lat, lng } = req.body;
+      const userId = (req.user as any)?.id;
 
       // Validate input
       if (!lat || !lng) {
         return res.status(400).json({ message: "Latitude and Longitude are required" });
       }
 
+      // Get driver for MMT tracking
+      const driver = await prisma.driver.findUnique({ where: { userId } });
+
       // MMT Tracking - Location Update (called every 30 seconds during trip)
       const mapping = await this.mappingRepo.findByRideId(id);
       if (mapping && mapping.providerType === "MMT") {
-        await mmtTracking.updateLocation(mapping.externalBookingId, lat, lng);
+        await mmtTracking.updateLocation(mapping.externalBookingId, lat, lng, driver?.id);
       }
 
       return ApiResponse.send(res, 200, null, "Location updated successfully");

@@ -11,7 +11,7 @@ import { prisma } from "@driversklub/database";
  * Endpoints:
  * - POST /dispatch/{booking_id}/assign
  * - POST /dispatch/{booking_id}/reassign
- * - POST /dispatch/{booking_id}/detach
+ * - POST /dispatch/{booking_id}/unassign
  * - POST /track/{booking_id}/start
  * - POST /track/{booking_id}/arrived
  * - POST /track/{booking_id}/boarded
@@ -34,6 +34,14 @@ export class MMTTracking {
     private getAuthHeader(): string {
         const credentials = Buffer.from(`${MMT_TRACKING_CONFIG.username}:${MMT_TRACKING_CONFIG.password}`).toString('base64');
         return `Basic ${credentials}`;
+    }
+
+    /**
+     * Shorten ID to max 10 characters (MMT requirement)
+     * Takes first 10 chars of UUID
+     */
+    private shortenId(id: string): string {
+        return id.replace(/-/g, '').substring(0, 10);
     }
 
     /**
@@ -111,6 +119,10 @@ export class MMTTracking {
     /**
      * Notify MMT when driver is assigned to a booking
      * POST /dispatch/{booking_id}/assign
+     * 
+     * MMT Requirements:
+     * - chauffeur.id must be ≤ 10 characters
+     * - vehicle details are REQUIRED
      */
     async assignChauffeur(bookingId: string, driver: {
         id: string;
@@ -121,20 +133,27 @@ export class MMTTracking {
     }): Promise<boolean> {
         const vehicle = await this.getDriverVehicle(driver.id);
 
+        // MMT requires vehicle details - fail if not available
+        if (!vehicle) {
+            logger.error(`[MMT Tracking] Cannot assign driver ${driver.id} - no active vehicle assignment`);
+            return false;
+        }
+
         const payload = {
+            booking_id: bookingId,
             chauffeur: {
-                id: driver.id,
+                id: this.shortenId(driver.id),
                 name: `${driver.firstName} ${driver.lastName || ''}`.trim(),
                 mobile_number: driver.mobile,
                 image: driver.profilePic || ""
             },
-            vehicle: vehicle ? {
-                id: vehicle.id,
+            vehicle: {
+                id: this.shortenId(vehicle.id),
                 name: vehicle.name,
                 color: vehicle.color,
                 registration_number: vehicle.number,
                 vehicle_type: vehicle.type
-            } : null
+            }
         };
 
         return this.pushEvent("POST", `/dispatch/${bookingId}/assign`, payload, bookingId);
@@ -143,6 +162,10 @@ export class MMTTracking {
     /**
      * Notify MMT when driver is reassigned to a booking
      * POST /dispatch/{booking_id}/reassign
+     * 
+     * MMT Requirements:
+     * - chauffeur.id must be ≤ 10 characters
+     * - vehicle details are REQUIRED
      */
     async reassignChauffeur(bookingId: string, driver: {
         id: string;
@@ -153,35 +176,50 @@ export class MMTTracking {
     }): Promise<boolean> {
         const vehicle = await this.getDriverVehicle(driver.id);
 
+        // MMT requires vehicle details - fail if not available
+        if (!vehicle) {
+            logger.error(`[MMT Tracking] Cannot reassign driver ${driver.id} - no active vehicle assignment`);
+            return false;
+        }
+
         const payload = {
+            booking_id: bookingId,
             chauffeur: {
-                id: driver.id,
+                id: this.shortenId(driver.id),
                 name: `${driver.firstName} ${driver.lastName || ''}`.trim(),
                 mobile_number: driver.mobile,
                 image: driver.profilePic || ""
             },
-            vehicle: vehicle ? {
-                id: vehicle.id,
+            vehicle: {
+                id: this.shortenId(vehicle.id),
                 name: vehicle.name,
                 color: vehicle.color,
                 registration_number: vehicle.number,
                 vehicle_type: vehicle.type
-            } : null
+            }
         };
 
         return this.pushEvent("POST", `/dispatch/${bookingId}/reassign`, payload, bookingId);
     }
 
     /**
-     * Notify MMT when driver is detached/unassigned from a booking
-     * POST /dispatch/{booking_id}/detach
+     * Notify MMT when driver is unassigned from a booking
+     * POST /dispatch/{booking_id}/unassign
      */
-    async detachChauffeur(bookingId: string, reason?: string): Promise<boolean> {
+    async unassignChauffeur(bookingId: string): Promise<boolean> {
         const payload = {
-            reason: reason || "Driver unassigned"
+            booking_id: bookingId
         };
 
-        return this.pushEvent("POST", `/dispatch/${bookingId}/detach`, payload, bookingId);
+        return this.pushEvent("POST", `/dispatch/${bookingId}/unassign`, payload, bookingId);
+    }
+
+    /**
+     * @deprecated Use unassignChauffeur instead
+     * Alias for backward compatibility
+     */
+    async detachChauffeur(bookingId: string, _reason?: string): Promise<boolean> {
+        return this.unassignChauffeur(bookingId);
     }
 
     // ============================================
@@ -191,11 +229,15 @@ export class MMTTracking {
     /**
      * Notify MMT when trip starts
      * POST /track/{booking_id}/start
+     * 
+     * Required: booking_id, device_id, latitude, longitude (as strings), timestamp
      */
-    async trackStart(bookingId: string, lat: number, lng: number): Promise<boolean> {
+    async trackStart(bookingId: string, lat: number, lng: number, driverId?: string): Promise<boolean> {
         const payload = {
-            latitude: lat,
-            longitude: lng,
+            booking_id: bookingId,
+            device_id: driverId ? this.shortenId(driverId) : "DKAPP001",
+            latitude: String(lat),
+            longitude: String(lng),
             timestamp: Date.now()
         };
 
@@ -205,11 +247,15 @@ export class MMTTracking {
     /**
      * Notify MMT when driver arrives at pickup location
      * POST /track/{booking_id}/arrived
+     * 
+     * Required: booking_id, device_id, latitude, longitude (as strings), timestamp
      */
-    async trackArrived(bookingId: string, lat: number, lng: number): Promise<boolean> {
+    async trackArrived(bookingId: string, lat: number, lng: number, driverId?: string): Promise<boolean> {
         const payload = {
-            latitude: lat,
-            longitude: lng,
+            booking_id: bookingId,
+            device_id: driverId ? this.shortenId(driverId) : "DKAPP001",
+            latitude: String(lat),
+            longitude: String(lng),
             timestamp: Date.now()
         };
 
@@ -219,11 +265,15 @@ export class MMTTracking {
     /**
      * Notify MMT when passenger boards the vehicle
      * POST /track/{booking_id}/boarded
+     * 
+     * Required: booking_id, device_id, latitude, longitude (as strings), timestamp
      */
-    async trackBoarded(bookingId: string, lat: number, lng: number): Promise<boolean> {
+    async trackBoarded(bookingId: string, lat: number, lng: number, driverId?: string): Promise<boolean> {
         const payload = {
-            latitude: lat,
-            longitude: lng,
+            booking_id: bookingId,
+            device_id: driverId ? this.shortenId(driverId) : "DKAPP001",
+            latitude: String(lat),
+            longitude: String(lng),
             timestamp: Date.now()
         };
 
@@ -234,28 +284,41 @@ export class MMTTracking {
      * Notify MMT when passenger alights (trip complete)
      * POST /track/{booking_id}/alight
      * 
-     * @param extraCharges - Optional extra charges (toll, parking, etc.)
+     * Required: booking_id, device_id, latitude, longitude (as strings), timestamp
+     * Optional: extra_charge, extra_fare_breakup
      */
-    async trackAlight(bookingId: string, lat: number, lng: number, extraCharges?: {
+    async trackAlight(bookingId: string, lat: number, lng: number, driverId?: string, extraCharges?: {
         toll?: number;
         parking?: number;
-        waiting?: number;
-        other?: number;
+        extraKms?: number;
+        extraMinutes?: number;
     }): Promise<boolean> {
         const payload: any = {
-            latitude: lat,
-            longitude: lng,
+            booking_id: bookingId,
+            device_id: driverId ? this.shortenId(driverId) : "DKAPP001",
+            latitude: String(lat),
+            longitude: String(lng),
             timestamp: Date.now()
         };
 
-        // Add extra charges if provided (Test case 7)
+        // Add extra charges in MMT format if provided (Test case 7)
         if (extraCharges) {
-            payload.extra_charges = {
-                toll_charges: extraCharges.toll || 0,
-                parking_charges: extraCharges.parking || 0,
-                waiting_charges: extraCharges.waiting || 0,
-                other_charges: extraCharges.other || 0
-            };
+            const totalExtra = (extraCharges.toll || 0) + (extraCharges.parking || 0);
+            payload.extra_charge = totalExtra;
+            payload.extra_fare_breakup = {};
+
+            if (extraCharges.toll) {
+                payload.extra_fare_breakup.toll_charges = {
+                    amount: extraCharges.toll,
+                    items: [{ name: "Toll Charges", amount: extraCharges.toll, receipt: null }]
+                };
+            }
+            if (extraCharges.parking) {
+                payload.extra_fare_breakup.parking_charges = {
+                    amount: extraCharges.parking,
+                    items: [{ name: "Parking Charges", amount: extraCharges.parking, receipt: null }]
+                };
+            }
         }
 
         return this.pushEvent("POST", `/track/${bookingId}/alight`, payload, bookingId);
@@ -264,11 +327,15 @@ export class MMTTracking {
     /**
      * Notify MMT when passenger is a no-show
      * POST /track/{booking_id}/not-boarded
+     * 
+     * Required: booking_id, device_id, latitude, longitude (as strings), timestamp
      */
-    async trackNotBoarded(bookingId: string, lat: number, lng: number, reason?: string): Promise<boolean> {
+    async trackNotBoarded(bookingId: string, lat: number, lng: number, driverId?: string, reason?: string): Promise<boolean> {
         const payload = {
-            latitude: lat,
-            longitude: lng,
+            booking_id: bookingId,
+            device_id: driverId ? this.shortenId(driverId) : "DKAPP001",
+            latitude: String(lat),
+            longitude: String(lng),
             timestamp: Date.now(),
             reason: reason || "Customer no show"
         };
@@ -280,12 +347,15 @@ export class MMTTracking {
      * Send live location update during trip
      * PUT /track/{booking_id}/location
      * 
+     * Required: booking_id, device_id, latitude, longitude (as strings), timestamp
      * Should be called every 30 seconds from Start until Alight
      */
-    async updateLocation(bookingId: string, lat: number, lng: number): Promise<boolean> {
+    async updateLocation(bookingId: string, lat: number, lng: number, driverId?: string): Promise<boolean> {
         const payload = {
-            latitude: lat,
-            longitude: lng,
+            booking_id: bookingId,
+            device_id: driverId ? this.shortenId(driverId) : "DKAPP001",
+            latitude: String(lat),
+            longitude: String(lng),
             timestamp: Date.now()
         };
 

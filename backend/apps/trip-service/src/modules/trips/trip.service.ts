@@ -44,14 +44,17 @@ export class TripService {
      * STRICT CONSTRAINT: 2.5 Hour Start Window
      * Driver can only start trip within 2.5 hours of pickup time.
      * This prevents early starts and ensures operational compliance.
+     * NOTE: Disabled in non-production for testing purposes.
      */
-    const now = new Date();
-    const pickupTime = new Date(trip.pickupTime);
-    const msDiff = pickupTime.getTime() - now.getTime();
-    const hoursDiff = msDiff / (1000 * 60 * 60);
+    if (process.env.NODE_ENV === 'production') {
+      const now = new Date();
+      const pickupTime = new Date(trip.pickupTime);
+      const msDiff = pickupTime.getTime() - now.getTime();
+      const hoursDiff = msDiff / (1000 * 60 * 60);
 
-    if (hoursDiff > 2.5) {
-      throw new ApiError(400, `Trip cannot be started yet. You can start 2.5 hours before pickup. (Window opens at ${new Date(pickupTime.getTime() - 2.5 * 60 * 60 * 1000).toLocaleTimeString()})`);
+      if (hoursDiff > 2.5) {
+        throw new ApiError(400, `Trip cannot be started yet. You can start 2.5 hours before pickup. (Window opens at ${new Date(pickupTime.getTime() - 2.5 * 60 * 60 * 1000).toLocaleTimeString()})`);
+      }
     }
 
     return this.repo.startTrip(tripId);
@@ -76,29 +79,35 @@ export class TripService {
      * STRICT CONSTRAINT: 500m Geofence
      * Driver must be within 500 meters of pickup location.
      * Uses Haversine formula for accurate distance calculation.
+     * NOTE: Disabled in non-production for testing purposes.
      */
-    if (trip.pickupLat && trip.pickupLng) {
-      const distance = GeoUtils.getDistanceInMeters(lat, lng, trip.pickupLat, trip.pickupLng);
-      if (distance > 500) {
-        throw new ApiError(400, `You are ${Math.round(distance)}m away from pickup. Please reach within 500m.`);
+    if (process.env.NODE_ENV === 'production') {
+      if (trip.pickupLat && trip.pickupLng) {
+        const distance = GeoUtils.getDistanceInMeters(lat, lng, trip.pickupLat, trip.pickupLng);
+        if (distance > 500) {
+          throw new ApiError(400, `You are ${Math.round(distance)}m away from pickup. Please reach within 500m.`);
+        }
+      } else {
+        console.warn(`Trip ${tripId} has no pickup coordinates. Skipping strict geofence.`);
       }
-    } else {
-      console.warn(`Trip ${tripId} has no pickup coordinates. Skipping strict geofence.`);
     }
 
     /**
      * STRICT CONSTRAINT: 30 Minute Arrival Window
      * Driver can only mark arrived within 30 minutes of pickup time.
+     * NOTE: Disabled in non-production for testing purposes.
      */
-    const now = new Date();
-    const pickupTime = new Date(trip.pickupTime);
-    const msDiff = pickupTime.getTime() - now.getTime();
-    const minutesDiff = msDiff / (1000 * 60);
+    if (process.env.NODE_ENV === 'production') {
+      const now = new Date();
+      const pickupTime = new Date(trip.pickupTime);
+      const msDiff = pickupTime.getTime() - now.getTime();
+      const minutesDiff = msDiff / (1000 * 60);
 
-    if (minutesDiff > 30) {
-      throw new ApiError(400, "Too early to mark Arrived. Please wait until 30 mins before pickup.");
-    } else if (minutesDiff < -30) {
-      throw new ApiError(400, "Pickup time has passed. Cannot mark arrived more than 30 mins after scheduled pickup.");
+      if (minutesDiff > 30) {
+        throw new ApiError(400, "Too early to mark Arrived. Please wait until 30 mins before pickup.");
+      } else if (minutesDiff < -30) {
+        throw new ApiError(400, "Pickup time has passed. Cannot mark arrived more than 30 mins after scheduled pickup.");
+      }
     }
 
     return { success: true, message: "Geofence & Time validation passed" };
@@ -125,14 +134,17 @@ export class TripService {
      * STRICT CONSTRAINT: 30 Minute No-Show Window
      * Driver can only mark no-show AFTER 30 minutes past pickup time.
      * This ensures adequate waiting time for customer arrival.
+     * NOTE: Disabled in non-production for testing purposes.
      */
-    const now = new Date();
-    const pickupTime = new Date(trip.pickupTime);
-    const msDiff = now.getTime() - pickupTime.getTime();
-    const minutesDiff = msDiff / (1000 * 60);
+    if (process.env.NODE_ENV === 'production') {
+      const now = new Date();
+      const pickupTime = new Date(trip.pickupTime);
+      const msDiff = now.getTime() - pickupTime.getTime();
+      const minutesDiff = msDiff / (1000 * 60);
 
-    if (minutesDiff < 30) {
-      throw new ApiError(400, `Cannot mark No Show yet. Wait until 30 mins after pickup time. (Current: ${Math.round(minutesDiff)} mins)`);
+      if (minutesDiff < 30) {
+        throw new ApiError(400, `Cannot mark No Show yet. Wait until 30 mins after pickup time. (Current: ${Math.round(minutesDiff)} mins)`);
+      }
     }
 
     const updated = await prisma.ride.update({

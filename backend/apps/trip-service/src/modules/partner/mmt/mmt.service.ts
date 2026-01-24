@@ -25,10 +25,12 @@ export class MMTService {
         const now = new Date();
 
         // Rule 1: T+1 Only (24 hours advance notice)
-        const hoursDiff = (pickupTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-        if (hoursDiff < 24) {
-            // Instead of error, returning empty availability might be better, but strict error as per current logic
-            throw new ApiError(400, "MMT V1 Restriction: Only rides > 24h in advance are accepted.");
+        // NOTE: Disabled in non-production for testing purposes.
+        if (process.env.NODE_ENV === 'production') {
+            const hoursDiff = (pickupTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+            if (hoursDiff < 24) {
+                throw new ApiError(400, "MMT V1 Restriction: Only rides > 24h in advance are accepted.");
+            }
         }
 
         // Rule 2: Airport Only (P1)
@@ -158,9 +160,12 @@ export class MMTService {
         const now = new Date();
 
         // Rule: T+1 Only (24 hours advance notice) - same validation as searchFare
-        const hoursDiff = (pickupTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-        if (hoursDiff < 24) {
-            throw new ApiError(400, "MMT V1 Restriction: Only rides > 24h in advance are accepted.");
+        // NOTE: Disabled in non-production for testing purposes.
+        if (process.env.NODE_ENV === 'production') {
+            const hoursDiff = (pickupTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+            if (hoursDiff < 24) {
+                throw new ApiError(400, "MMT V1 Restriction: Only rides > 24h in advance are accepted.");
+            }
         }
 
         const distanceKm = input.distanceKm || 40; // Fallback to default
@@ -254,14 +259,21 @@ export class MMTService {
         if (trip.status !== "BLOCKED") throw new ApiError(400, "Booking is not in blocked state");
 
         // Update both Ride status and RideProviderMapping status
+        // If MMT sends order_reference_number (BKS...), update externalBookingId to use it for tracking
+        const mmtBookingId = input.order_reference_number;
+
         const updated = await prisma.ride.update({
             where: { id: trip.id },
             data: {
                 status: "CREATED", // Confirmed!
                 providerStatus: "CONFIRMED",
+                // Update providerBookingId if MMT provides their booking ID
+                ...(mmtBookingId && { providerBookingId: mmtBookingId }),
                 providerMapping: {
                     update: {
-                        providerStatus: "CONFIRMED"
+                        providerStatus: "CONFIRMED",
+                        // Store MMT's booking ID (BKS...) as externalBookingId for tracking calls
+                        ...(mmtBookingId && { externalBookingId: mmtBookingId })
                     }
                 }
             }
@@ -270,7 +282,8 @@ export class MMTService {
         return {
             response: {
                 success: true,
-                order_reference_number: updated.id,
+                // Return MMT's booking ID if provided, otherwise our internal ID
+                order_reference_number: mmtBookingId || updated.id,
                 status: "CONFIRMED"
             }
         };

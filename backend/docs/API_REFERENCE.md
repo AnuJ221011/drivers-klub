@@ -1,6 +1,6 @@
 # 📚 Complete API Reference
 
-**Version:** 4.4.0 (MMT Tracking Events + Public Booking + Referrals)  
+**Version:** 4.5.0 (MMT Tracking Complete + Public Booking + Referrals)  
 **Base URL (Development):** `http://localhost:3000` (API Gateway)  
 **Base URL (Staging):** `https://driversklub-backend.onrender.com`  
 **Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
@@ -3223,7 +3223,7 @@ Confirm reschedule request (MMT → Driver's Klub).
 These are **outbound** API calls that DriversKlub makes TO MMT to notify them about ride status changes.
 
 **Base URL:** `https://cabs-partners-staging.makemytrip.com/tracking/pp2/api/partner/v1`  
-**Authentication:** Basic Auth (`fooSnapecabs:barSnapecabs`)
+**Authentication:** Basic Auth (credentials in environment variables)
 
 #### Dispatch Events
 
@@ -3237,14 +3237,15 @@ Notify MMT when a driver is assigned to a booking.
 
 ```json
 {
+  "booking_id": "BKS88888800922",
   "chauffeur": {
-    "id": "driver-uuid",
+    "id": "56c5c8a269",
     "name": "Rajesh Kumar",
     "mobile_number": "9876543210",
     "image": "https://s3.aws.com/driver-photo.jpg"
   },
   "vehicle": {
-    "id": "vehicle-uuid",
+    "id": "abc1234567",
     "name": "Tata Tigor EV",
     "color": "White",
     "registration_number": "DL01AB1234",
@@ -3252,6 +3253,8 @@ Notify MMT when a driver is assigned to a booking.
   }
 }
 ```
+
+**Note:** `chauffeur.id` and `vehicle.id` are shortened to max 10 characters (MMT requirement).
 
 ---
 
@@ -3261,11 +3264,11 @@ Notify MMT when a different driver is assigned to an existing booking.
 
 **Triggered by:** `POST /admin/trips/reassign`
 
-**Request Body:** Same structure as assign.
+**Request Body:** Same structure as assign (includes `booking_id`).
 
 ---
 
-##### POST `/dispatch/{booking_id}/detach`
+##### POST `/dispatch/{booking_id}/unassign`
 
 Notify MMT when a driver is unassigned from a booking.
 
@@ -3275,13 +3278,20 @@ Notify MMT when a driver is unassigned from a booking.
 
 ```json
 {
-  "reason": "Driver Unassigned by Admin"
+  "booking_id": "BKS88888800922"
 }
 ```
 
 ---
 
 #### Track Events
+
+All track events require the following mandatory fields:
+- `booking_id` - MMT booking reference (e.g., "BKS88888800922")
+- `device_id` - Shortened driver ID (max 10 chars) or "DKAPP001"
+- `latitude` - **String** (e.g., "28.4895122")
+- `longitude` - **String** (e.g., "77.092306")
+- `timestamp` - Unix timestamp in milliseconds
 
 ##### POST `/track/{booking_id}/start`
 
@@ -3293,8 +3303,10 @@ Notify MMT when the driver starts the trip.
 
 ```json
 {
-  "latitude": 28.4595,
-  "longitude": 77.0266,
+  "booking_id": "BKS88888800922",
+  "device_id": "56c5c8a269",
+  "latitude": "28.4895122",
+  "longitude": "77.092306",
   "timestamp": 1706025600000
 }
 ```
@@ -3307,7 +3319,7 @@ Notify MMT when driver arrives at pickup location.
 
 **Triggered by:** `POST /trips/:id/arrived`
 
-**Request Body:** Same as start (lat, lng, timestamp).
+**Request Body:** Same structure as start.
 
 ---
 
@@ -3317,7 +3329,7 @@ Notify MMT when passenger boards the vehicle.
 
 **Triggered by:** `POST /trips/:id/onboard`
 
-**Request Body:** Same as start (lat, lng, timestamp).
+**Request Body:** Same structure as start.
 
 ---
 
@@ -3331,19 +3343,26 @@ Notify MMT when passenger alights (trip complete).
 
 ```json
 {
-  "latitude": 28.5562,
-  "longitude": 77.1000,
+  "booking_id": "BKS88888800922",
+  "device_id": "56c5c8a269",
+  "latitude": "28.5562",
+  "longitude": "77.1000",
   "timestamp": 1706029200000,
-  "extra_charges": {
-    "toll_charges": 100,
-    "parking_charges": 50,
-    "waiting_charges": 0,
-    "other_charges": 0
+  "extra_charge": 485,
+  "extra_fare_breakup": {
+    "toll_charges": {
+      "amount": 335,
+      "items": [{ "name": "Toll Charges", "amount": 335, "receipt": null }]
+    },
+    "parking_charges": {
+      "amount": 150,
+      "items": [{ "name": "Parking Charges", "amount": 150, "receipt": null }]
+    }
   }
 }
 ```
 
-**Note:** `extra_charges` is optional - only include if applicable.
+**Note:** `extra_charge` and `extra_fare_breakup` are optional - only included if applicable.
 
 ---
 
@@ -3357,8 +3376,10 @@ Notify MMT when passenger is a no-show.
 
 ```json
 {
-  "latitude": 28.4595,
-  "longitude": 77.0266,
+  "booking_id": "BKS88888800922",
+  "device_id": "56c5c8a269",
+  "latitude": "28.4895122",
+  "longitude": "77.092306",
   "timestamp": 1706025600000,
   "reason": "Customer no show"
 }
@@ -3378,8 +3399,10 @@ Send live driver location during an active trip.
 
 ```json
 {
-  "latitude": 28.5000,
-  "longitude": 77.0500,
+  "booking_id": "BKS88888800922",
+  "device_id": "56c5c8a269",
+  "latitude": "28.5000",
+  "longitude": "77.0500",
   "timestamp": 1706026500000
 }
 ```
@@ -3393,10 +3416,10 @@ Send live driver location during an active trip.
 | 1 | Assign → Start → Arrived → Boarded → Alight | Happy path |
 | 2 | Assign → Reassign → Start → Arrived → Boarded → Alight | Driver change mid-booking |
 | 3 | Assign → Start → Arrived → Not-Boarded | Customer no-show |
-| 4 | Assign → Start → Arrived → Detach | Driver unassigned after arrival |
-| 5 | Assign → Detach | Driver unassigned before trip |
-| 6 | Detach | Unassign without prior assignment |
-| 7 | Full flow with extra_charges in Alight | Toll/parking charges |
+| 4 | Assign → Start → Arrived → Unassign | Driver unassigned after arrival |
+| 5 | Assign → Unassign | Driver unassigned before trip |
+| 6 | Unassign | Unassign without prior assignment |
+| 7 | Full flow with extra_charge in Alight | Toll/parking charges |
 | 8 | Location updates every 30 seconds | Start to Alight |
 
 ---

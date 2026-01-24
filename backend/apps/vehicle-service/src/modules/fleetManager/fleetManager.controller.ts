@@ -17,24 +17,26 @@ export async function createFleetManager(req: Request, res: Response) {
 }
 
 export async function getFleetManagersByFleet(req: Request, res: Response) {
+  const { fleetId } = req.params as { fleetId: string };
   const role = String(req.user?.role || "");
   if (role !== "SUPER_ADMIN") {
     const scopedFleetId = req.user?.fleetId;
     if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
-    if (req.params.fleetId !== scopedFleetId) throw new ApiError(403, "Access denied");
+    if (fleetId !== scopedFleetId) throw new ApiError(403, "Access denied");
   }
-  const managers = await service.getFleetManagersByFleet(req.params.fleetId);
+  const managers = await service.getFleetManagersByFleet(fleetId);
   ApiResponse.send(res, 200, managers, "Fleet Managers retrieved successfully");
 }
 
 export async function deactivateFleetManager(req: Request, res: Response) {
+  const { id } = req.params as { id: string };
   const role = String(req.user?.role || "");
-  const managerRow = await service.getFleetManagerById(req.params.id);
+  const managerRow = await service.getFleetManagerById(id);
   if (role !== "SUPER_ADMIN") {
     const scopedFleetId = req.user?.fleetId;
     if (!scopedFleetId) throw new ApiError(403, "Fleet scope not set for this user");
     if (managerRow.fleetId !== scopedFleetId) throw new ApiError(403, "Access denied");
   }
-  const manager = await service.deactivateFleetManager(req.params.id);
+  const manager = await service.deactivateFleetManager(id);
   ApiResponse.send(res, 200, manager, "Fleet Manager deactivated successfully");
 }

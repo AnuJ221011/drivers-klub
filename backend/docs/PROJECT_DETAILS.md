@@ -1,6 +1,6 @@
 # 📘 Driver's Klub Backend - Production Documentation
 
-**Version:** 4.4.0 (MMT Tracking + Enhanced KYC)  
+**Version:** 4.5.0 (MMT Tracking Complete)  
 **Date:** January 23, 2026  
 **Last Verified:** January 23, 2026  
 **Authors:** Driver's Klub Engineering Team  
@@ -370,7 +370,11 @@ The system has passed the **Consolidated Master Test Protocol** (`npx tsx script
 ### ✅ Partner Integration (MMT)
 
 * **Inbound**: Fully mapped to `MMTController` (Search, Block, Confirm, Cancel, **Reschedule Block/Confirm**). **Secured via Basic Auth**.
-* **Outbound**: All hooks (Assignment, Start, Arrive, Complete, Cancel, **Location Update**) implemented.
+* **Outbound**: All hooks implemented:
+  * **Dispatch**: `/dispatch/{id}/assign`, `/dispatch/{id}/reassign`, `/dispatch/{id}/unassign`
+  * **Track**: `/track/{id}/start`, `/track/{id}/arrived`, `/track/{id}/boarded`, `/track/{id}/alight`, `/track/{id}/not-boarded`
+  * **Location**: `PUT /track/{id}/location` (every 30 seconds during trip)
+  * All payloads include `booking_id`, `device_id`, and coordinates as **strings**.
 
 ---
 

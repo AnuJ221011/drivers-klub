@@ -1,17 +1,17 @@
 import { createProxyMiddleware, Options } from "http-proxy-middleware";
-import { Request, Response } from "express";
+import type { RequestHandler } from "express";
 
-export const createProxy = (target: string, options: Options = {}) => {
+export const createProxy = (target: string, options: Options = {}): RequestHandler => {
     return createProxyMiddleware({
         target,
         changeOrigin: true,
         proxyTimeout: 30000, // 30s
         timeout: 30000,
-        onError: (err: any, req: Request, res: Response) => {
+        onError: (err, req, res) => {
             console.error(`[GATEWAY] Proxy error for ${req.url} -> ${target}:`, err.message);
 
             if (!res.headersSent) {
-                if (err.code === 'ECONNREFUSED') {
+                if ((err as NodeJS.ErrnoException).code === 'ECONNREFUSED') {
                     res.status(503).json({
                         error: 'Service Unavailable',
                         message: 'The requested service is temporarily unavailable. Please try again.',
@@ -27,5 +27,5 @@ export const createProxy = (target: string, options: Options = {}) => {
             }
         },
         ...options
-    });
+    }) as unknown as RequestHandler;
 };
