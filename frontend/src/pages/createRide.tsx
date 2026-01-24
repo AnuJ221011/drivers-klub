@@ -1,6 +1,8 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type InputHTMLAttributes,
@@ -21,7 +23,11 @@ import {
   type PublicTripType,
 } from '../api/publicTrips.api';
 import { previewPricing, type PricingPreviewResult } from '../api/pricing.api';
-import { geocodeAddress } from '../api/maps.api';
+import {
+  geocodeAddress,
+  getMapAutocomplete,
+  type MapAutocompleteItem,
+} from '../api/maps.api';
 import PhoneInput from '../components/ui/PhoneInput';
 
 /* ---------------- Utilities ---------------- */
@@ -143,6 +149,145 @@ function SegmentSlot({ icon, label, children }: SegmentSlotProps) {
         {label}
       </span>
       <div className="min-w-0 w-full">{children}</div>
+    </div>
+  );
+}
+
+type PlaceSelection = {
+  address: string;
+  lat: number;
+  lng: number;
+};
+
+type PlaceAutocompleteSegmentProps = {
+  icon: ReactNode;
+  label: string;
+  placeholder?: string;
+  value: string;
+  onChange: (value: string) => void;
+  onPlaceSelected: (place: PlaceSelection) => void;
+  list?: string;
+};
+
+function PlaceAutocompleteSegmentInput({
+  icon,
+  label,
+  placeholder,
+  value,
+  onChange,
+  onPlaceSelected,
+  list,
+}: PlaceAutocompleteSegmentProps) {
+  const [items, setItems] = useState<MapAutocompleteItem[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const lastQueryRef = useRef<string>('');
+  const blurTimeoutRef = useRef<number | null>(null);
+
+  const runSearch = useCallback(async () => {
+    const q = (value || '').trim();
+    if (q.length < 2) {
+      setItems([]);
+      setOpen(false);
+      return;
+    }
+
+    lastQueryRef.current = q;
+    setLoading(true);
+    try {
+      const res = await getMapAutocomplete(q);
+      if (lastQueryRef.current !== q) return;
+      setItems(res || []);
+      setOpen(true);
+    } catch {
+      setItems([]);
+      setOpen(false);
+    } finally {
+      if (lastQueryRef.current === q) setLoading(false);
+    }
+  }, [value]);
+
+  useEffect(() => {
+    const q = (value || '').trim();
+    const t = window.setTimeout(() => {
+      void runSearch();
+    }, q.length < 2 ? 0 : 250);
+    return () => window.clearTimeout(t);
+  }, [runSearch, value]);
+
+  const onPick = useCallback(
+    async (item: MapAutocompleteItem) => {
+      try {
+        setOpen(false);
+        setItems([]);
+        setLoading(true);
+        const geo = await geocodeAddress(item.description);
+        onPlaceSelected({
+          lat: geo.lat,
+          lng: geo.lng,
+          address: geo.formattedAddress || item.description,
+        });
+      } catch (err) {
+        toast.error(getErrorMessage(err, 'Failed to fetch location'));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [onPlaceSelected]
+  );
+
+  return (
+    <div
+      className="relative"
+      onMouseDown={() => {
+        if (blurTimeoutRef.current) {
+          window.clearTimeout(blurTimeoutRef.current);
+          blurTimeoutRef.current = null;
+        }
+      }}
+    >
+      <label className="flex min-w-0 flex-col gap-1 px-4 py-4">
+        <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-black">
+          <span className="text-yellow-500">{icon}</span>
+          {label}
+        </span>
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => {
+            if (items.length > 0) setOpen(true);
+          }}
+          onBlur={() => {
+            blurTimeoutRef.current = window.setTimeout(() => setOpen(false), 150);
+          }}
+          list={list}
+          placeholder={placeholder}
+          className="w-full bg-transparent text-base font-semibold text-black placeholder:text-black/30 focus:outline-none"
+        />
+      </label>
+
+      {open && (items.length > 0 || loading) ? (
+        <div className="absolute z-20 -mt-2 w-full rounded-md border border-black/10 bg-white shadow-lg overflow-hidden">
+          {loading ? (
+            <div className="px-3 py-2 text-xs text-black/60">Searching…</div>
+          ) : null}
+          {items.slice(0, 8).map((it) => (
+            <button
+              key={it.place_id}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-yellow-50"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => void onPick(it)}
+              title={it.description}
+            >
+              {it.description}
+            </button>
+          ))}
+          {!loading && items.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-black/60">No results</div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -337,8 +482,8 @@ export default function CreateRide() {
             </datalist>
 
             {/* ROW 1 */}
-            <div className="grid overflow-hidden rounded-2xl border bg-white shadow-lg lg:grid-cols-[1.5fr_1.5fr_1fr_0.9fr_1fr]">
-              <SegmentInput
+            <div className="grid overflow-visible rounded-2xl border bg-white shadow-lg lg:grid-cols-[1.5fr_1.5fr_1fr_0.9fr_1fr]">
+              <PlaceAutocompleteSegmentInput
                 icon={<MapPin size={14} />}
                 label="From"
                 placeholder="Pickup location"
@@ -347,9 +492,13 @@ export default function CreateRide() {
                   setPickupLocation(value);
                   setPickupCoords(null);
                 }}
+                onPlaceSelected={(place) => {
+                  setPickupLocation(place.address);
+                  setPickupCoords({ lat: place.lat, lng: place.lng });
+                }}
                 list="supported-cities"
               />
-              <SegmentInput
+              <PlaceAutocompleteSegmentInput
                 icon={<MapPinOff size={14} />}
                 label="To"
                 placeholder="Drop location"
@@ -357,6 +506,10 @@ export default function CreateRide() {
                 onChange={(value) => {
                   setDropLocation(value);
                   setDropCoords(null);
+                }}
+                onPlaceSelected={(place) => {
+                  setDropLocation(place.address);
+                  setDropCoords({ lat: place.lat, lng: place.lng });
                 }}
                 list="supported-cities"
               />
