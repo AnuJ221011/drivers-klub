@@ -20,14 +20,42 @@ export async function getDriversByFleet(fleetId: string): Promise<Driver[]> {
 }
 
 export type CreateDriverInput = {
-  name: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
   phone: string;
   isActive: boolean;
+  email?: string;
+  dob?: string;
+  address?: string;
+  city?: string;
+  pincode?: string;
+  profilePic?: File | string | null;
+  aadharNumber?: string;
+  panNumber?: string;
+  dlNumber?: string;
+  licenseNumber?: string;
+  gstNumber?: string;
+  paymentModel?: 'RENTAL' | 'PAYOUT';
+  depositBalance?: number | string;
+  revSharePercentage?: number | string;
+  bankAccountNumber?: string;
+  bankIfscCode?: string;
+  bankAccountName?: string;
+  licenseFront?: File | string | null;
+  licenseBack?: File | string | null;
+  aadharFront?: File | string | null;
+  aadharBack?: File | string | null;
+  panCardImage?: File | string | null;
+  livePhoto?: File | string | null;
+  bankIdProof?: File | string | null;
+  providerMetadata?: Record<string, unknown> | null;
+  additionalDocuments?: Array<File | string>;
+  // Backwards compatible field names
   identityLivePhoto?: File | string | null;
   aadhaarCardFile?: File | string | null;
   panCardFile?: File | string | null;
   bankDetailsFile?: File | string | null;
-  additionalDocuments?: Array<File | string>;
 };
 
 function splitName(fullName: string): { firstName: string; lastName: string } {
@@ -45,6 +73,18 @@ function normalizeDriverDoc(value: DriverDocValue): string | undefined {
     return trimmed ? trimmed : undefined;
   }
   return undefined;
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function normalizeOptionalNumber(value: number | string | undefined): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  const numeric = typeof value === 'string' ? Number(value) : value;
+  return Number.isFinite(numeric) ? numeric : undefined;
 }
 
 function normalizeDriverDocList(
@@ -65,23 +105,35 @@ function normalizeDriverDocList(
 export async function createDriver(
   input: CreateDriverInput & { fleetId: string },
 ): Promise<Driver> {
-  const { firstName, lastName } = splitName(input.name);
+  const trimmedFirstName = normalizeOptionalString(input.firstName);
+  const trimmedLastName = normalizeOptionalString(input.lastName);
+  const resolvedName = normalizeOptionalString(input.name);
+  const fullName =
+    resolvedName || [trimmedFirstName, trimmedLastName].filter(Boolean).join(' ').trim();
+  const nameSource = trimmedFirstName ? fullName : resolvedName || '';
+  const { firstName, lastName } = trimmedFirstName
+    ? { firstName: trimmedFirstName, lastName: trimmedLastName || 'NA' }
+    : splitName(nameSource);
 
   // Create a DRIVER user first (required by backend)
   const userRes = await api.post<{ id: string }>(
     '/users',
     {
-      name: input.name,
+      name: fullName,
       phone: input.phone,
       role: 'DRIVER',
     },
   );
 
   const userId = userRes.data?.id;
-  const livePhoto = normalizeDriverDoc(input.identityLivePhoto);
-  const aadharFront = normalizeDriverDoc(input.aadhaarCardFile);
-  const panCardImage = normalizeDriverDoc(input.panCardFile);
-  const bankIdProof = normalizeDriverDoc(input.bankDetailsFile);
+  const livePhoto = normalizeDriverDoc(input.livePhoto ?? input.identityLivePhoto);
+  const aadharFront = normalizeDriverDoc(input.aadharFront ?? input.aadhaarCardFile);
+  const aadharBack = normalizeDriverDoc(input.aadharBack);
+  const licenseFront = normalizeDriverDoc(input.licenseFront);
+  const licenseBack = normalizeDriverDoc(input.licenseBack);
+  const panCardImage = normalizeDriverDoc(input.panCardImage ?? input.panCardFile);
+  const bankIdProof = normalizeDriverDoc(input.bankIdProof ?? input.bankDetailsFile);
+  const profilePic = normalizeDriverDoc(input.profilePic);
   const additionalDocuments = normalizeDriverDocList(input.additionalDocuments);
 
   const payload: Record<string, unknown> = {
@@ -92,11 +144,54 @@ export async function createDriver(
     mobile: input.phone,
     status: input.isActive ? 'ACTIVE' : 'INACTIVE',
   };
+  const email = normalizeOptionalString(input.email);
+  const dob = normalizeOptionalString(input.dob);
+  const address = normalizeOptionalString(input.address);
+  const city = normalizeOptionalString(input.city);
+  const pincode = normalizeOptionalString(input.pincode);
+  const aadharNumber = normalizeOptionalString(input.aadharNumber);
+  const panNumber = normalizeOptionalString(input.panNumber);
+  const dlNumber = normalizeOptionalString(input.dlNumber);
+  const licenseNumber = normalizeOptionalString(input.licenseNumber);
+  const gstNumber = normalizeOptionalString(input.gstNumber);
+  const paymentModel = normalizeOptionalString(input.paymentModel);
+  const depositBalance = normalizeOptionalNumber(input.depositBalance);
+  const revSharePercentage = normalizeOptionalNumber(input.revSharePercentage);
+  const bankAccountNumber = normalizeOptionalString(input.bankAccountNumber);
+  const bankIfscCode = normalizeOptionalString(input.bankIfscCode);
+  const bankAccountName = normalizeOptionalString(input.bankAccountName);
+  if (email) payload.email = email;
+  if (dob) payload.dob = dob;
+  if (address) payload.address = address;
+  if (city) payload.city = city;
+  if (pincode) payload.pincode = pincode;
+  if (profilePic) payload.profilePic = profilePic;
+  if (aadharNumber) payload.aadharNumber = aadharNumber;
+  if (panNumber) payload.panNumber = panNumber;
+  if (dlNumber) payload.dlNumber = dlNumber;
+  if (licenseNumber) payload.licenseNumber = licenseNumber;
+  if (gstNumber) payload.gstNumber = gstNumber;
+  if (paymentModel) payload.paymentModel = paymentModel;
+  if (depositBalance !== undefined) payload.depositBalance = depositBalance;
+  if (revSharePercentage !== undefined) payload.revSharePercentage = revSharePercentage;
+  if (bankAccountNumber) payload.bankAccountNumber = bankAccountNumber;
+  if (bankIfscCode) payload.bankIfscCode = bankIfscCode;
+  if (bankAccountName) payload.bankAccountName = bankAccountName;
   if (livePhoto) payload.livePhoto = livePhoto;
   if (aadharFront) payload.aadharFront = aadharFront;
+  if (aadharBack) payload.aadharBack = aadharBack;
+  if (licenseFront) payload.licenseFront = licenseFront;
+  if (licenseBack) payload.licenseBack = licenseBack;
   if (panCardImage) payload.panCardImage = panCardImage;
   if (bankIdProof) payload.bankIdProof = bankIdProof;
-  if (additionalDocuments) payload.providerMetadata = { additionalDocuments };
+  const providerMetadata =
+    input.providerMetadata && typeof input.providerMetadata === 'object'
+      ? { ...(input.providerMetadata as Record<string, unknown>) }
+      : {};
+  if (additionalDocuments) providerMetadata.additionalDocuments = additionalDocuments;
+  if (Object.keys(providerMetadata).length > 0) {
+    payload.providerMetadata = providerMetadata;
+  }
 
   const res = await api.post<DriverEntity>('/drivers', payload);
 

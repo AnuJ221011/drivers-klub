@@ -44,29 +44,77 @@ export type CreateVehicleInput = {
   model: string;
   vehicleColor?: string;
   ownership: VehicleOwnership;
+  ownerName?: string;
   fuelType: UiFuelType;
+  chassisNumber?: string;
+  vinNumber?: string;
+  rcFrontImage?: File | string | null;
+  rcBackImage?: File | string | null;
+  permitImage?: File | string | null;
   permitExpiry?: string;
+  fitnessImage?: File | string | null;
+  fitnessExpiry?: string;
+  insuranceImage?: File | string | null;
+  insuranceStart?: string;
   insuranceExpiry?: string;
   fleetMobileNumber?: string;
   isActive: boolean;
 };
 
+type VehicleDocValue = File | string | null | undefined;
+
+function normalizeVehicleDoc(value: VehicleDocValue): string | undefined {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+  }
+  return undefined;
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 export async function createVehicle(
   input: CreateVehicleInput & { fleetId: string },
 ): Promise<Vehicle> {
-  const res = await api.post<VehicleEntity>('/vehicles', {
+  const vehicleColor = normalizeOptionalString(input.vehicleColor);
+  const ownerName = normalizeOptionalString(input.ownerName);
+  const chassisNumber = normalizeOptionalString(input.chassisNumber);
+  const vinNumber = normalizeOptionalString(input.vinNumber);
+  const rcFrontImage = normalizeVehicleDoc(input.rcFrontImage);
+  const rcBackImage = normalizeVehicleDoc(input.rcBackImage);
+  const permitImage = normalizeVehicleDoc(input.permitImage);
+  const fitnessImage = normalizeVehicleDoc(input.fitnessImage);
+  const insuranceImage = normalizeVehicleDoc(input.insuranceImage);
+  const fleetMobileNumber = normalizeOptionalString(input.fleetMobileNumber);
+  const payload: Record<string, unknown> = {
     fleetId: input.fleetId,
     vehicleNumber: input.number,
     vehicleName: input.brand,
     vehicleModel: input.model,
-    vehicleColor: input.vehicleColor || undefined,
     ownership: input.ownership,
     fuelType: fromUiFuelType(input.fuelType),
-    permitExpiry: input.permitExpiry || undefined,
-    insuranceExpiry: input.insuranceExpiry || undefined,
-    fleetMobileNumber: input.fleetMobileNumber || undefined,
     status: input.isActive ? 'ACTIVE' : 'INACTIVE',
-  });
+  };
+  if (vehicleColor) payload.vehicleColor = vehicleColor;
+  if (ownerName) payload.ownerName = ownerName;
+  if (chassisNumber) payload.chassisNumber = chassisNumber;
+  if (vinNumber) payload.vinNumber = vinNumber;
+  if (rcFrontImage) payload.rcFrontImage = rcFrontImage;
+  if (rcBackImage) payload.rcBackImage = rcBackImage;
+  if (permitImage) payload.permitImage = permitImage;
+  if (fitnessImage) payload.fitnessImage = fitnessImage;
+  if (insuranceImage) payload.insuranceImage = insuranceImage;
+  if (input.permitExpiry) payload.permitExpiry = input.permitExpiry;
+  if (input.fitnessExpiry) payload.fitnessExpiry = input.fitnessExpiry;
+  if (input.insuranceStart) payload.insuranceStart = input.insuranceStart;
+  if (input.insuranceExpiry) payload.insuranceExpiry = input.insuranceExpiry;
+  if (fleetMobileNumber) payload.fleetMobileNumber = fleetMobileNumber;
+
+  const res = await api.post<VehicleEntity>('/vehicles', payload);
 
   return toUiVehicle(res.data);
 }
