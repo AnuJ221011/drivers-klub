@@ -81,6 +81,15 @@ function normalizeOptionalString(value: unknown): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+function normalizeDateInput(value: unknown): string | undefined {
+  const normalized = normalizeOptionalString(value);
+  if (!normalized) return undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    return `${normalized}T00:00:00.000Z`;
+  }
+  return normalized;
+}
+
 function normalizeOptionalNumber(value: number | string | undefined): number | undefined {
   if (value === undefined || value === null) return undefined;
   const numeric = typeof value === 'string' ? Number(value) : value;
@@ -145,7 +154,7 @@ export async function createDriver(
     status: input.isActive ? 'ACTIVE' : 'INACTIVE',
   };
   const email = normalizeOptionalString(input.email);
-  const dob = normalizeOptionalString(input.dob);
+  const dob = normalizeDateInput(input.dob);
   const address = normalizeOptionalString(input.address);
   const city = normalizeOptionalString(input.city);
   const pincode = normalizeOptionalString(input.pincode);
@@ -257,7 +266,7 @@ export async function updateDriverDetails(
   if (phone) patch.mobile = phone;
 
   const email = normalizeOptionalString(input.email);
-  const dob = normalizeOptionalString(input.dob);
+  const dob = normalizeDateInput(input.dob);
   const address = normalizeOptionalString(input.address);
   const city = normalizeOptionalString(input.city);
   const pincode = normalizeOptionalString(input.pincode);
