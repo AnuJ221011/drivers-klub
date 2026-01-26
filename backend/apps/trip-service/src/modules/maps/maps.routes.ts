@@ -10,13 +10,13 @@ router.use(authenticate);
 
 router.get(
     "/autocomplete",
-    authorizeRoles("DRIVER", "OPERATIONS", "MANAGER", "SUPER_ADMIN"),
+    authorizeRoles("DRIVER", "OPERATIONS", "MANAGER", "SUPER_ADMIN", "FLEET_ADMIN"),
     MapsController.getAutocomplete
 );
 
 router.get(
     "/geocode",
-    authorizeRoles("DRIVER", "OPERATIONS", "MANAGER", "SUPER_ADMIN"),
+    authorizeRoles("DRIVER", "OPERATIONS", "MANAGER", "SUPER_ADMIN", "FLEET_ADMIN"),
     MapsController.getGeocode
 );
 
