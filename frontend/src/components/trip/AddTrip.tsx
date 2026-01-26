@@ -177,7 +177,7 @@ export default function AddTrip({ onClose, onCreated }: Props) {
   const [loadingEstimate, setLoadingEstimate] = useState(false);
   const [estimate, setEstimate] = useState<PricingPreviewResult | null>(null);
 
-  const [tripType, setTripType] = useState<'AIRPORT'>('AIRPORT');
+  const [tripType, setTripType] = useState<'AIRPORT' | 'RENTAL' | 'INTER_CITY'>('AIRPORT');
   const [originCity, setOriginCity] = useState<'DELHI' | 'NOIDA' | 'GURGAON' | 'FARIDABAD' | 'GHAZIABAD'>('DELHI');
   const [vehicleSku, setVehicleSku] = useState<'TATA_TIGOR_EV'>('TATA_TIGOR_EV');
 
@@ -359,8 +359,12 @@ export default function AddTrip({ onClose, onCreated }: Props) {
       <Select
         label="Trip Type"
         value={tripType}
-        onChange={(e) => setTripType(e.target.value as 'AIRPORT')}
-        options={[{ label: 'Airport', value: 'AIRPORT' }]}
+        onChange={(e) => setTripType(e.target.value as 'AIRPORT' | 'RENTAL' | 'INTER_CITY')}
+        options={[
+          { label: 'Airport', value: 'AIRPORT' },
+          { label: 'Rental', value: 'RENTAL' },
+          { label: 'Inter-city', value: 'INTER_CITY' },
+        ]}
       />
 
       <Select
