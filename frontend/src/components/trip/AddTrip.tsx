@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
+import PhoneInput from '../ui/PhoneInput';
 
 import { createTrip } from '../../api/trip.api';
 import { previewPricing, type PricingPreviewResult } from '../../api/pricing.api';
@@ -421,11 +422,12 @@ export default function AddTrip({ onClose, onCreated }: Props) {
         onChange={(e) => setPassengerName(e.target.value)}
         placeholder="Passenger name"
       />
-      <Input
+      <PhoneInput
         label="Passenger Phone"
         value={passengerPhone}
-        onChange={(e) => setPassengerPhone(e.target.value)}
+        onChange={setPassengerPhone}
         placeholder="10-digit phone number"
+        requiredDigits={10}
       />
 
       <Input
