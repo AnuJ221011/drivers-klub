@@ -180,16 +180,46 @@ export class AdminTripController {
           skip,
           take: limit,
           orderBy: { createdAt: "desc" },
-          include: {
+          select: {
+            id: true,
+            pickupTime: true,
+            pickupLocation: true,
+            dropLocation: true,
+            pickupLat: true,
+            pickupLng: true,
+            dropLat: true,
+            dropLng: true,
+            originCity: true,
+            destinationCity: true,
+            distanceKm: true,
+            price: true,
+            status: true,
+            tripType: true,
+            provider: true,
+            providerBookingId: true,
+            providerStatus: true,
+            vehicleSku: true,
+            createdAt: true,
+            updatedAt: true,
+            completedAt: true,
             tripAssignments: {
-              include: {
-                driver: true
-              }
+              select: {
+                id: true,
+                driverId: true,
+                vehicleId: true,
+                status: true,
+              },
             },
-            providerMapping: true
-          }
+            providerMapping: {
+              select: {
+                id: true,
+                rideId: true,
+                providerType: true,
+              },
+            },
+          },
         }),
-        prisma.ride.count({ where })
+        prisma.ride.count({ where }),
       ]);
 
       return ApiResponse.send(res, 200, { trips, total, page, limit }, "Trips retrieved successfully");
