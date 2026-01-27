@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -206,11 +206,12 @@ export default function FleetCreateHub() {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   const hasGoogleKey = Boolean((apiKey || "").trim());
 
-  const googleEmbedSrc = useMemo(() => {
-    const q = `${location.lat},${location.lng}`;
-    const z = 13;
-    return `https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`;
-  }, [location.lat, location.lng]);
+  const errorMaskStyle = `
+    .gm-err-container,
+    .gm-err-content {
+      display: none !important;
+    }
+  `;
 
   /* ---------- Reverse Geocoding ---------- */
   const fetchAddress = async (lat: number, lng: number) => {
@@ -281,8 +282,13 @@ export default function FleetCreateHub() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ---------- Map ---------- */}
         <div className="lg:col-span-2 h-[520px] rounded-lg overflow-hidden border">
-          {hasGoogleKey ? (
+          {!hasGoogleKey ? (
+            <div className="h-full w-full flex items-center justify-center text-sm text-black/60">
+              Google Maps API key is required to load the map.
+            </div>
+          ) : (
             <APIProvider apiKey={apiKey!}>
+              <style>{errorMaskStyle}</style>
               <div className="relative h-full w-full">
                 <div className="absolute top-3 left-3 right-3 z-10 max-w-xl">
                   <PlaceSearch
@@ -309,20 +315,6 @@ export default function FleetCreateHub() {
                 </Map>
               </div>
             </APIProvider>
-          ) : (
-            <div className="h-full w-full">
-              <iframe
-                title="Google Map"
-                src={googleEmbedSrc}
-                className="h-full w-full"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-              <div className="p-2 text-xs text-black/60 border-t bg-white">
-                Google map is shown in embed mode (no API key). To enable map clicks + geofence drawing,
-                configure <code>VITE_GOOGLE_MAPS_API_KEY</code>.
-              </div>
-            </div>
           )}
         </div>
 

@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import Button from '../ui/Button';
+import PhoneInput from '../ui/PhoneInput';
 
 import { createTrip } from '../../api/trip.api';
 import { previewPricing, type PricingPreviewResult } from '../../api/pricing.api';
@@ -177,7 +178,7 @@ export default function AddTrip({ onClose, onCreated }: Props) {
   const [loadingEstimate, setLoadingEstimate] = useState(false);
   const [estimate, setEstimate] = useState<PricingPreviewResult | null>(null);
 
-  const [tripType, setTripType] = useState<'AIRPORT'>('AIRPORT');
+  const [tripType, setTripType] = useState<'AIRPORT' | 'RENTAL' | 'INTER_CITY'>('AIRPORT');
   const [originCity, setOriginCity] = useState<'DELHI' | 'NOIDA' | 'GURGAON' | 'FARIDABAD' | 'GHAZIABAD'>('DELHI');
   const [vehicleSku, setVehicleSku] = useState<'TATA_TIGOR_EV'>('TATA_TIGOR_EV');
 
@@ -359,8 +360,12 @@ export default function AddTrip({ onClose, onCreated }: Props) {
       <Select
         label="Trip Type"
         value={tripType}
-        onChange={(e) => setTripType(e.target.value as 'AIRPORT')}
-        options={[{ label: 'Airport', value: 'AIRPORT' }]}
+        onChange={(e) => setTripType(e.target.value as 'AIRPORT' | 'RENTAL' | 'INTER_CITY')}
+        options={[
+          { label: 'Airport', value: 'AIRPORT' },
+          { label: 'Rental', value: 'RENTAL' },
+          { label: 'Inter-city', value: 'INTER_CITY' },
+        ]}
       />
 
       <Select
@@ -417,11 +422,12 @@ export default function AddTrip({ onClose, onCreated }: Props) {
         onChange={(e) => setPassengerName(e.target.value)}
         placeholder="Passenger name"
       />
-      <Input
+      <PhoneInput
         label="Passenger Phone"
         value={passengerPhone}
-        onChange={(e) => setPassengerPhone(e.target.value)}
+        onChange={setPassengerPhone}
         placeholder="10-digit phone number"
+        requiredDigits={10}
       />
 
       <Input
