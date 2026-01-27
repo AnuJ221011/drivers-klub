@@ -116,7 +116,7 @@ export default function VehicleManagement() {
     { key: "number", label: "Vehicle Number" },
     { key: "brand", label: "Brand" },
     { key: "model", label: "Model" },
-    { key: "bodyType", label: "Body Type" },
+    { key: "vehicleColor", label: "Vehicle Color" },
     { key: "fuelType", label: "Fuel Type" },
     {
       key: "hub",

@@ -40,11 +40,11 @@ export default function FleetManagers() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      {/* <div className="flex justify-end">
         <Button onClick={() => setOpen(true)}>
           + Add Managers
         </Button>
-      </div>
+      </div> */}
 
       {loading ? (
         <div className="text-sm text-black/60">Loading managers…</div>
