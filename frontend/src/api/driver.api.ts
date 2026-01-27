@@ -58,6 +58,24 @@ export type CreateDriverInput = {
   bankDetailsFile?: File | string | null;
 };
 
+export type DriverUploadUrl = {
+  uploadUrl: string;
+  url: string;
+  key: string;
+};
+
+type DriverUploadFolder = 'selfies' | 'odometer' | 'documents' | 'profiles' | 'vehicles';
+
+export async function getDriverUploadUrl(
+  folder: DriverUploadFolder,
+  fileType: string,
+): Promise<DriverUploadUrl> {
+  const res = await api.get<DriverUploadUrl>('/drivers/upload-url', {
+    params: { folder, fileType },
+  });
+  return res.data;
+}
+
 function splitName(fullName: string): { firstName: string; lastName: string } {
   const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { firstName: '', lastName: 'NA' };

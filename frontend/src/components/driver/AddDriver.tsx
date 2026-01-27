@@ -105,7 +105,7 @@ import Select from "../ui/Select";
 import Button from "../ui/Button";
 import PhoneInput from "../ui/PhoneInput";
 
-import { createDriver } from '../../api/driver.api';
+import { createDriver, getDriverUploadUrl } from '../../api/driver.api';
 import { addDriverToHub, getFleetHubs } from '../../api/fleetHub.api';
 import { useFleet } from '../../context/FleetContext';
 
@@ -133,7 +133,7 @@ export default function AddDriver({ onClose, onCreated }: Props) {
   const [phone, setPhone] = useState(''); // store digits only
   const [email, setEmail] = useState('');
   const [dob, setDob] = useState('');
-  const [profilePic, setProfilePic] = useState('');
+  const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [pincode, setPincode] = useState('');
@@ -199,6 +199,23 @@ export default function AddDriver({ onClose, onCreated }: Props) {
     };
   }, [effectiveFleetId]);
 
+  async function uploadProfilePicture(file: File): Promise<string> {
+    const inferredType = file.type && file.type.includes('/') ? file.type.split('/')[1] : '';
+    const fallbackType = file.name.split('.').pop() || 'jpeg';
+    const fileType = inferredType || fallbackType;
+    const { uploadUrl, url } = await getDriverUploadUrl('profiles', fileType);
+    const contentType = file.type || `image/${fileType}`;
+    const res = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType },
+      body: file,
+    });
+    if (!res.ok) {
+      throw new Error('Failed to upload profile picture');
+    }
+    return url;
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const digits = phone.replace(/\D/g, '');
@@ -221,6 +238,9 @@ export default function AddDriver({ onClose, onCreated }: Props) {
 
     setSaving(true);
     try {
+      const profilePicUrl = profilePicFile
+        ? await uploadProfilePicture(profilePicFile)
+        : undefined;
       const created = await createDriver({
         firstName: trimmedFirstName,
         lastName: trimmedLastName || undefined,
@@ -229,7 +249,7 @@ export default function AddDriver({ onClose, onCreated }: Props) {
         fleetId: effectiveFleetId,
         email: email.trim() || undefined,
         dob: dob || undefined,
-        profilePic: profilePic.trim() || undefined,
+        profilePic: profilePicUrl,
         address: address.trim() || undefined,
         city: city.trim() || undefined,
         pincode: pincode.trim() || undefined,
@@ -314,10 +334,11 @@ export default function AddDriver({ onClose, onCreated }: Props) {
             disabled={saving}
           />
           <Input
-            label="Profile Picture URL"
-            placeholder="https://..."
-            value={profilePic}
-            onChange={(e) => setProfilePic(e.target.value)}
+            label="Profile Picture"
+            type="file"
+            accept="image/*"
+            onChange={(e) => setProfilePicFile(e.target.files?.[0] || null)}
+            helperText={formatFileName(profilePicFile)}
             disabled={saving}
           />
         </div>
