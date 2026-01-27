@@ -79,19 +79,19 @@ export type UpdateDriverInput = {
   city?: string;
   pincode?: string;
   profilePic?: string;
-  
+
   // KYC Value Fields
   aadharNumber?: string;
   panNumber?: string;
   dlNumber?: string;
   licenseNumber?: string;
   gstNumber?: string;
-  
+
   // Bank Details
   bankAccountNumber?: string;
   bankIfscCode?: string;
   bankAccountName?: string;
-  
+
   // KYC Attachment Fields
   licenseFront?: string;
   licenseBack?: string;
@@ -100,7 +100,12 @@ export type UpdateDriverInput = {
   panCardImage?: string;
   livePhoto?: string;
   bankIdProof?: string;
-  
+  driverAgreement?: string;
+  policeVerification?: string;
+  currentAddressProof?: string;
+  permanentAddressProof?: string;
+
+
   // Vehicle Documents
   rcFrontImage?: string;
   rcBackImage?: string;
@@ -111,9 +116,10 @@ export type UpdateDriverInput = {
   insuranceExpiry?: Date;
   chassisNumber?: string;
   vinNumber?: string;
-  
+
   providerMetadata?: Prisma.InputJsonObject;
-  additionalDocuments?: string[];
+  additionalDocuments?: any[];
+
 };
 
 export type UpdateDriverStatusInput = {

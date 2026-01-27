@@ -169,6 +169,10 @@ model Driver {
   panCardImage       String?
   livePhoto          String?
   bankIdProof        String?
+  driverAgreement    String?
+  policeVerification String?
+  currentAddressProof String?
+  permanentAddressProof String?
   kycStatus          KycStatus        @default(PENDING)
   status             DriverStatus     @default(ACTIVE)
   createdAt          DateTime         @default(now())

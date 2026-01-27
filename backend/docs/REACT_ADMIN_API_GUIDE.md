@@ -5,13 +5,16 @@
 **Base URL (Development):** `http://localhost:3000` (API Gateway)  
 **Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
 **Auth:** Requires `Authorization: Bearer <TOKEN>` with Role `SUPER_ADMIN`, `OPERATIONS`, or `MANAGER`  
-**Version:** 4.4.0 (MMT Tracking Events + Public Booking + Referrals)  
+**Version:** 4.5.0 (MMT Integration Complete)  
 **Last Updated:** January 23, 2026  
 **Last Verified:** January 23, 2026
 
-## What's New in v4.4.0
+## What's New in v4.5.0
 
-- **MMT Tracking Integration** - Automatic notifications to MMT when assigning/reassigning/unassigning drivers
+- **MMT Integration Complete** - Full inbound + outbound tracking
+  - Inbound: search, block, paid, cancel, reschedule
+  - Outbound: assign, reassign, unassign, start, arrived, boarded, alight, not-boarded, location
+  - Automatic `providerBookingId` storage from MMT paid endpoint
 - **FLEET_ADMIN Role** - Fleet-level administration with scoped access
 - **Public Booking API** - Customers can book trips without auth
 - **Referral System** - Driver referral tracking and rewards
@@ -167,11 +170,10 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ---
 
-### 2.3 Assign Driver (Dispatch)
+### 3.2 Assign Driver (Dispatch)
 
-**Endpoint:** `POST /admin/trips/assign`  
-**Role:** `SUPER_ADMIN`  
-**Description:** The core action of the dashboard. Logic: "Select Trip → Select Driver → Assign"
+**Endpoint:** `POST /admin/trips/assign`
+**Role:** `OPERATIONS`, `MANAGER`
 
 **Request Body:**
 
@@ -182,35 +184,76 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 }
 ```
 
-**Response (200):**
+**Response (201):**
 
 ```json
 {
   "success": true,
-  "message": "Driver assigned successfully"
+  "message": "Driver assigned successfully",
+  "data": {
+    "assignment": {
+      "id": "uuid",
+      "status": "ASSIGNED",
+      "tripId": "uuid-trip-id",
+      "driverId": "uuid-driver-id"
+    }
+  }
 }
 ```
 
-**Side Effects:**
-
-1. Updates Trip Status → `DRIVER_ASSIGNED`
-2. Creates `TripAssignment` record (transactional)
-3. Pushes Notification to Driver App
-4. If MMT Trip, pushes Webhook to MMT (`/driver-assigned`)
-
 ---
 
-### 2.4 Unassign Driver
+### 3.3 Reassign Driver
 
-**Endpoint:** `POST /admin/trips/unassign`  
-**Role:** `SUPER_ADMIN`  
-**Description:** Force cancel/detach driver from trip
+**Endpoint:** `POST /admin/trips/reassign`
+**Role:** `OPERATIONS`, `MANAGER`
+
+**Use Case:** Switch driver for an already assigned trip (before or during trip).
+**Logic:** Atomically unassigns current driver and assigns new driver.
 
 **Request Body:**
 
 ```json
 {
-  "tripId": "uuid"
+  "tripId": "uuid-trip-id",
+  "driverId": "uuid-new-driver-id"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Driver reassigned successfully",
+  "data": {
+    "assignment": {
+      "id": "uuid-new-assignment",
+      "status": "ASSIGNED"
+    }
+  }
+}
+```
+
+---
+
+### 3.4 Unassign Driver (Detach)
+
+**Endpoint:** `POST /admin/trips/unassign`
+**Role:** `OPERATIONS`, `MANAGER`
+
+**Use Case:** Remove driver from trip without assigning a new one immediately.
+**Logic:**
+
+- Reverts trip status to `CREATED`
+- Triggers `unassign` webhook to MMT (if applicable)
+- Supports detaching even if trip status is `STARTED` (useful for breakdown scenarios)
+
+**Request Body:**
+
+```json
+{
+  "tripId": "uuid-trip-id"
 }
 ```
 
@@ -225,8 +268,19 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 **Side Effects:**
 
-- Status: `DRIVER_ASSIGNED` → `CREATED`
-- If MMT Trip, triggers `/detach-trip` webhook
+- Status: Reverts to `CREATED` (trip available for re-dispatch)
+- Driver marked as `isAvailable: true`
+- Assignment status updated to `UNASSIGNED`
+- **If MMT Trip**: Calls `POST /dispatch/{booking_id}/detach` to MMT
+
+**Allowed Trip Statuses:**
+
+- `CREATED` - Trip not yet assigned (no-op)
+- `DRIVER_ASSIGNED` - Driver assigned but hasn't started
+- `STARTED` - Driver started trip but customer hasn't boarded yet
+
+> [!WARNING]
+> Cannot detach after passenger has boarded (`BOARDED` status) or trip is completed/cancelled.
 
 ---
 
@@ -256,7 +310,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 **Side Effects:**
 
-- If MMT Trip, triggers `/reassign-chauffeur` webhook
+- **If MMT Trip**: Calls `POST /dispatch/{booking_id}/reassign` to MMT with new driver & vehicle details
 
 ---
 
@@ -265,22 +319,66 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 **Identification**:
 Trips originating from MakeMyTrip will have:
 
-- `tripType`: `AIRPORT`
-- `providerMapping`:
+- `provider`: `"MMT"`
+- `providerBookingId`: `"BKS88888800926"` (MMT's booking ID used for all tracking)
+- `providerMapping.externalBookingId`: Same as above
+- `providerMeta.otp`: OTP for passenger verification
 
 ```json
 {
-  "providerType": "MMT",
-  "externalBookingId": "MMT-XXXXXX",
-  "status": "CONFIRMED"
+  "provider": "MMT",
+  "providerBookingId": "BKS88888800926",
+  "providerMapping": {
+    "providerType": "MMT",
+    "externalBookingId": "BKS88888800926",
+    "providerStatus": "CONFIRMED"
+  },
+  "providerMeta": {
+    "otp": "1056"
+  }
 }
 ```
 
+**MMT Tracking Events (Automatic)**:
+
+When you perform admin actions, the system automatically sends tracking events to MMT:
+
+| Admin Action | MMT API Called | Endpoint |
+|--------------|----------------|----------|
+| Assign Driver | `POST /dispatch/{booking_id}/assign` | Sends driver + vehicle details |
+| Reassign Driver | `POST /dispatch/{booking_id}/reassign` | Sends new driver + vehicle |
+| Unassign Driver | `POST /dispatch/{booking_id}/unassign` | Removes driver from booking |
+
+**Driver App Actions → MMT**:
+
+| Driver Action | MMT API Called |
+|---------------|----------------|
+| Start Trip | `POST /track/{booking_id}/start` |
+| Arrived | `POST /track/{booking_id}/arrived` |
+| Onboard (OTP verified) | `POST /track/{booking_id}/boarded` |
+| Complete Trip | `POST /track/{booking_id}/alight` |
+| No Show | `POST /track/{booking_id}/not-boarded` |
+| Location Update | `PUT /track/{booking_id}/location` (every 30s) |
+
 **Operational Rules**:
 
-1. **Auto-Assignment**: These are often auto-assigned or require priority manual assignment.
-2. **Cancellation**: Cancelling an MMT trip here triggers the `/detach-trip` webhook to MMT.
-3. **Reassignment**: Reassigning triggers `/reassign-chauffeur` webhook.
+1. **Priority Assignment**: MMT trips should be assigned promptly as they have SLA requirements.
+2. **Cancellation**: Unassigning triggers `/dispatch/{booking_id}/unassign` webhook to MMT.
+3. **Reassignment**: Triggers `/dispatch/{booking_id}/reassign` webhook with new driver details.
+4. **Vehicle Required**: Driver must have an assigned vehicle before being assigned to MMT trips.
+
+**Environment Variables for MMT**:
+
+```bash
+# Inbound (MMT → DriversKlub)
+MMT_INBOUND_USERNAME=mmt_inbound_service
+MMT_INBOUND_PASSWORD=your_secure_password
+
+# Outbound (DriversKlub → MMT)
+MMT_TRACKING_URL=https://cabs-partners-staging.makemytrip.com/tracking/pp2/api/partner/v1
+MMT_TRACKING_USER=your_mmt_tracking_username
+MMT_TRACKING_PASS=your_mmt_tracking_password
+```
 
 ---
 
@@ -517,6 +615,10 @@ Trips originating from MakeMyTrip will have:
   "pincode": "110001",
   
   "aadharNumber": "123456789012",
+  "driverAgreement": "https://s3.aws.com/agreement.pdf",
+  "policeVerification": "https://s3.aws.com/pcv.jpg",
+  "currentAddressProof": "https://s3.aws.com/current.jpg",
+  "permanentAddressProof": "https://s3.aws.com/permanent.jpg",
   "panNumber": "ABCDE1234F",
   "dlNumber": "DL-12345-67890",
   "gstNumber": "22AAAAA0000A1Z5",

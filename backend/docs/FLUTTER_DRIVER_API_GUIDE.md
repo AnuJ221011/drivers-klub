@@ -5,14 +5,16 @@
 **Base URL (Development):** `http://localhost:3000` (API Gateway)  
 **Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
 **Auth Header:** `Authorization: Bearer <ACCESS_TOKEN>`  
-**Version:** 4.4.0 (MMT Tracking Events + Public Booking + Referrals)  
+**Version:** 4.5.0 (MMT Integration Complete)  
 **Last Updated:** January 23, 2026  
 **Last Verified:** January 23, 2026
 
-## What's New in v4.4.0
+## What's New in v4.5.0
 
-- **MMT Tracking Events** - Trip actions (start, arrived, complete) automatically sync to MakeMyTrip
-- **Location Updates** - Send location every 30 seconds during active MMT trips via `POST /trips/:id/location`
+- **MMT Integration Complete** - Full tracking sync for all trip events
+  - Automatic sync: start, arrived, boarded, alight, not-boarded
+  - Location updates every 30 seconds via `POST /trips/:id/location`
+  - Proper `booking_id` storage from MMT paid endpoint
 - **Referral System** - Drivers get unique referral codes to invite other drivers
 - **Enhanced Onboarding** - Full KYC submission via `/drivers/new-driver-onboard`
 - **Bank Account Details** - Required for payout processing
@@ -49,8 +51,8 @@ The new onboarding flow allows drivers to self-register via the mobile app. It r
 
 Use this to screen the phone number.
 
-* If user exists -> Returns error (User already registered).
-* If new -> Sends OTP via SMS.
+- If user exists -> Returns error (User already registered).
+- If new -> Sends OTP via SMS.
 
 ```json
 // Request
@@ -130,6 +132,10 @@ Once signup is complete, use the dedicated onboarding endpoint to submit full KY
   "aadharFront": "https://s3.aws.com/aadhaar-front.jpg",
   "aadharBack": "https://s3.aws.com/aadhaar-back.jpg",
   "panPhoto": "https://s3.aws.com/pan.jpg",
+  "driverAgreement": "https://s3.aws.com/agreement.pdf",
+  "policeVerification": "https://s3.aws.com/pcv.jpg",
+  "currentAddressProof": "https://s3.aws.com/current-address.jpg",
+  "permanentAddressProof": "https://s3.aws.com/permanent-address.jpg",
   
   "haveVehicle": true,
   "vehicleModel": "Tata Tigor EV",
@@ -165,41 +171,41 @@ Use `PATCH /drivers/:id` to update individual fields after onboarding.
 
 **Personal Information:**
 
-* `firstName`, `lastName`, `mobile`
-* `email`
-* `dob` (Date of Birth)
-* `address`, `city`, `pincode`
-* `profilePic`
+- `firstName`, `lastName`, `mobile`
+- `email`
+- `dob` (Date of Birth)
+- `address`, `city`, `pincode`
+- `profilePic`
 
 **KYC Values (Document Numbers):**
 
-* `aadharNumber` - 12-digit Aadhaar number
-* `panNumber` - 10-character PAN
-* `dlNumber` - Driving License number
-* `licenseNumber` - Alternative DL field
-* `gstNumber` - GST number (optional)
+- `aadharNumber` - 12-digit Aadhaar number
+- `panNumber` - 10-character PAN
+- `dlNumber` - Driving License number
+- `licenseNumber` - Alternative DL field
+- `gstNumber` - GST number (optional)
 
 **Bank Account Details (for payouts):**
 
-* `bankAccountNumber` - Bank account number
-* `bankIfscCode` - IFSC code
-* `bankAccountName` - Account holder name
+- `bankAccountNumber` - Bank account number
+- `bankIfscCode` - IFSC code
+- `bankAccountName` - Account holder name
 
 **Document Uploads (via S3 Presigned URLs):**
 
-* `licenseFront`, `licenseBack` - Driving License images
-* `aadharFront`, `aadharBack` - Aadhaar card images
-* `panCardImage` - PAN card image
-* `livePhoto` - Live selfie for verification
-* `bankIdProof` - Bank passbook/statement image
+- `licenseFront`, `licenseBack` - Driving License images
+- `aadharFront`, `aadharBack` - Aadhaar card images
+- `panCardImage` - PAN card image
+- `livePhoto` - Live selfie for verification
+- `bankIdProof` - Bank passbook/statement image
 
 **Vehicle Documents (if driver has assigned vehicle):**
 
-* `rcFrontImage`, `rcBackImage` - RC images
-* `fitnessImage`, `fitnessExpiry` - Fitness certificate
-* `insuranceImage`, `insuranceStart`, `insuranceExpiry` - Insurance documents
-* `chassisNumber` - Vehicle chassis number
-* `vinNumber` - Vehicle Identification Number
+- `rcFrontImage`, `rcBackImage` - RC images
+- `fitnessImage`, `fitnessExpiry` - Fitness certificate
+- `insuranceImage`, `insuranceStart`, `insuranceExpiry` - Insurance documents
+- `chassisNumber` - Vehicle chassis number
+- `vinNumber` - Vehicle Identification Number
 
 ### 1.2 Send OTP
 
@@ -267,11 +273,11 @@ x-client-type: app
 
 **Token Expiry:**
 
-* **Access Token:** 15 minutes (all clients)
-* **Refresh Token:**
-  * **Mobile App** (`x-client-type: app`): 30 days
-  * **Web Client** (`x-client-type: web`): 1 day
-  * **Default** (no header): 1 day
+- **Access Token:** 15 minutes (all clients)
+- **Refresh Token:**
+  - **Mobile App** (`x-client-type: app`): 30 days
+  - **Web Client** (`x-client-type: web`): 1 day
+  - **Default** (no header): 1 day
 
 **Action:**
 
@@ -346,7 +352,7 @@ x-client-type: app
 
 **Side Effects:**
 
-* **Rapido Status**: Driver is automatically marked **ONLINE** on Rapido (if no other conflicts exist).
+- **Rapido Status**: Driver is automatically marked **ONLINE** on Rapido (if no other conflicts exist).
 
 ---
 
@@ -369,8 +375,8 @@ x-client-type: app
 
 **Note:**
 
-* `cashDeposited` is the Amount the driver declares they are submitting (Cash + UPI collection) at day end.
-* `odometerImageUrl` is optional. Upload odometer image to S3 first using `/drivers/upload-url`, then send the URL.
+- `cashDeposited` is the Amount the driver declares they are submitting (Cash + UPI collection) at day end.
+- `odometerImageUrl` is optional. Upload odometer image to S3 first using `/drivers/upload-url`, then send the URL.
 
 **Response (200):**
 
@@ -387,12 +393,12 @@ x-client-type: app
 
 **Error Responses (400):**
 
-* **Invalid Odometer:** `message: "Odometer reading cannot be less than start reading (10500)"`
-* **Invalid Cash:** `message: "Invalid cash deposit amount"`
+- **Invalid Odometer:** `message: "Odometer reading cannot be less than start reading (10500)"`
+- **Invalid Cash:** `message: "Invalid cash deposit amount"`
 
 **Side Effects:**
 
-* **Rapido Status**: Driver is forced **OFFLINE** on Rapido immediately.
+- **Rapido Status**: Driver is forced **OFFLINE** on Rapido immediately.
 
 ---
 
@@ -575,6 +581,12 @@ x-client-type: app
 
 Perform these actions **strictly in order**. Send GPS coordinates with every status change.
 
+> [!IMPORTANT]
+> **Trip Types:**
+>
+> - **Internal Trips:** Created by admin, standard flow
+> - **External Trips (MMT):** From MakeMyTrip, includes `provider: "MMT"`, `providerBookingId`, and `providerMeta.otp`
+
 ---
 
 #### Step A: Start Trip (En-route to Pickup)
@@ -593,22 +605,70 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 **⚠️ STRICT CONSTRAINT:**
 
-* Can ONLY start within **2.5 hours** of `pickupTime`
-* Error if too early: `400 "Cannot start trip more than 2.5 hours before pickup"`
+- Can ONLY start within **2.5 hours** of `pickupTime`
+- Error if too early: `400 "Cannot start trip more than 2.5 hours before pickup"`
 
-**Response (200):**
+**Response (200) - Internal Trip:**
 
 ```json
 {
   "success": true,
-  "message": "Trip started successfully"
+  "statusCode": 200,
+  "message": "Trip started successfully",
+  "data": {
+    "id": "uuid-trip-id",
+    "tripType": "AIRPORT",
+    "originCity": "Delhi",
+    "destinationCity": "Noida",
+    "pickupLocation": "Terminal 1, IGI Airport",
+    "pickupLat": 28.5550838,
+    "pickupLng": 77.0844015,
+    "dropLocation": "Noida, Sector 62",
+    "pickupTime": "2026-01-24T16:00:00.000Z",
+    "distanceKm": 40,
+    "price": 950,
+    "status": "STARTED",
+    "startedAt": "2026-01-24T05:44:45.105Z",
+    "provider": null,
+    "providerBookingId": null
+  }
+}
+```
+
+**Response (200) - MMT Trip:**
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Trip started successfully",
+  "data": {
+    "id": "uuid-trip-id",
+    "tripType": "AIRPORT",
+    "originCity": "Delhi",
+    "destinationCity": "Noida",
+    "pickupLocation": "Terminal 1, IGI Airport",
+    "pickupLat": 28.5550838,
+    "pickupLng": 77.0844015,
+    "dropLocation": "Noida, Sector 62",
+    "pickupTime": "2026-01-24T16:00:00.000Z",
+    "distanceKm": 40,
+    "price": 950,
+    "status": "STARTED",
+    "startedAt": "2026-01-24T05:44:45.105Z",
+    "provider": "MMT",
+    "providerBookingId": "BKS88888800933",
+    "providerMeta": {
+      "otp": "4963"
+    }
+  }
 }
 ```
 
 **Side Effects:**
 
-* Status: `DRIVER_ASSIGNED` → `STARTED`
-* MMT Webhook triggered (if MMT trip)
+- Status: `DRIVER_ASSIGNED` → `STARTED`
+- **MMT Trip:** Webhook `POST /track/{providerBookingId}/start` sent to MMT with driver location
 
 ---
 
@@ -633,22 +693,55 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 **Errors:**
 
-* `400 "Driver not within 500m geofence"` - Too far from pickup
-* `400 "Cannot arrive more than 30 minutes before pickup"` - Too early
+- `400 "Driver not within 500m geofence"` - Too far from pickup
+- `400 "Cannot arrive more than 30 minutes before pickup"` - Too early
 
-**Response (200):**
+**Response (200) - Internal Trip:**
 
 ```json
 {
   "success": true,
-  "message": "Arrival confirmed"
+  "statusCode": 200,
+  "message": "Driver marked as arrived",
+  "data": {
+    "id": "uuid-trip-id",
+    "status": "ARRIVED_EVENT_SENT",
+    "arrivedAt": "2026-01-24T05:53:24.389Z",
+    "pickupLocation": "Terminal 1, IGI Airport",
+    "pickupLat": 28.5550838,
+    "pickupLng": 77.0844015
+  }
+}
+```
+
+**Response (200) - MMT Trip:**
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Driver marked as arrived",
+  "data": {
+    "id": "uuid-trip-id",
+    "status": "ARRIVED_EVENT_SENT",
+    "arrivedAt": "2026-01-24T05:53:24.389Z",
+    "pickupLocation": "Terminal 1, IGI Airport",
+    "pickupLat": 28.5550838,
+    "pickupLng": 77.0844015,
+    "provider": "MMT",
+    "providerBookingId": "BKS88888800933",
+    "providerMeta": {
+      "otp": "4963"
+    }
+  }
 }
 ```
 
 **Side Effects:**
 
-* Status: `STARTED` → `ARRIVED`
-* SMS sent to customer: "Driver Arrived"
+- Status: `STARTED` → `ARRIVED_EVENT_SENT`
+- SMS sent to customer: "Driver Arrived"
+- **MMT Trip:** Webhook `POST /track/{providerBookingId}/arrived` sent to MMT
 
 ---
 
@@ -661,24 +754,53 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 ```json
 {
-  "otp": "1234"
+  "otp": "4963",
+  "lat": 28.5550838,
+  "lng": 77.0844015
 }
 ```
 
-**Note:** OTP field is optional. Backend validates if provided.
+**Field Details:**
 
-**Response (200):**
+- `otp` (optional): For MMT trips, this OTP is required for passenger verification. Get from `providerMeta.otp`
+- `lat`, `lng` (optional): Current location at boarding
+
+**Response (200) - Internal Trip:**
 
 ```json
 {
   "success": true,
-  "message": "Passenger onboarded"
+  "statusCode": 200,
+  "message": "Passenger boarded",
+  "data": {
+    "id": "uuid-trip-id",
+    "status": "STARTED",
+    "boardedAt": "2026-01-24T05:54:15.234Z"
+  }
+}
+```
+
+**Response (200) - MMT Trip:**
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Passenger boarded",
+  "data": {
+    "id": "uuid-trip-id",
+    "status": "STARTED",
+    "boardedAt": "2026-01-24T05:54:15.234Z",
+    "provider": "MMT",
+    "providerBookingId": "BKS88888800933"
+  }
 }
 ```
 
 **Side Effects:**
 
-* Status: `ARRIVED` → `ONBOARD`
+- Status: `ARRIVED_EVENT_SENT` → `STARTED` (boarded state)
+- **MMT Trip:** Webhook `POST /track/{providerBookingId}/boarded` sent to MMT with boarding confirmation
 
 ---
 
@@ -687,28 +809,105 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 **Endpoint:** `POST /trips/:id/complete`  
 **Auth Required:** Yes
 
-**Request Body:**
+**Request Body - Internal Trip (Basic):**
 
 ```json
 {
-  "distance": 45.5,
+  "lat": 28.5355,
+  "lng": 77.3910,
   "fare": 1200
 }
 ```
 
-**Response (200):**
+**Request Body - MMT Trip (With Extra Charges):**
+
+```json
+{
+  "lat": 28.5355,
+  "lng": 77.3910,
+  "fare": 1200,
+  "extraCharges": {
+    "toll": 150,
+    "parking": 50
+  }
+}
+```
+
+**Field Details:**
+
+- `lat`, `lng`: Drop-off location coordinates
+- `fare` (optional): Final fare amount
+- `extraCharges` (optional): Additional charges breakdown
+  - `toll` (number): Toll charges in rupees
+  - `parking` (number): Parking charges in rupees
+  - `extraKms` (number): Extra kilometer charges
+  - `extraMinutes` (number): Extra time charges
+
+**Response (200) - Internal Trip:**
 
 ```json
 {
   "success": true,
-  "message": "Trip completed successfully"
+  "statusCode": 200,
+  "message": "Trip completed successfully",
+  "data": {
+    "id": "uuid-trip-id",
+    "tripType": "AIRPORT",
+    "originCity": "Delhi",
+    "destinationCity": "Noida",
+    "pickupLocation": "Terminal 1, IGI Airport",
+    "dropLocation": "Noida, Uttar Pradesh, India",
+    "pickupTime": "2026-01-24T16:00:00.000Z",
+    "distanceKm": 40,
+    "price": 950,
+    "status": "COMPLETED",
+    "completedAt": "2026-01-24T05:54:32.102Z",
+    "startedAt": "2026-01-24T05:44:45.105Z",
+    "dropLat": 28.5355161,
+    "dropLng": 77.3910265
+  }
+}
+```
+
+**Response (200) - MMT Trip (With Extra Charges):**
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Trip completed successfully",
+  "data": {
+    "id": "uuid-trip-id",
+    "tripType": "AIRPORT",
+    "originCity": "Delhi",
+    "destinationCity": "Noida",
+    "pickupLocation": "Terminal 1, IGI Airport",
+    "dropLocation": "Noida, Uttar Pradesh, India",
+    "pickupTime": "2026-01-24T16:00:00.000Z",
+    "distanceKm": 40,
+    "price": 950,
+    "status": "COMPLETED",
+    "completedAt": "2026-01-24T05:54:32.102Z",
+    "startedAt": "2026-01-24T05:44:45.105Z",
+    "dropLat": 28.5355161,
+    "dropLng": 77.3910265,
+    "provider": "MMT",
+    "providerBookingId": "BKS88888800933",
+    "providerMeta": {
+      "otp": "4963"
+    }
+  }
 }
 ```
 
 **Side Effects:**
 
-* Status: `ONBOARD` → `COMPLETED`
-* Driver becomes available for next assignment
+- Status: `STARTED` → `COMPLETED`
+- Driver becomes available for next assignment
+- **MMT Trip:** Webhook `POST /track/{providerBookingId}/alight` sent to MMT with:
+  - Final coordinates
+  - Extra charges (if provided): `extra_charge: 200` (toll + parking)
+  - Detailed breakdown in `extra_fare_breakup` object
 
 ---
 
@@ -721,27 +920,59 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 
 ```json
 {
+  "lat": 28.5550838,
+  "lng": 77.0844015,
   "reason": "Customer not reachable"
 }
 ```
 
+**Field Details:**
+
+- `lat`, `lng`: Current location when marking no-show
+- `reason` (optional): Reason for no-show
+
 **⚠️ STRICT CONSTRAINT:**
 
-* Can ONLY mark no-show **AFTER 30 minutes** past `pickupTime`
-* Error if too early: `400 "Cannot mark no-show before 30 minutes past pickup time"`
+- Can ONLY mark no-show **AFTER** driver has arrived (`ARRIVED_EVENT_SENT` status)
+- Best practice: Wait **15-30 minutes** past `pickupTime` before marking no-show
 
-**Response (200):**
+**Response (200) - Internal Trip:**
 
 ```json
 {
   "success": true,
-  "message": "Trip marked as no-show"
+  "statusCode": 200,
+  "message": "Trip marked as No Show",
+  "data": {
+    "id": "uuid-trip-id",
+    "status": "NO_SHOW",
+    "pickupLocation": "Terminal 1, IGI Airport"
+  }
+}
+```
+
+**Response (200) - MMT Trip:**
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Trip marked as No Show",
+  "data": {
+    "id": "uuid-trip-id",
+    "status": "NO_SHOW",
+    "pickupLocation": "Terminal 1, IGI Airport",
+    "provider": "MMT",
+    "providerBookingId": "BKS88888800929"
+  }
 }
 ```
 
 **Side Effects:**
 
-* Status: → `NO_SHOW`
+- Status: `ARRIVED_EVENT_SENT` → `NO_SHOW`
+- Driver becomes available for next assignment
+- **MMT Trip:** Webhook `POST /track/{providerBookingId}/not_boarded` sent to MMT
 
 ---
 
@@ -768,7 +999,11 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 }
 ```
 
-**Implementation Note:** Call this endpoint every 30-60 seconds while the trip is in progress (`STARTED`, `ARRIVED`, `ONBOARD`) to update the driver's live location.
+**Implementation Note:**
+
+- Call this endpoint every **30-60 seconds** while trip is in progress (`STARTED`, `ARRIVED_EVENT_SENT`)
+- **MMT Trips:** Location updates are automatically synced to MMT via `PUT /track/{providerBookingId}/location` webhook
+- Provides real-time tracking for customers and admin
 
 ---
 
@@ -799,29 +1034,49 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
 **Identification**:
 Trips assigned from MakeMyTrip can be identified by:
 
-* `provider`: `"MMT"` (in Trip Details)
-* `tripType`: `"AIRPORT"` or `"OUTSTATION"`
+- `provider`: `"MMT"` (in Trip Details)
+- `providerBookingId`: `"BKS88888800926"` (MMT's booking ID)
+- `tripType`: `"AIRPORT"` or `"OUTSTATION"`
 
 **Special Handling Rules**:
 
 1. **Prepaid/Zero Payment**:
-   * MMT trips are prepaid.
-   * **Do NOT collect cash** from the customer even if `price` is shown.
-   * Show "PREPAID" tag in the UI.
+   - MMT trips are prepaid.
+   - **Do NOT collect cash** from the customer even if `price` is shown.
+   - Show "PREPAID" tag in the UI.
 
 2. **Mandatory OTP**:
-   * MMT requires a valid OTP for onboarding.
-   * Ensure the driver enters the exact 4-digit OTP provided by the customer.
-   * Sending "0000" or invalid OTP may cause MMT to reject the 'Onboard' status.
+   - MMT requires a valid OTP for onboarding.
+   - Ensure the driver enters the exact 4-digit OTP provided by the customer.
+   - OTP is stored in `providerMeta.otp` field.
+   - Sending "0000" or invalid OTP may cause MMT to reject the 'Onboard' status.
 
-3. **Location Updates**:
-   * MMT strictly tracks vehicle movement.
-   * Ensure `POST /trips/:id/location` is called every **30-60 seconds** without fail.
-   * Failure to send location updates may result in penalties from MMT.
+3. **Location Updates (CRITICAL)**:
+   - MMT strictly tracks vehicle movement.
+   - **Must call `POST /trips/:id/location` every 30 seconds** from Start to Alight.
+   - Failure to send location updates may result in penalties from MMT.
 
 4. **Cancellation**:
-   * If a driver cancels an MMT trip, it triggers an immediate reassignment webhook.
-   * **Avoid frequent cancellations** to maintain fleet rating.
+   - If a driver cancels an MMT trip, it triggers an immediate unassign webhook to MMT.
+   - **Avoid frequent cancellations** to maintain fleet rating.
+
+**MMT Trip Event Flow**:
+
+```
+1. Admin assigns driver → MMT receives /dispatch/{booking_id}/assign
+2. Driver taps "Start" → MMT receives /track/{booking_id}/start
+3. Driver taps "Arrived" → MMT receives /track/{booking_id}/arrived
+4. Driver enters OTP, taps "Onboard" → MMT receives /track/{booking_id}/boarded
+5. Every 30 seconds during trip → MMT receives /track/{booking_id}/location
+6. Driver taps "Complete" → MMT receives /track/{booking_id}/alight
+```
+
+**No-Show Flow**:
+
+```
+1. Driver arrives, waits 30+ minutes after pickup time
+2. Driver taps "No Show" → MMT receives /track/{booking_id}/not-boarded
+```
 
 ---
 
@@ -872,9 +1127,9 @@ Trips assigned from MakeMyTrip can be identified by:
 
 **Note:**
 
-* `assignments` array contains the currently assigned vehicle (if any)
-* If no vehicle is assigned, `assignments` will be an empty array `[]`
-* Use `assignments[0].vehicle` to access the assigned vehicle details
+- `assignments` array contains the currently assigned vehicle (if any)
+- If no vehicle is assigned, `assignments` will be an empty array `[]`
+- Use `assignments[0].vehicle` to access the assigned vehicle details
 
 ---
 
@@ -994,15 +1249,15 @@ Trips assigned from MakeMyTrip can be identified by:
 
 **Status Values:**
 
-* `ACTIVE` - Current active plan (not expired)
-* `EXPIRED` - Plan has passed expiry date
-* `INACTIVE` - Plan was deactivated before expiry
+- `ACTIVE` - Current active plan (not expired)
+- `EXPIRED` - Plan has passed expiry date
+- `INACTIVE` - Plan was deactivated before expiry
 
 **Use Case:**
 
-* Show driver's rental history in "My Plans" section
-* Display past plans with their validity periods
-* Useful for admin to track driver's subscription history
+- Show driver's rental history in "My Plans" section
+- Display past plans with their validity periods
+- Useful for admin to track driver's subscription history
 
 ---
 
@@ -1072,8 +1327,8 @@ Trips assigned from MakeMyTrip can be identified by:
 
 **Query Parameters:**
 
-* `folder` (required): Folder name - `selfies`, `odometer`, `documents`, `profiles`, `vehicles`
-* `fileType` (required): File extension - `jpg`, `jpeg`, `png`, `pdf`
+- `folder` (required): Folder name - `selfies`, `odometer`, `documents`, `profiles`, `vehicles`
+- `fileType` (required): File extension - `jpg`, `jpeg`, `png`, `pdf`
 
 **Request Example:**
 
@@ -1126,11 +1381,11 @@ final imageUrl = data['url'];
 
 **Allowed Folders:**
 
-* `selfies` - Driver check-in selfies
-* `odometer` - Odometer reading photos
-* `documents` - License, Aadhaar, etc.
-* `profiles` - Profile pictures
-* `vehicles` - Vehicle photos
+- `selfies` - Driver check-in selfies
+- `odometer` - Odometer reading photos
+- `documents` - License, Aadhaar, etc.
+- `profiles` - Profile pictures
+- `vehicles` - Vehicle photos
 
 **Note:** Presigned URLs expire in 5 minutes. Upload must be completed within this time.
 
@@ -1169,16 +1424,16 @@ final imageUrl = data['url'];
 
 ## 📝 Checklist for Production
 
-* [ ] Implement token refresh logic
-* [ ] Add offline queue mechanism
-* [ ] Implement background location tracking
-* [ ] Add geofencing validation before API calls
-* [ ] Add time constraint validation before API calls
-* [ ] Implement retry logic for failed requests
-* [ ] Add comprehensive error handling
-* [ ] Implement push notifications (FCM)
-* [ ] Add analytics/crash reporting (Firebase)
-* [ ] Test all edge cases (offline, poor network, etc.)
+- [ ] Implement token refresh logic
+- [ ] Add offline queue mechanism
+- [ ] Implement background location tracking
+- [ ] Add geofencing validation before API calls
+- [ ] Add time constraint validation before API calls
+- [ ] Implement retry logic for failed requests
+- [ ] Add comprehensive error handling
+- [ ] Implement push notifications (FCM)
+- [ ] Add analytics/crash reporting (Firebase)
+- [ ] Test all edge cases (offline, poor network, etc.)
 
 ## 6. Finance & Rental Plans
 
@@ -1378,7 +1633,7 @@ final imageUrl = data['url'];
 
 **Query Parameters:**
 
-* `weeks` (optional, default: 5): Number of weeks to fetch (1-12)
+- `weeks` (optional, default: 5): Number of weeks to fetch (1-12)
 
 **Response (200):**
 
@@ -1416,8 +1671,8 @@ final imageUrl = data['url'];
 
 **Use Case:**
 
-* **Earnings Dashboard**: Show weekly summary card on driver home screen
-* **Historical Trends**: Track performance over multiple weeks
+- **Earnings Dashboard**: Show weekly summary card on driver home screen
+- **Historical Trends**: Track performance over multiple weeks
 
 ---
 
@@ -1571,6 +1826,7 @@ The referred driver must meet these criteria for you to receive the reward:
 ### 10.5 Referral Rewards
 
 When eligibility is met:
+
 - An **INCENTIVE** of the configured amount (default: ₹500) is created
 - Incentive category: `REFERRAL`
 - Visible in your incentives list (`GET /payments/incentives`)

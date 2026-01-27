@@ -7,12 +7,13 @@
 **Last Updated:** January 23, 2026  
 **Last Verified:** January 23, 2026
 
-## What's New in v4.4.0
+## What's New in v4.5.0
 
-- **MMT Tracking Events** - Complete outbound tracking integration with MakeMyTrip
-  - Dispatch events: assign, reassign, detach
-  - Track events: start, arrived, boarded, alight, not-boarded
-  - Live location updates every 30 seconds
+- **MMT Integration Complete** - Full inbound + outbound tracking with MakeMyTrip
+  - Inbound: search, block, paid, cancel, reschedule, booking details
+  - Dispatch events: assign, reassign, unassign
+  - Track events: start, arrived, boarded, alight, not-boarded, location
+  - Automatic `providerBookingId` storage from paid endpoint
 - **Public Booking API** - Customers can now book trips without authentication
 - **Referral System** - Drivers can refer other drivers and earn incentives
 - **Enhanced KYC** - Full driver KYC with Aadhar, PAN, Bank details, and vehicle documents
@@ -565,6 +566,10 @@ Complete driver onboarding with full KYC (Public - for driver app signup flow).
   "aadharFront": "https://s3.aws.com/aadhaar-front.jpg",
   "aadharBack": "https://s3.aws.com/aadhaar-back.jpg",
   "panPhoto": "https://s3.aws.com/pan.jpg",
+  "driverAgreement": "https://s3.aws.com/agreement.pdf",
+  "policeVerification": "https://s3.aws.com/pcv.jpg",
+  "currentAddressProof": "https://s3.aws.com/current-address.jpg",
+  "permanentAddressProof": "https://s3.aws.com/permanent-address.jpg",
   
   "haveVehicle": true,
   "vehicleModel": "Tata Tigor EV",
@@ -2932,6 +2937,7 @@ Create a trip booking (no authentication required).
 ```
 
 **Note:** The system automatically:
+
 - Calculates distance via Google Maps
 - Extracts city from address
 - Gets coordinates for geofencing
@@ -2978,6 +2984,7 @@ During driver signup (`POST /users/drivers/signup`), include the referral code:
 ```
 
 The system validates:
+
 - Referral code exists and is active
 - Referrer hasn't exceeded max referrals
 - New user isn't already referred
@@ -2985,6 +2992,7 @@ The system validates:
 ### Reward Processing
 
 Rewards are processed automatically via a background worker that:
+
 1. Checks all `PENDING` referrals periodically
 2. Validates eligibility criteria for each referred driver
 3. Creates `REFERRAL` category incentive for referrer
@@ -2996,22 +3004,48 @@ Rewards are processed automatically via a background worker that:
 
 ### MakeMyTrip (MMT)
 
-Partner integration endpoints for MakeMyTrip.
+Complete integration with MakeMyTrip for cab bookings.
+
+**Authentication:** Basic Auth  
+**Inbound Credentials:** `MMT_INBOUND_USERNAME` / `MMT_INBOUND_PASSWORD`  
+**Outbound Credentials:** `MMT_TRACKING_USER` / `MMT_TRACKING_PASS`
+
+---
+
+### MMT Inbound Endpoints (MMT → DriversKlub)
+
+These endpoints receive requests FROM MakeMyTrip TO our system.
 
 #### POST `/partners/mmt/partnersearchendpoint`
 
-Search for available vehicles (MMT → Driver's Klub).
+Search for available vehicles and get fare estimates.
 
-**Authentication:** Basic Auth (Username/Password)
+**Authentication:** Basic Auth (`MMT_INBOUND_USERNAME` / `MMT_INBOUND_PASSWORD`)
 
 **Request Body:**
 
 ```json
 {
-  "pickupLocation": "Sector 29, Gurgaon",
-  "dropLocation": "IGI Airport, Delhi",
-  "pickupTime": "2025-12-26T14:00:00.000Z",
-  "vehicleType": "SEDAN"
+  "start_time": "2026-01-25 20:00:00",
+  "trip_type_details": {
+    "basic_trip_type": "AIRPORT",
+    "airport_type": "AP"
+  },
+  "one_way_distance": 45,
+  "source": {
+    "city": "DELHI",
+    "lat": 28.5562,
+    "lng": 77.1,
+    "address": "IGI Airport T3"
+  },
+  "destination": {
+    "city": "GURGAON",
+    "lat": 28.4595,
+    "lng": 77.0266,
+    "address": "Cyber Hub"
+  },
+  "partner_name": "GOMMT",
+  "search_id": "search_123456"
 }
 ```
 
@@ -3019,14 +3053,58 @@ Search for available vehicles (MMT → Driver's Klub).
 
 ```json
 {
-  "success": true,
-  "data": {
-    "available": true,
-    "vehicles": [
+  "response": {
+    "distance_booked": 45,
+    "is_instant_search": false,
+    "is_instant_available": true,
+    "start_time": "2026-01-25 20:00:00",
+    "is_part_payment_allowed": true,
+    "communication_type": "PRE",
+    "verification_type": "OTP",
+    "airport_tags": ["AP"],
+    "car_types": [
       {
-        "type": "SEDAN",
-        "fare": 625,
-        "eta": 10
+        "sku_id": "TATA_TIGOR_EV",
+        "type": "sedan",
+        "subcategory": "basic",
+        "combustion_type": "Electric",
+        "model": "Tata Tigor",
+        "carrier": false,
+        "make_year_type": "Newer",
+        "make_year": 2024,
+        "cancellation_rule": "SUPER_FLEXI",
+        "min_payment_percentage": 20,
+        "pax_capacity": 4,
+        "luggage_capacity": 2,
+        "zero_payment": false,
+        "amenities": {
+          "features": {
+            "vehicle": ["AC", "Music System", "Charging Point"],
+            "driver": ["Vaccinated", "Mask"],
+            "services": []
+          }
+        },
+        "fare_details": {
+          "base_fare": 1125,
+          "per_km_charge": 24,
+          "per_km_extra_charge": 25,
+          "total_driver_charges": 0,
+          "seller_discount": 0,
+          "extra_charges": {
+            "night_charges": {
+              "amount": 1406.25,
+              "is_included_in_base_fare": false,
+              "is_included_in_grand_total": true,
+              "is_applicable": true
+            },
+            "toll_charges": {
+              "amount": 100,
+              "is_included_in_base_fare": false,
+              "is_included_in_grand_total": false,
+              "is_applicable": true
+            }
+          }
+        }
       }
     ]
   }
@@ -3037,137 +3115,30 @@ Search for available vehicles (MMT → Driver's Klub).
 
 #### POST `/partners/mmt/partnerblockendpoint`
 
-Block a vehicle for booking (MMT → Driver's Klub).
+Block a vehicle for booking (holds inventory).
 
-**Authentication:** Basic Auth (Username/Password)
+**Authentication:** Basic Auth
 
 **Request Body:**
 
 ```json
 {
-  "bookingId": "MMT123456",
-  "vehicleType": "SEDAN",
-  "pickupLocation": "Sector 29, Gurgaon",
-  "dropLocation": "IGI Airport, Delhi",
-  "pickupTime": "2025-12-26T14:00:00.000Z"
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "blockId": "uuid",
-    "expiresAt": "2025-12-26T13:50:00.000Z"
+  "sku_id": "TATA_TIGOR_EV",
+  "mmt_ref_id": "BKS88888800926",
+  "start_time": "2026-01-25 20:00:00",
+  "one_way_distance": 45,
+  "source": {
+    "city": "DELHI",
+    "lat": 28.5562,
+    "lng": 77.1,
+    "address": "IGI Airport T3"
+  },
+  "destination": {
+    "city": "GURGAON",
+    "lat": 28.4595,
+    "lng": 77.0266,
+    "address": "Cyber Hub"
   }
-}
-```
-
----
-
-#### POST `/partners/mmt/partnerpaidendpoint`
-
-Confirm booking payment (MMT → Driver's Klub).
-
-**Authentication:** Basic Auth (Username/Password)
-
-**Request Body:**
-
-```json
-{
-  "bookingId": "MMT123456",
-  "blockId": "uuid",
-  "paymentStatus": "PAID"
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "tripId": "uuid",
-    "status": "CONFIRMED"
-  }
-}
-```
-
----
-
-#### POST `/partners/mmt/partnercancelendpoint`
-
-Cancel a booking (MMT → Driver's Klub).
-
-**Authentication:** None (Partner API)
-
-**Request Body:**
-
-```json
-{
-  "bookingId": "MMT123456",
-  "reason": "Customer cancellation"
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "Booking cancelled successfully"
-}
-```
-
----
-
-#### GET `/partners/mmt/booking/details`
-
-Get booking details (MMT → Driver's Klub).
-
-**Authentication:** None (Partner API)
-
-**Query Parameters:**
-
-- `bookingId` - MMT booking ID
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "bookingId": "MMT123456",
-    "tripId": "uuid",
-    "status": "CONFIRMED",
-    "driver": {
-      "name": "Rajesh Kumar",
-      "phone": "9876543210"
-    },
-    "vehicle": {
-      "number": "DL01AB1234",
-      "model": "Tata Tigor EV"
-    }
-  }
-}
-```
-
----
-
-#### POST `/partners/mmt/partnerrescheduleblockendpoint`
-
-Validate logic for reschedule request (MMT → Driver's Klub).
-
-**Authentication:** Basic Auth (Username/Password)
-
-**Request Body:**
-
-```json
-{
-  "order_reference_number": "MMT123456",
-  "start_time": "2025-12-31T10:00:00Z"
 }
 ```
 
@@ -3177,13 +3148,177 @@ Validate logic for reschedule request (MMT → Driver's Klub).
 {
   "response": {
     "success": true,
-    "verification_code": "1234",
+    "reference_number": "8863a9d8-b133-4050-9f47-ee8e7534b6bc",
+    "status": "BLOCKED",
+    "verification_code": "1056"
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `reference_number` | Our internal Trip ID (UUID) |
+| `verification_code` | OTP for passenger verification |
+
+---
+
+#### POST `/partners/mmt/partnerpaidendpoint`
+
+Confirm booking payment and finalize the trip.
+
+**Authentication:** Basic Auth
+
+**Request Body:**
+
+```json
+{
+  "partner_reference_number": "8863a9d8-b133-4050-9f47-ee8e7534b6bc",
+  "order_reference_number": "BKS88888800926",
+  "total_fare": 1125,
+  "amount_to_be_collected": 900,
+  "platform_fee": 0,
+  "booking_gst": 0,
+  "partner_name": "GOMMT",
+  "passenger": {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone_number": "9876543210"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "response": {
+    "success": true,
+    "order_reference_number": "BKS88888800926",
+    "status": "CONFIRMED"
+  }
+}
+```
+
+**Important:** The `order_reference_number` from MMT becomes the `providerBookingId` used for all tracking events.
+
+---
+
+#### POST `/partners/mmt/partnercancelendpoint`
+
+Cancel a booking.
+
+**Authentication:** Basic Auth
+
+**Request Body:**
+
+```json
+{
+  "order_reference_number": "BKS88888800926",
+  "partner_reference_number": "8863a9d8-b133-4050-9f47-ee8e7534b6bc",
+  "cancellation_reason": "Customer request",
+  "cancelled_by": "CUSTOMER"
+}
+```
+
+**Response:**
+
+```json
+{
+  "response": {
+    "success": true,
+    "status": "CANCELLED"
+  }
+}
+```
+
+---
+
+#### GET `/partners/mmt/api/partner/v1/booking/details`
+
+Get booking details by ID.
+
+**Authentication:** Basic Auth
+
+**Query Parameters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `booking_id` | Our internal Trip ID (UUID) |
+| `partner_reference_number` | Our internal Trip ID |
+| `order_reference_number` | MMT's booking ID (BKS...) |
+
+**Response:**
+
+```json
+{
+  "response": {
+    "success": true,
+    "booking_id": "8863a9d8-b133-4050-9f47-ee8e7534b6bc",
+    "status": "CONFIRMED",
+    "start_time": "2026-01-25T20:00:00.000Z",
+    "source": {
+      "city": "DELHI",
+      "address": "IGI Airport T3",
+      "lat": 28.5562,
+      "lng": 77.1
+    },
+    "destination": {
+      "city": "GURGAON",
+      "address": "Cyber Hub",
+      "lat": 28.4595,
+      "lng": 77.0266
+    },
     "fare_details": {
-      "total_amount": 1000,
-      "payable_amount": 1000
+      "total_amount": 1125,
+      "payable_amount": 900
     },
     "driver_details": {
-      "name": "Rajesh",
+      "name": "Rajesh Kumar",
+      "phone": "9876543210",
+      "image": "https://..."
+    },
+    "vehicle_details": {
+      "registration_number": "DL01AB1234",
+      "model": "Tata Tigor EV",
+      "color": "White"
+    },
+    "verification_code": "1056"
+  }
+}
+```
+
+---
+
+#### POST `/partners/mmt/partnerrescheduleblockendpoint`
+
+Validate reschedule request and get new fare.
+
+**Authentication:** Basic Auth
+
+**Request Body:**
+
+```json
+{
+  "order_reference_number": "BKS88888800926",
+  "partner_reference_number": "8863a9d8-b133-4050-9f47-ee8e7534b6bc",
+  "start_time": "2026-01-26 10:00:00"
+}
+```
+
+**Response:**
+
+```json
+{
+  "response": {
+    "success": true,
+    "verification_code": "1056",
+    "fare_details": {
+      "total_amount": 1125,
+      "payable_amount": 900,
+      "fare_difference": 0
+    },
+    "driver_details": {
+      "name": "Rajesh Kumar",
       "phone": "9876543210"
     }
   }
@@ -3194,15 +3329,16 @@ Validate logic for reschedule request (MMT → Driver's Klub).
 
 #### POST `/partners/mmt/partnerrescheduleconfirmendpoint`
 
-Confirm reschedule request (MMT → Driver's Klub).
+Confirm reschedule after validation.
 
-**Authentication:** Basic Auth (Username/Password)
+**Authentication:** Basic Auth
 
 **Request Body:**
 
 ```json
 {
-  "order_reference_number": "MMT123456"
+  "order_reference_number": "BKS88888800926",
+  "partner_reference_number": "8863a9d8-b133-4050-9f47-ee8e7534b6bc"
 }
 ```
 
@@ -3211,14 +3347,15 @@ Confirm reschedule request (MMT → Driver's Klub).
 ```json
 {
   "response": {
-    "success": true
+    "success": true,
+    "status": "RESCHEDULED"
   }
 }
 ```
 
 ---
 
-### MMT Tracking Events (Outbound)
+### MMT Outbound Tracking Events (DriversKlub → MMT)
 
 These are **outbound** API calls that DriversKlub makes TO MMT to notify them about ride status changes.
 
@@ -3287,6 +3424,7 @@ Notify MMT when a driver is unassigned from a booking.
 #### Track Events
 
 All track events require the following mandatory fields:
+
 - `booking_id` - MMT booking reference (e.g., "BKS88888800922")
 - `device_id` - Shortened driver ID (max 10 chars) or "DKAPP001"
 - `latitude` - **String** (e.g., "28.4895122")
@@ -3399,12 +3537,67 @@ Send live driver location during an active trip.
 
 ```json
 {
-  "booking_id": "BKS88888800922",
-  "device_id": "56c5c8a269",
+  "booking_id": "BKS88888800926",
+  "device_id": "b5405f3e0e",
   "latitude": "28.5000",
   "longitude": "77.0500",
-  "timestamp": 1706026500000
+  "timestamp": 1769175500000
 }
+```
+
+---
+
+### MMT Environment Variables
+
+```bash
+# Inbound Authentication (MMT → DriversKlub)
+MMT_INBOUND_USERNAME=mmt_inbound_service
+MMT_INBOUND_PASSWORD=your_secure_password
+
+# Outbound Tracking (DriversKlub → MMT)
+MMT_TRACKING_URL=https://cabs-partners-staging.makemytrip.com/tracking/pp2/api/partner/v1
+MMT_TRACKING_USER=your_mmt_tracking_username
+MMT_TRACKING_PASS=your_mmt_tracking_password
+```
+
+---
+
+### MMT Complete Booking Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    MMT BOOKING FLOW                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. SEARCH     MMT → /partnersearchendpoint                     │
+│                Returns: car_types, fare_details                  │
+│                                                                  │
+│  2. BLOCK      MMT → /partnerblockendpoint                      │
+│                Returns: reference_number (our Trip ID), OTP      │
+│                                                                  │
+│  3. PAID       MMT → /partnerpaidendpoint                       │
+│                Stores: order_reference_number (BKS...)           │
+│                Returns: status: CONFIRMED                        │
+│                                                                  │
+│  4. ASSIGN     Admin assigns driver                              │
+│                DK → MMT /dispatch/{booking_id}/assign            │
+│                                                                  │
+│  5. START      Driver taps "Start Trip"                          │
+│                DK → MMT /track/{booking_id}/start                │
+│                                                                  │
+│  6. ARRIVED    Driver reaches pickup                             │
+│                DK → MMT /track/{booking_id}/arrived              │
+│                                                                  │
+│  7. BOARDED    Passenger boards (OTP verified)                   │
+│                DK → MMT /track/{booking_id}/boarded              │
+│                                                                  │
+│  8. LOCATION   Every 30 seconds during trip                      │
+│                DK → MMT /track/{booking_id}/location             │
+│                                                                  │
+│  9. ALIGHT     Trip completed                                    │
+│                DK → MMT /track/{booking_id}/alight               │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---

@@ -37,7 +37,8 @@ The system is engineered for **high availability**, **strict consistency** (ACID
 
 * **Hybrid Fulfillment**: Automatically routes bookings to internal drivers or external providers (MojoBoxx) based on availability.
 * **Rapido Integration**: Automated status synchronization to manage driver availability across platforms.
-* **Compliance-First**: Enforces strict constraints (T-1 Booking, KYC validation, Vehicle Fitness).
+* **Compliance-First**: Enforces strict constraints (T-1 Booking, Vehicle Fitness).
+* **Enhanced KYC**: Comprehensive driver verification with Agreement, PCV, and Address Proofs.
 * **Authentication**: Secure **OTP-based login** (No passwords) for all user roles.
 * **Dynamic Pricing**: Hybrid pricing engine using **Google Distance Matrix** for accurate fare calculation with fallback to client estimates.
 * **Granular RBAC**: Role-Based Access Control for Super Admins, Ops, Managers, and Drivers.
@@ -336,7 +337,7 @@ You MUST configure the Transaction Webhook in the Easebuzz Dashboard:
 * **Build**: `npm run build` -> `dist/`
 * **Process Manager**: PM2 or Docker Container.
 
-### 8.4 Environment Configuration
+#### 8.4 Environment Configuration
 
 Key variables for production:
 
@@ -355,6 +356,7 @@ WORKER_SYNC_INTERVAL_MS=300000
 * [x] **Trip Assignment Transaction**: `TripAssignmentService` now atomically updates `Ride` status to `DRIVER_ASSIGNED` within a transaction.
 * [x] **Error Handling**: `AdminTripController` hardened with `try/catch` blocks to prevent unhandled rejections during Assignment/Reassignment.
 * [x] **Concurrency**: Database transactions ensure no double-booking of drivers or trips.
+* [x] **Detach Logic**: Fixed bug where drivers couldn't be detached from `STARTED` trips (critical for breakdown scenarios).
 
 ### ✅ End-to-End Verification
 
@@ -362,17 +364,20 @@ The system has passed the **Consolidated Master Test Protocol** (`npx tsx script
 
 1. **Auth**: Admin & Driver Login (OTP Bypass).
 2. **Driver**: Profile fetching and availability.
-3. **Trip Lifecycle**: Create -> Assign -> Payment -> Complete.
+3. **Trip Lifecycle**: Create -> Assign -> Start -> Arrive -> Board -> Complete (Verified with full payload suite).
 4. **Payment**: Rental Plans, Deposits, and Payout Logic.
 5. **Partners**: MMT (V3 Flow) and Rapido (Queue/Status) fully verified.
 6. **Maps**: Geocoding and Autocomplete verified.
 
 ### ✅ Partner Integration (MMT)
 
-* **Inbound**: Fully mapped to `MMTController` (Search, Block, Confirm, Cancel, **Reschedule Block/Confirm**). **Secured via Basic Auth**.
-* **Outbound**: All hooks implemented:
+* **Inbound (MMT -> Us)**: Fully mapped to `MMTController`.
+  * **Auth**: Basic Auth.
+  * **Response Format**: Implements special `{ response: { ... } }` wrapper, bypassing standard API middleware.
+  * **Endpoints**: Search, Block, Paid, Cancel, Reschedule Block/Confirm.
+* **Outbound (Us -> MMT)**: All tracking webhooks implemented:
   * **Dispatch**: `/dispatch/{id}/assign`, `/dispatch/{id}/reassign`, `/dispatch/{id}/unassign`
-  * **Track**: `/track/{id}/start`, `/track/{id}/arrived`, `/track/{id}/boarded`, `/track/{id}/alight`, `/track/{id}/not-boarded`
+  * **Track**: `/track/{id}/start`, `/track/{id}/arrived`, `/track/{id}/boarded`, `/track/{id}/alight` (sends extra charges), `/track/{id}/not-boarded`
   * **Location**: `PUT /track/{id}/location` (every 30 seconds during trip)
   * All payloads include `booking_id`, `device_id`, and coordinates as **strings**.
 

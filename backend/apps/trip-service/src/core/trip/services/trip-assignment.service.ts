@@ -83,8 +83,9 @@ export class TripAssignmentService {
       where: { id: tripId },
     });
 
-    // Allow removal if CREATED (maybe phantom assignment?) or DRIVER_ASSIGNED
-    if (!trip || (trip.status !== "CREATED" && trip.status !== "DRIVER_ASSIGNED")) {
+    // Allow removal if CREATED, DRIVER_ASSIGNED, or STARTED (detach scenario)
+    const allowedStatuses = ["CREATED", "DRIVER_ASSIGNED", "STARTED"];
+    if (!trip || !allowedStatuses.includes(trip.status)) {
       throw new ApiError(400, "Trip is not eligible for unassignment");
     }
 

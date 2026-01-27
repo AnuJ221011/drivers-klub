@@ -13,6 +13,8 @@ Production-ready Backend for Driver's Klub Mobility Platform built on modern mic
 - ✅ **Payment System Complete** - Easebuzz integration, InstaCollect, Bulk Payouts, **Virtual QRs (Independent Drivers)**
 - ✅ **Partner Integrations** - Rapido, MMT (with tracking events), MojoBoxx, Google Maps
 - ✅ **MMT Tracking Events** - Real-time trip status sync (assign, reassign, unassign, start, arrived, boarded, alight, not-boarded, location)
+- ✅ **MMT Booking Flows Tested** - All 7 test scenarios validated (Jan 2026)
+- ✅ **Detach Enhancement** - Supports detachment from STARTED trips (for mid-trip reassignments)
 - ✅ **Enhanced KYC** - Full driver KYC with Aadhar, PAN, Bank details, vehicle docs
 - ✅ **Attendance System** - Check-in/out with cash collection tracking
 - ✅ **S3 Image Upload** - Presigned URLs for selfies and odometer images
@@ -242,15 +244,14 @@ RAPIDO_API_KEY="your-rapido-key"
 RAPIDO_BASE_URL="https://api.rapido.bike"
 
 # Partner APIs - MMT (MakeMyTrip)
+# Inbound Auth (MMT calls our APIs)
 MMT_INBOUND_USERNAME="mmt_inbound_service"
 MMT_INBOUND_PASSWORD="your_mmt_inbound_password"
-MMT_BASE_URL="https://api.mmt.com"
-MMT_AUTH_URL="https://api-cert.makemytrip.com/v1/auth"
-MMT_CLIENT_ID="your_mmt_client_id"
-MMT_CLIENT_SECRET="your_mmt_client_secret"
+
+# Outbound Tracking (We call MMT APIs)
 MMT_TRACKING_URL="https://cabs-partners-staging.makemytrip.com/tracking/pp2/api/partner/v1"
-MMT_TRACKING_USER=""
-MMT_TRACKING_PASS=""
+MMT_TRACKING_USER="your_mmt_tracking_username"
+MMT_TRACKING_PASS="your_mmt_tracking_password"
 
 # Google Maps (Pricing Engine)
 GOOGLE_MAPS_API_KEY="your-google-maps-key"
