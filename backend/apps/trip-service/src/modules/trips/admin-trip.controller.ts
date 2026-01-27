@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { TripAssignmentService } from "../../core/trip/services/trip-assignment.service.js";
 import { ApiResponse, logger } from "@driversklub/common";
 
-import { prisma } from "@driversklub/database";
+import { Prisma, prisma } from "@driversklub/database";
 import { mmtTracking } from "../partner/mmt/mmt.tracking.js";
 
 export class AdminTripController {
@@ -174,23 +174,90 @@ export class AdminTripController {
         };
       }
 
-      const [trips, total] = await Promise.all([
-        prisma.ride.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { createdAt: "desc" },
-          include: {
-            tripAssignments: {
-              include: {
-                driver: true
-              }
-            },
-            providerMapping: true
+      const baseSelect = {
+        id: true,
+        tripType: true,
+        originCity: true,
+        destinationCity: true,
+        pickupTime: true,
+        pickupLocation: true,
+        dropLocation: true,
+        distanceKm: true,
+        price: true,
+        provider: true,
+        providerBookingId: true,
+        providerStatus: true,
+        status: true,
+        completedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        tripAssignments: {
+          select: {
+            id: true,
+            status: true,
+            driverId: true,
+            assignedAt: true,
+            unassignedAt: true
           }
-        }),
-        prisma.ride.count({ where })
-      ]);
+        }
+      } satisfies Prisma.RideSelect;
+
+      const fallbackSelect = {
+        id: true,
+        tripType: true,
+        originCity: true,
+        destinationCity: true,
+        pickupTime: true,
+        pickupLocation: true,
+        dropLocation: true,
+        distanceKm: true,
+        price: true,
+        status: true,
+        completedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        tripAssignments: {
+          select: {
+            id: true,
+            status: true,
+            driverId: true,
+            assignedAt: true,
+            unassignedAt: true
+          }
+        }
+      } satisfies Prisma.RideSelect;
+
+      let trips: Array<Prisma.RideGetPayload<{ select: Prisma.RideSelect }>> = [];
+      let total = 0;
+
+      try {
+        [trips, total] = await Promise.all([
+          prisma.ride.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { createdAt: "desc" },
+            select: baseSelect
+          }),
+          prisma.ride.count({ where })
+        ]);
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022") {
+          logger.warn("[AdminTripController] Falling back to safe trip select due to missing column:", error.message);
+          [trips, total] = await Promise.all([
+            prisma.ride.findMany({
+              where,
+              skip,
+              take: limit,
+              orderBy: { createdAt: "desc" },
+              select: fallbackSelect
+            }),
+            prisma.ride.count({ where })
+          ]);
+        } else {
+          throw error;
+        }
+      }
 
       return ApiResponse.send(res, 200, { trips, total, page, limit }, "Trips retrieved successfully");
     } catch (error: any) {

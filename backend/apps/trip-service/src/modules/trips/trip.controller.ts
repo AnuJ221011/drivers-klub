@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { TripOrchestrator } from "../../core/trip/orchestrator/trip.orchestrator.js";
 import { RideProviderMappingRepository } from "../../core/trip/repositories/ride-provider-mapping.repo.js";
-import { prisma } from "@driversklub/database";
+import { Prisma, prisma } from "@driversklub/database";
 import { ApiResponse, logger } from "@driversklub/common";
 import { mmtTracking } from "../partner/mmt/mmt.tracking.js";
 import { TripService } from "./trip.service.js";
@@ -217,9 +217,62 @@ export class TripController {
     try {
       const { id } = req.params as { id: string };
 
-      const trip = await prisma.ride.findUnique({
-        where: { id },
-      });
+      const baseSelect = {
+        id: true,
+        tripType: true,
+        originCity: true,
+        destinationCity: true,
+        pickupTime: true,
+        pickupLocation: true,
+        dropLocation: true,
+        distanceKm: true,
+        billableKm: true,
+        ratePerKm: true,
+        price: true,
+        providerBookingId: true,
+        status: true,
+        vehicleSku: true,
+        createdAt: true,
+        updatedAt: true,
+        startedAt: true,
+        completedAt: true
+      } satisfies Prisma.RideSelect;
+
+      const fallbackSelect = {
+        id: true,
+        tripType: true,
+        originCity: true,
+        destinationCity: true,
+        pickupTime: true,
+        pickupLocation: true,
+        dropLocation: true,
+        distanceKm: true,
+        billableKm: true,
+        ratePerKm: true,
+        price: true,
+        status: true,
+        vehicleSku: true,
+        createdAt: true,
+        updatedAt: true
+      } satisfies Prisma.RideSelect;
+
+      let trip: Prisma.RideGetPayload<{ select: Prisma.RideSelect }> | null = null;
+      try {
+        trip = await prisma.ride.findUnique({
+          where: { id },
+          select: baseSelect
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2022") {
+          logger.warn("[TripController] Falling back to safe trip select due to missing column:", error.message);
+          trip = await prisma.ride.findUnique({
+            where: { id },
+            select: fallbackSelect
+          });
+        } else {
+          throw error;
+        }
+      }
 
       if (!trip) {
         return res.status(404).json({ message: "Trip not found" });
