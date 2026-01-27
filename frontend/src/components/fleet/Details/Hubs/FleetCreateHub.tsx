@@ -205,12 +205,58 @@ export default function FleetCreateHub() {
   const [address, setAddress] = useState("");
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   const hasGoogleKey = Boolean((apiKey || "").trim());
+  const mapShellRef = useRef<HTMLDivElement | null>(null);
+  const [useGoogleMaps, setUseGoogleMaps] = useState(hasGoogleKey);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   const googleEmbedSrc = useMemo(() => {
     const q = `${location.lat},${location.lng}`;
     const z = 13;
     return `https://www.google.com/maps?q=${encodeURIComponent(q)}&z=${z}&output=embed`;
   }, [location.lat, location.lng]);
+
+  useEffect(() => {
+    if (!hasGoogleKey) {
+      setUseGoogleMaps(false);
+      setMapError(null);
+      return;
+    }
+    setUseGoogleMaps(true);
+    setMapError(null);
+  }, [hasGoogleKey]);
+
+  useEffect(() => {
+    if (!useGoogleMaps) return;
+    const container = mapShellRef.current;
+    if (!container) return;
+
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      const errEl = container.querySelector(".gm-err-container, .gm-err-content");
+      if (errEl) {
+        setMapError("Google Maps is unavailable. Using embed view instead.");
+        setUseGoogleMaps(false);
+        window.clearInterval(timer);
+        return;
+      }
+
+      if (window.google?.maps) {
+        window.clearInterval(timer);
+        return;
+      }
+
+      if (attempts >= 8) {
+        setMapError("Google Maps failed to load. Using embed view instead.");
+        setUseGoogleMaps(false);
+        window.clearInterval(timer);
+      }
+    }, 500);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [useGoogleMaps]);
 
   /* ---------- Reverse Geocoding ---------- */
   const fetchAddress = async (lat: number, lng: number) => {
@@ -281,9 +327,9 @@ export default function FleetCreateHub() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ---------- Map ---------- */}
         <div className="lg:col-span-2 h-[520px] rounded-lg overflow-hidden border">
-          {hasGoogleKey ? (
+          {useGoogleMaps ? (
             <APIProvider apiKey={apiKey!}>
-              <div className="relative h-full w-full">
+              <div ref={mapShellRef} className="relative h-full w-full">
                 <div className="absolute top-3 left-3 right-3 z-10 max-w-xl">
                   <PlaceSearch
                     value={address}
@@ -310,7 +356,18 @@ export default function FleetCreateHub() {
               </div>
             </APIProvider>
           ) : (
-            <div className="h-full w-full">
+            <div ref={mapShellRef} className="relative h-full w-full">
+              <div className="absolute top-3 left-3 right-3 z-10 max-w-xl">
+                <PlaceSearch
+                  value={address}
+                  onChange={setAddress}
+                  onPlaceSelected={async ({ lat, lng, address }) => {
+                    setLocation({ lat, lng });
+                    if (address) setAddress(address);
+                    else await fetchAddress(lat, lng);
+                  }}
+                />
+              </div>
               <iframe
                 title="Google Map"
                 src={googleEmbedSrc}
@@ -319,8 +376,9 @@ export default function FleetCreateHub() {
                 referrerPolicy="no-referrer-when-downgrade"
               />
               <div className="p-2 text-xs text-black/60 border-t bg-white">
-                Google map is shown in embed mode (no API key). To enable map clicks + geofence drawing,
-                configure <code>VITE_GOOGLE_MAPS_API_KEY</code>.
+                {mapError
+                  ? mapError
+                  : "Google map is shown in embed mode. To enable map clicks + geofence drawing, configure VITE_GOOGLE_MAPS_API_KEY."}
               </div>
             </div>
           )}
@@ -385,7 +443,7 @@ export default function FleetCreateHub() {
 
           <Input
             label="Address"
-            placeholder={hasGoogleKey ? "Auto-filled from map click (optional)" : "Enter address (optional)"}
+            placeholder={useGoogleMaps ? "Auto-filled from map click (optional)" : "Enter address (optional)"}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
           />
