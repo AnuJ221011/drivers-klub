@@ -1,1 +1,10 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
+
+/* Hide Google Maps error overlay message. */
+.gm-err-container,
+.gm-err-content,
+.gm-err-icon,
+.gm-err-title,
+.gm-err-message {
+  display: none !important;
+}
