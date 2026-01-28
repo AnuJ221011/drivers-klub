@@ -49,6 +49,8 @@ export type CreateDriverInput = {
   panCardImage?: File | string | null;
   livePhoto?: File | string | null;
   bankIdProof?: File | string | null;
+  currentAddressProof?: File | string | null;
+  permanentAddressProof?: File | string | null;
   providerMetadata?: Record<string, unknown> | null;
   additionalDocuments?: Array<File | string>;
   // Backwards compatible field names
@@ -160,6 +162,8 @@ export async function createDriver(
   const licenseBack = normalizeDriverDoc(input.licenseBack);
   const panCardImage = normalizeDriverDoc(input.panCardImage ?? input.panCardFile);
   const bankIdProof = normalizeDriverDoc(input.bankIdProof ?? input.bankDetailsFile);
+  const currentAddressProof = normalizeDriverDoc(input.currentAddressProof);
+  const permanentAddressProof = normalizeDriverDoc(input.permanentAddressProof);
   const profilePic = normalizeDriverDoc(input.profilePic);
   const additionalDocuments = normalizeDriverDocList(input.additionalDocuments);
 
@@ -211,6 +215,8 @@ export async function createDriver(
   if (licenseBack) payload.licenseBack = licenseBack;
   if (panCardImage) payload.panCardImage = panCardImage;
   if (bankIdProof) payload.bankIdProof = bankIdProof;
+  if (currentAddressProof) payload.currentAddressProof = currentAddressProof;
+  if (permanentAddressProof) payload.permanentAddressProof = permanentAddressProof;
   const providerMetadata =
     input.providerMetadata && typeof input.providerMetadata === 'object'
       ? { ...(input.providerMetadata as Record<string, unknown>) }
@@ -254,6 +260,8 @@ export type UpdateDriverInput = {
   panCardImage?: File | string | null;
   livePhoto?: File | string | null;
   bankIdProof?: File | string | null;
+  currentAddressProof?: File | string | null;
+  permanentAddressProof?: File | string | null;
   providerMetadata?: Record<string, unknown> | null;
   additionalDocuments?: Array<File | string>;
   // Backwards compatible field names
@@ -326,6 +334,8 @@ export async function updateDriverDetails(
   const licenseBack = normalizeDriverDoc(input.licenseBack);
   const panCardImage = normalizeDriverDoc(input.panCardImage ?? input.panCardFile);
   const bankIdProof = normalizeDriverDoc(input.bankIdProof ?? input.bankDetailsFile);
+  const currentAddressProof = normalizeDriverDoc(input.currentAddressProof);
+  const permanentAddressProof = normalizeDriverDoc(input.permanentAddressProof);
   const additionalDocuments = normalizeDriverDocList(input.additionalDocuments);
 
   if (livePhoto) patch.livePhoto = livePhoto;
@@ -335,6 +345,8 @@ export async function updateDriverDetails(
   if (licenseBack) patch.licenseBack = licenseBack;
   if (panCardImage) patch.panCardImage = panCardImage;
   if (bankIdProof) patch.bankIdProof = bankIdProof;
+  if (currentAddressProof) patch.currentAddressProof = currentAddressProof;
+  if (permanentAddressProof) patch.permanentAddressProof = permanentAddressProof;
   const providerMetadata =
     input.providerMetadata && typeof input.providerMetadata === 'object'
       ? { ...(input.providerMetadata as Record<string, unknown>) }

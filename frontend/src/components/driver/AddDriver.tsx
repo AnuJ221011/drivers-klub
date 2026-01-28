@@ -63,6 +63,8 @@ export default function AddDriver({ onClose, onCreated }: Props) {
   const [panCardImage, setPanCardImage] = useState<File | null>(null);
   const [livePhoto, setLivePhoto] = useState<File | null>(null);
   const [bankIdProof, setBankIdProof] = useState<File | null>(null);
+  const [currentAddressProof, setCurrentAddressProof] = useState<File | null>(null);
+  const [permanentAddressProof, setPermanentAddressProof] = useState<File | null>(null);
   const [additionalDocuments, setAdditionalDocuments] = useState<File[]>([]);
 
   function formatFileName(file: File | null): string {
@@ -117,6 +119,23 @@ export default function AddDriver({ onClose, onCreated }: Props) {
     return url;
   }
 
+  async function uploadDriverDocument(file: File): Promise<string> {
+    const inferredType = file.type && file.type.includes('/') ? file.type.split('/')[1] : '';
+    const fallbackType = file.name.split('.').pop() || 'jpeg';
+    const fileType = inferredType || fallbackType;
+    const { uploadUrl, url } = await getDriverUploadUrl('documents', fileType);
+    const contentType = file.type || `image/${fileType}`;
+    const res = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType },
+      body: file,
+    });
+    if (!res.ok) {
+      throw new Error('Failed to upload document');
+    }
+    return url;
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const digits = phone.replace(/\D/g, '');
@@ -139,9 +158,11 @@ export default function AddDriver({ onClose, onCreated }: Props) {
 
     setSaving(true);
     try {
-      const profilePicUrl = profilePicFile
-        ? await uploadProfilePicture(profilePicFile)
-        : undefined;
+      const [profilePicUrl, currentAddressProofUrl, permanentAddressProofUrl] = await Promise.all([
+        profilePicFile ? uploadProfilePicture(profilePicFile) : Promise.resolve(undefined),
+        currentAddressProof ? uploadDriverDocument(currentAddressProof) : Promise.resolve(undefined),
+        permanentAddressProof ? uploadDriverDocument(permanentAddressProof) : Promise.resolve(undefined),
+      ]);
       const created = await createDriver({
         firstName: trimmedFirstName,
         lastName: trimmedLastName || undefined,
@@ -172,6 +193,8 @@ export default function AddDriver({ onClose, onCreated }: Props) {
         panCardImage: panCardImage ?? undefined,
         livePhoto: livePhoto ?? undefined,
         bankIdProof: bankIdProof ?? undefined,
+        currentAddressProof: currentAddressProofUrl,
+        permanentAddressProof: permanentAddressProofUrl,
         additionalDocuments: additionalDocuments.length > 0 ? additionalDocuments : undefined,
       });
       if (hubId) {
@@ -438,6 +461,22 @@ export default function AddDriver({ onClose, onCreated }: Props) {
             accept="image/*,application/pdf"
             onChange={(e) => setBankIdProof(e.target.files?.[0] || null)}
             helperText={formatFileName(bankIdProof)}
+            disabled={saving}
+          />
+          <Input
+            label="Current Address Proof"
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => setCurrentAddressProof(e.target.files?.[0] || null)}
+            helperText={formatFileName(currentAddressProof)}
+            disabled={saving}
+          />
+          <Input
+            label="Permanent Address Proof"
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => setPermanentAddressProof(e.target.files?.[0] || null)}
+            helperText={formatFileName(permanentAddressProof)}
             disabled={saving}
           />
           <Input
