@@ -2,7 +2,7 @@ branch-defaults:
   master:
     environment: driversklub-backend-env
   staging:
-    environment: driversklub-backend-staging-env
+    environment: null
 environment-defaults:
   driversklub-backend-prod:
     branch: null

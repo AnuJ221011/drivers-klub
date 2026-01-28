@@ -1,6 +1,6 @@
 import { UserRepository } from "./user.repository.js";
 import type { CreateUserInput, UserEntity } from "./user.types.js";
-import { ApiError } from "@driversklub/common";
+import { ApiError, IdUtils, EntityType } from "@driversklub/common";
 import { prisma } from "@driversklub/database";
 import type { UserRole } from "@prisma/client";
 
@@ -11,27 +11,39 @@ export class UserService {
         this.userRepo = userRepo;
     }
 
-    private async assertValidScopeForRole(role: UserRole, fleetId?: string | null, hubIds?: string[]) {
+    private async assertValidScopeForRole(role: UserRole, fleetId?: string | null, hubIds?: string[]): Promise<string | null> {
         const cleanedHubIds = Array.from(new Set((hubIds || []).filter(Boolean)));
+        let resolvedFleetId = fleetId ?? null;
 
         if (role === "FLEET_ADMIN" || role === "MANAGER") {
             if (!fleetId) throw new ApiError(400, "fleetId is required for Fleet Admin / Manager");
-            const exists = await prisma.fleet.findUnique({ where: { id: fleetId } });
+            const exists = await prisma.fleet.findFirst({
+                where: { OR: [{ id: fleetId }, { shortId: fleetId }] }
+            });
             if (!exists) throw new ApiError(400, "Invalid fleetId");
+            resolvedFleetId = exists.id;
         }
 
         if (role === "OPERATIONS") {
             if (!fleetId) throw new ApiError(400, "fleetId is required for Operations");
             if (cleanedHubIds.length === 0) throw new ApiError(400, "hubIds is required for Operations");
             // Ensure hubs belong to the fleet
+            const resolvedFleet = await prisma.fleet.findFirst({
+                where: { OR: [{ id: fleetId }, { shortId: fleetId }] },
+                select: { id: true }
+            });
+            if (!resolvedFleet) throw new ApiError(400, "Invalid fleetId");
+            resolvedFleetId = resolvedFleet.id;
+
             const count = await prisma.fleetHub.count({
-                where: { id: { in: cleanedHubIds }, fleetId }
+                where: { id: { in: cleanedHubIds }, fleetId: resolvedFleet.id }
             });
             if (count !== cleanedHubIds.length) {
                 throw new ApiError(400, "One or more hubIds are invalid for the selected fleet");
             }
         }
 
+        return resolvedFleetId;
         // SUPER_ADMIN / DRIVER: no scope requirements here
     }
 
@@ -70,10 +82,14 @@ export class UserService {
 
         this.assertCreatePermissions(actor, data.role);
         this.assertFleetScope(actor, data.fleetId ?? null);
-        await this.assertValidScopeForRole(data.role, data.fleetId ?? null, data.hubIds);
+        const resolvedFleetId = await this.assertValidScopeForRole(data.role, data.fleetId ?? null, data.hubIds);
+
+        const shortId = await IdUtils.generateShortId(prisma, EntityType.USER);
 
         return this.userRepo.create({
             ...data,
+            fleetId: resolvedFleetId,
+            shortId,
             hubIds: Array.from(new Set((data.hubIds || []).filter(Boolean)))
         });
     }
@@ -89,7 +105,9 @@ export class UserService {
         const existingUser = await this.userRepo.findByPhone(data.phone);
         if (existingUser) throw new ApiError(409, "User with this phone number already exists");
 
-        return this.userRepo.create(data);
+        const shortId = await IdUtils.generateShortId(prisma, EntityType.USER);
+
+        return this.userRepo.create({ ...data, shortId });
     }
 
     async updateUser(
@@ -119,10 +137,11 @@ export class UserService {
         const effectiveFleetId = data.fleetId !== undefined ? data.fleetId : existing.fleetId;
 
         this.assertFleetScope(actor, effectiveFleetId ?? null);
-        await this.assertValidScopeForRole(effectiveRole, effectiveFleetId ?? null, data.hubIds ?? existing.hubIds);
+        const resolvedFleetId = await this.assertValidScopeForRole(effectiveRole, effectiveFleetId ?? null, data.hubIds ?? existing.hubIds);
 
-        return this.userRepo.update(userId, {
+        return this.userRepo.update(existing.id, {
             ...data,
+            fleetId: resolvedFleetId,
             hubIds: data.hubIds ? Array.from(new Set(data.hubIds.filter(Boolean))) : undefined
         });
     }
@@ -149,6 +168,6 @@ export class UserService {
             throw new ApiError(404, "User not found");
         }
 
-        return this.userRepo.deactivate(id);
+        return this.userRepo.deactivate(user.id);
     }
 }

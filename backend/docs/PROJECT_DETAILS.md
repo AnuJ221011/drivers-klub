@@ -1,8 +1,8 @@
 # 📘 Driver's Klub Backend - Production Documentation
 
-**Version:** 4.5.0 (MMT Tracking Complete)  
-**Date:** January 23, 2026  
-**Last Verified:** January 23, 2026  
+**Version:** 4.6.0 (MMT Smart ID + Pricing Cleanup)  
+**Date:** January 27, 2026  
+**Last Verified:** January 27, 2026  
 **Authors:** Driver's Klub Engineering Team  
 **Status:** **LIVE / PRODUCTION**
 
@@ -376,10 +376,24 @@ The system has passed the **Consolidated Master Test Protocol** (`npx tsx script
   * **Response Format**: Implements special `{ response: { ... } }` wrapper, bypassing standard API middleware.
   * **Endpoints**: Search, Block, Paid, Cancel, Reschedule Block/Confirm.
 * **Outbound (Us -> MMT)**: All tracking webhooks implemented:
-  * **Dispatch**: `/dispatch/{id}/assign`, `/dispatch/{id}/reassign`, `/dispatch/{id}/unassign`
+  * **Dispatch**: `/dispatch/{id}/assign`, `/dispatch/{id}/reassign`, `/dispatch/{id}/detach`
   * **Track**: `/track/{id}/start`, `/track/{id}/arrived`, `/track/{id}/boarded`, `/track/{id}/alight` (sends extra charges), `/track/{id}/not-boarded`
-  * **Location**: `PUT /track/{id}/location` (every 30 seconds during trip)
+  * **Location**: `PUT /track/{id}/update` (every 30 seconds during trip)
   * All payloads include `booking_id`, `device_id`, and coordinates as **strings**.
+  * **Smart ID Formatting**: Driver/Vehicle IDs are compressed to 10 chars for MMT compliance:
+    * UUID → Truncated (first 10 hex chars)
+    * ShortID (DRV20260127001) → Smart Compressed (D260127001)
+
+### ✅ Pricing Engine (v2)
+
+* **Formula**: `finalFare = (billableKm × ₹25) × tripMultiplier × bookingMultiplier × vehicleMultiplier`
+* **Trip Multipliers**: AIRPORT (1.0×), RENTAL (1.1×), INTER_CITY (1.2×)
+* **Booking Multipliers**: T_1/Same-day (1.0×), T_2/Advance ≥24h (0.95× = 5% discount)
+* **Vehicle Multipliers**: EV (1.0×), NON_EV (1.1×)
+* **Extra Charges**:
+  * Night Charge (11PM-5AM): max(25% of base, ₹250)
+  * Airport Entry: ₹270 flat
+  * Waiting: ₹100 per 30-min block after 45-min free
 
 ---
 

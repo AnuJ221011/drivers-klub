@@ -54,4 +54,15 @@ router.post(
   controller.reassignDriver.bind(controller)
 );
 
+router.post(
+  "/detach",
+  authorizeRoles(
+    UserRole.SUPER_ADMIN,
+    UserRole.FLEET_ADMIN,
+    UserRole.OPERATIONS,
+    UserRole.MANAGER
+  ),
+  controller.detachDriver.bind(controller)
+);
+
 export default router;

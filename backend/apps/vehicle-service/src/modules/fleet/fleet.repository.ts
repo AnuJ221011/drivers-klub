@@ -16,10 +16,11 @@ import {
 import { CreateHubManagerInput, HubManagerEntity } from "./hubManager.types.js";
 
 export class FleetRepository {
-  async create(data: CreateFleetPayload): Promise<FleetEntity> {
-    const { modeId, ...restData } = data;
+  async create(data: CreateFleetPayload & { shortId: string }): Promise<FleetEntity> {
+    const { modeId, shortId, ...restData } = data;
     return prisma.fleet.create({
       data: {
+        shortId,
         ...restData,
         modeId: modeId || "CAB", // Default to "CAB" if not provided
         dob: data.dob ? new Date(data.dob) : undefined,
@@ -32,7 +33,11 @@ export class FleetRepository {
   }
 
   async findById(id: string): Promise<FleetEntity | null> {
-    return prisma.fleet.findUnique({ where: { id } });
+    return prisma.fleet.findFirst({
+      where: {
+        OR: [{ id }, { shortId: id }]
+      }
+    });
   }
 
   async findByMobile(mobile: string): Promise<FleetEntity | null> {
@@ -53,12 +58,14 @@ export class FleetRepository {
 export class FleetHubRepository {
   async create(
     fleetId: string,
-    data: CreateFleetHubInput
+    data: CreateFleetHubInput & { shortId: string }
   ): Promise<FleetHubEntity> {
+    const { shortId, ...restData } = data;
     return prisma.fleetHub.create({
       data: {
+        shortId,
         fleetId,
-        ...data,
+        ...restData,
       },
     });
   }
@@ -68,7 +75,11 @@ export class FleetHubRepository {
   }
 
   async findById(id: string): Promise<FleetHubEntity | null> {
-    return prisma.fleetHub.findUnique({ where: { id } });
+    return prisma.fleetHub.findFirst({
+      where: {
+        OR: [{ id }, { shortId: id }]
+      }
+    });
   }
 
   async assign(
@@ -135,18 +146,24 @@ export class FleetHubRepository {
 export class HubManagerRepository {
   async create(
     fleetId: string,
-    data: CreateHubManagerInput
+    data: CreateHubManagerInput & { shortId: string }
   ): Promise<HubManagerEntity> {
+    const { shortId, ...restData } = data;
     return prisma.hubManager.create({
       data: {
+        shortId,
         fleetId,
-        ...data,
+        ...restData,
       },
     });
   }
 
   async findById(id: string): Promise<HubManagerEntity | null> {
-    return prisma.hubManager.findUnique({ where: { id } });
+    return prisma.hubManager.findFirst({
+      where: {
+        OR: [{ id }, { shortId: id }]
+      }
+    });
   }
 
   async findAll(id: string): Promise<HubManagerEntity[]> {

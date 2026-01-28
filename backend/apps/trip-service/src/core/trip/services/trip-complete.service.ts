@@ -14,16 +14,22 @@ const rapidoService = new RapidoService();
 
 export class TripCompleteService {
     static async completeTrip(tripId: string) {
+        const trip = await prisma.ride.findFirst({
+            where: { OR: [{ id: tripId }, { shortId: tripId }] },
+            select: { id: true }
+        });
+        if (!trip) throw new Error('Trip not found');
+
         return prisma.$transaction(async (tx) => {
             // Update trip
             await tx.ride.update({
-                where: { id: tripId },
+                where: { id: trip.id },
                 data: { status: "COMPLETED" },
             });
 
             // Close assignment if exists
             const assignment = await tx.tripAssignment.findFirst({
-                where: { tripId, status: AssignmentStatus.ASSIGNED },
+                where: { tripId: trip.id, status: AssignmentStatus.ASSIGNED },
             });
 
             if (assignment) {

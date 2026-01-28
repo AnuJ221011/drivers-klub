@@ -1,4 +1,5 @@
 import { prisma } from "@driversklub/database";
+import { IdUtils, EntityType } from "@driversklub/common";
 import type {
   CreateFleetManagerInput,
   FleetManagerEntity
@@ -6,8 +7,11 @@ import type {
 
 export class FleetManagerRepository {
   async create(data: CreateFleetManagerInput): Promise<FleetManagerEntity> {
+    const shortId = await IdUtils.generateShortId(prisma, EntityType.USER);
+
     const user = await prisma.user.create({
       data: {
+        shortId,
         name: data.name,
         phone: data.mobile,
         role: "MANAGER",
@@ -53,8 +57,10 @@ export class FleetManagerRepository {
   }
 
   async findById(id: string): Promise<FleetManagerEntity | null> {
-    const user = await prisma.user.findUnique({
-      where: { id },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ id }, { shortId: id }]
+      },
       include: { fleet: { select: { city: true } } },
     });
     if (!user || user.role !== "MANAGER" || !user.fleetId) return null;
@@ -93,8 +99,11 @@ export class FleetManagerRepository {
   }
 
   async deactivate(id: string): Promise<FleetManagerEntity> {
+    const resolved = await this.findById(id);
+    if (!resolved) throw new Error("Fleet manager not found");
+
     const user = await prisma.user.update({
-      where: { id },
+      where: { id: resolved.id },
       data: { isActive: false },
       include: { fleet: { select: { city: true } } },
     });

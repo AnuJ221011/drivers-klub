@@ -8,7 +8,7 @@ import { prisma } from '@driversklub/database';
 import { TransactionStatus, PaymentMethod } from '@prisma/client';
 import { rentalService } from '../../core/payment/rental.service.js';
 import { orderService } from '../../core/payment/order.service.js';
-import { logger } from '@driversklub/common';
+import { logger, IdUtils, EntityType } from '@driversklub/common';
 
 /**
  * Handle Easebuzz Payment Gateway webhook
@@ -167,6 +167,7 @@ export const handleVirtualAccountWebhook = async (req: Request, res: Response) =
                 updatedAt: new Date(),
             },
             create: {
+                shortId: await IdUtils.generateShortId(prisma, EntityType.COLLECTION),
                 driverId,
                 vehicleId: virtualQR.vehicleId,
                 virtualQRId: virtualQR.id,
@@ -178,13 +179,15 @@ export const handleVirtualAccountWebhook = async (req: Request, res: Response) =
         });
 
         // Create transaction record
+        const txnShortId = await IdUtils.generateShortId(prisma, EntityType.TRANSACTION);
         await prisma.transaction.create({
             data: {
+                shortId: txnShortId,
                 driverId,
                 type: 'DAILY_COLLECTION',
                 amount: paymentAmount,
                 status: TransactionStatus.SUCCESS,
-                 
+
                 // @ts-ignore
                 paymentMethod: PaymentMethod.VIRTUAL_QR,
                 easebuzzTxnId: txn_id,

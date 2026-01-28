@@ -11,7 +11,11 @@ export async function hydrateUserScope(req: Request, _res: Response, next: NextF
 
     if (req.user.fleetId) return next();
 
-    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [{ id: req.user.id }, { shortId: req.user.id }]
+      }
+    });
     if (!user) throw new ApiError(401, "User not found");
 
     req.user.fleetId = user.fleetId ?? null;

@@ -38,7 +38,7 @@ async function createZipArchive(filesToZip: string[]): Promise<void> {
         for (const item of filesToZip) {
             const fullPath = path.join(PROJECT_ROOT, item);
             if (!fs.existsSync(fullPath)) {
-                console.warn(`   ⚠️  Skipping missing item: ${item}`);
+                console.warn(`   Skipping missing item: ${item}`);
                 continue;
             }
 
@@ -60,24 +60,24 @@ async function createZipArchive(filesToZip: string[]): Promise<void> {
 }
 
 async function main() {
-    console.log("🚀 Starting Elastic Beanstalk Bundle Build...");
+    console.log("Starting Elastic Beanstalk Bundle Build...");
 
     // 1. Clean previous
     const bundlePath = path.join(PROJECT_ROOT, BUNDLE_NAME);
     if (fs.existsSync(bundlePath)) {
-        console.log(`🗑️  Removing old ${BUNDLE_NAME}...`);
+        console.log(`Removing old ${BUNDLE_NAME}...`);
         fs.unlinkSync(bundlePath);
     }
 
     // 2. Verify critical files exist
     const packageJsonPath = path.join(PROJECT_ROOT, "package.json");
     if (!fs.existsSync(packageJsonPath)) {
-        console.error("❌ 'package.json' not found.");
+        console.error(" 'package.json' not found.");
         process.exit(1);
     }
 
     // 3. Zip files using Node.js archiver (cross-platform)
-    console.log("📦 Zipping files...");
+    console.log(" Zipping files...");
 
     try {
         const filesToZip = [
@@ -91,7 +91,8 @@ async function main() {
             ".ebextensions",
             ".npmrc",
             "Procfile",
-            "Buildfile"
+            "Buildfile",
+            "ecosystem.config.cjs"
         ];
 
         await createZipArchive(filesToZip);
@@ -100,15 +101,15 @@ async function main() {
         const stats = fs.statSync(bundlePath);
         const fileSizeMB = (stats.size / (1024 * 1024)).toFixed(2);
 
-        console.log(`✅ Bundle created: ${BUNDLE_NAME}`);
-        console.log(`📊 File size: ${fileSizeMB} MB`);
-        console.log("👉 Upload this file to AWS Elastic Beanstalk.");
+        console.log(`Bundle created: ${BUNDLE_NAME}`);
+        console.log(`File size: ${fileSizeMB} MB`);
+        console.log("Upload this file to AWS Elastic Beanstalk.");
 
     } catch (error: any) {
-        console.error("❌ Failed to create ZIP bundle.");
-        console.error(`   Error: ${error.message}`);
+        console.error("Failed to create ZIP bundle.");
+        console.error(`Error: ${error.message}`);
         if (error.stack) {
-            console.error(`   Stack: ${error.stack}`);
+            console.error(`Stack: ${error.stack}`);
         }
         process.exit(1);
     }

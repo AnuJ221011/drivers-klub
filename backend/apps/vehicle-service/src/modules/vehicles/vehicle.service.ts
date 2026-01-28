@@ -1,6 +1,6 @@
 import { VehicleRepository } from "./vehicle.repository.js";
 import { prisma } from "@driversklub/database";
-import { ApiError } from "@driversklub/common";
+import { ApiError, IdUtils, EntityType } from "@driversklub/common";
 import type {
   CreateVehicleInput,
   UpdateVehicleInput,
@@ -32,8 +32,10 @@ export class VehicleService {
 
   async createVehicle(data: CreateVehicleInput, user?: any) {
     if (user) this.assertFleetScope(user, data.fleetId);
-    const fleet = await prisma.fleet.findUnique({
-      where: { id: data.fleetId },
+    const fleet = await prisma.fleet.findFirst({
+      where: {
+        OR: [{ id: data.fleetId }, { shortId: data.fleetId }]
+      },
     });
 
     if (!fleet) {
@@ -57,7 +59,9 @@ export class VehicleService {
       ...(insuranceExpiry ? { insuranceExpiry: new Date(insuranceExpiry) } : {}),
     };
 
-    return this.repo.create(payload);
+    const shortId = await IdUtils.generateShortId(prisma, EntityType.VEHICLE);
+
+    return this.repo.create({ ...payload, shortId });
   }
 
   async getVehiclesByFleet(fleetId: string, user?: any) {
@@ -96,13 +100,13 @@ export class VehicleService {
   }
 
   async updateVehicleDocs(id: string, data: any, user?: any) {
-    await this.getVehicleById(id, user);
-    return this.repo.updateDocs(id, data);
+    const vehicle = await this.getVehicleById(id, user);
+    return this.repo.updateDocs(vehicle.id, data);
   }
 
   async deactivateVehicle(id: string, user?: any) {
-    await this.getVehicleById(id, user);
-    return this.repo.updateStatus(id, { status: "INACTIVE" });
+    const vehicle = await this.getVehicleById(id, user);
+    return this.repo.updateStatus(vehicle.id, { status: "INACTIVE" });
   }
 
   async updateVehicle(id: string, data: UpdateVehicleInput, user?: any) {
@@ -128,12 +132,12 @@ export class VehicleService {
       update.insuranceExpiry = insuranceExpiry ? new Date(insuranceExpiry) : null;
     }
 
-    return this.repo.updateDetails(id, update);
+    return this.repo.updateDetails(vehicle.id, update);
   }
 
   async updateVehicleStatus(id: string, data: UpdateVehicleStatusInput, user?: any) {
-    await this.getVehicleById(id, user);
+    const vehicle = await this.getVehicleById(id, user);
     if (!data?.status) throw new ApiError(400, "status is required");
-    return this.repo.updateStatus(id, data);
+    return this.repo.updateStatus(vehicle.id, data);
   }
 }

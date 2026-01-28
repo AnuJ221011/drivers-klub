@@ -1,17 +1,25 @@
 # 📚 Complete API Reference
 
-**Version:** 4.5.0 (MMT Tracking Complete + Public Booking + Referrals)  
+**Version:** 4.6.0 (MMT Smart ID + Pricing Cleanup)  
 **Base URL (Development):** `http://localhost:3000` (API Gateway)  
 **Base URL (Staging):** `https://driversklub-backend.onrender.com`  
 **Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
-**Last Updated:** January 23, 2026  
-**Last Verified:** January 23, 2026
+**Last Updated:** January 27, 2026  
+**Last Verified:** January 27, 2026
+
+## What's New in v4.6.0
+
+- **MMT Smart ID Formatting** - Driver/Vehicle IDs compressed to 10 chars for MMT compliance:
+  - UUID → Truncated (first 10 hex chars after removing hyphens)
+  - ShortID (DRV20260127001) → Smart Compressed (D260127001)
+- **Pricing Cleanup** - Removed unused `pricing.rules.ts`, consolidated to `pricing.config.ts`
+- **Endpoint Fix** - MMT dispatch uses `/detach` (not `/unassign`), location uses `/update` (not `/location`)
 
 ## What's New in v4.5.0
 
 - **MMT Integration Complete** - Full inbound + outbound tracking with MakeMyTrip
   - Inbound: search, block, paid, cancel, reschedule, booking details
-  - Dispatch events: assign, reassign, unassign
+  - Dispatch events: assign, reassign, detach
   - Track events: start, arrived, boarded, alight, not-boarded, location
   - Automatic `providerBookingId` storage from paid endpoint
 - **Public Booking API** - Customers can now book trips without authentication
@@ -170,6 +178,7 @@ Verify OTP and authenticate user.
     "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "user": {
       "id": "uuid",
+      "shortId": "USR20260123001",
       "name": "Rajesh Kumar",
       "phone": "9876543210",
       "role": "DRIVER",
@@ -422,7 +431,7 @@ Create a new Driver account (Public Self-Registration).
 {
   "success": true,
   "data": {
-    "user": { "id": "...", "role": "DRIVER" },
+    "user": { "id": "...", "shortId": "USR...", "role": "DRIVER" },
     "token": "..." // Auto-login token
   }
 }
@@ -455,6 +464,7 @@ Create a new user.
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "USR20260123002",
     "name": "John Doe",
     "phone": "9876543210",
     "role": "DRIVER",
@@ -481,6 +491,7 @@ Get all users.
   "data": [
     {
       "id": "uuid",
+      "shortId": "USR20260123003",
       "name": "John Doe",
       "phone": "9876543210",
       "role": "DRIVER",
@@ -506,6 +517,7 @@ Get user by ID.
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "USR20260123003",
     "name": "John Doe",
     "phone": "9876543210",
     "role": "DRIVER",
@@ -591,6 +603,7 @@ Complete driver onboarding with full KYC (Public - for driver app signup flow).
   "success": true,
   "data": {
     "id": "driver-uuid",
+    "shortId": "DRV20260123001",
     "firstName": "Raj",
     "lastName": "Kumar",
     "mobile": "9876543210",
@@ -648,6 +661,7 @@ Create a new driver profile (Admin).
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "DRV20260123002",
     "userId": "uuid",
     "fleetId": "uuid",
     "firstName": "Rajesh",
@@ -1496,6 +1510,7 @@ Create a new vehicle.
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "VEH20260123001",
     "vehicleNumber": "DL01AB1234",
     "vehicleName": "Tata Tigor EV",
     "status": "ACTIVE"
@@ -1520,6 +1535,7 @@ Get all vehicles for a fleet.
   "data": [
     {
       "id": "uuid",
+      "shortId": "VEH20260123001",
       "vehicleNumber": "DL01AB1234",
       "vehicleName": "Tata Tigor EV",
       "status": "ACTIVE"
@@ -1545,6 +1561,7 @@ Get all vehicles for a hub.
   "data": [
     {
       "id": "uuid",
+      "shortId": "VEH20260123001",
       "vehicleNumber": "DL01AB1234",
       "vehicleName": "Tata Tigor EV",
       "hubId": "uuid"
@@ -1569,6 +1586,7 @@ Get vehicle by ID.
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "VEH20260123001",
     "vehicleNumber": "DL01AB1234",
     "vehicleName": "Tata Tigor EV",
     "vehicleModel": "Tigor EV 2024",
@@ -2039,6 +2057,7 @@ Driver check-in.
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "ATT20260123001",
     "driverId": "uuid",
     "checkInTime": "2025-12-26T10:00:00.000Z",
     "status": "PENDING"
@@ -2157,6 +2176,7 @@ Start a break during active attendance.
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "BRK20260123001",
     "attendanceId": "uuid",
     "startTime": "2025-12-26T12:00:00.000Z"
   }
@@ -2187,6 +2207,7 @@ End current break.
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "BRK20260123001",
     "endTime": "2025-12-26T12:30:00.000Z"
   }
 }
@@ -2219,6 +2240,7 @@ Get attendance history.
   "data": [
     {
       "id": "uuid",
+      "shortId": "ATT20260123001",
       "driverId": "uuid",
       "checkInTime": "2025-12-26T10:00:00.000Z",
       "checkOutTime": "2025-12-26T18:00:00.000Z",
@@ -2288,27 +2310,25 @@ Create a new trip.
 
 ```json
 {
-  "pickupLocation": {
-    "address": "Sector 29, Gurgaon",
-    "latitude": 28.4595,
-    "longitude": 77.0266
-  },
-  "dropLocation": {
-    "address": "IGI Airport, Delhi",
-    "latitude": 28.5562,
-    "longitude": 77.1000
-  },
+  "pickupLocation": "Sector 29, Gurgaon",
+  "pickupLat": 28.4595,
+  "pickupLng": 77.0266,
+  "dropLocation": "IGI Airport, Delhi",
+  "dropLat": 28.5562,
+  "dropLng": 77.1000,
   "pickupTime": "2025-12-26T14:00:00.000Z",
+  "tripType": "INTER_CITY",
+  "bookingType": "PREBOOK",
+  "vehicleSku": "DNA_SEDAN_EV",
   "passengerName": "John Doe",
   "passengerPhone": "9876543210",
-  "vehicleType": "SEDAN",
-  "bookingType": "PREBOOK"
+  "distanceKm": 25.5
 }
 ```
 
 **Booking Types:**
 
-- `PREBOOK` - Scheduled in advance
+- `PREBOOK` - Scheduled (> 2.5 hours in advance)
 - `INSTANT` - Immediate booking
 
 **Response:**
@@ -2318,6 +2338,7 @@ Create a new trip.
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "TRP20260123001",
     "pickupLocation": {
       "address": "Sector 29, Gurgaon",
       "latitude": 28.4595,
@@ -2358,6 +2379,7 @@ Get trips for current driver.
   "data": [
     {
       "id": "uuid",
+      "shortId": "TRP20260123001",
       "pickupLocation": {
         "address": "Sector 29, Gurgaon"
       },
@@ -2387,6 +2409,7 @@ Get trip details by ID.
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "TRP20260123001",
     "pickupLocation": {
       "address": "Sector 29, Gurgaon",
       "latitude": 28.4595,
@@ -2401,12 +2424,14 @@ Get trip details by ID.
     "status": "DRIVER_ASSIGNED",
     "driver": {
       "id": "uuid",
+      "shortId": "DRV20260123001",
       "firstName": "Rajesh",
       "lastName": "Kumar",
       "mobile": "9876543210"
     },
     "vehicle": {
       "id": "uuid",
+      "shortId": "VEH20260123001",
       "vehicleNumber": "DL01AB1234"
     },
     "estimatedFare": 625,
@@ -2439,6 +2464,7 @@ Assign driver to trip.
   "message": "Driver assigned successfully",
   "data": {
     "tripId": "uuid",
+    "shortId": "TRP20260123001",
     "driverId": "uuid",
     "status": "DRIVER_ASSIGNED"
   }
@@ -2479,7 +2505,12 @@ Start a trip (driver en route to pickup).
   "message": "Trip started successfully",
   "data": {
     "tripId": "uuid",
-    "status": "STARTED"
+    "shortId": "TRP20260123001",
+    "status": "STARTED",
+    "pickupTime": "2026-01-24T16:00:00Z",
+    "customerName": "Amit Sharma",
+    "customerPhone": "9876543210",
+    "paymentMethod": "CASH"
   }
 }
 ```
@@ -2507,6 +2538,17 @@ Mark driver as arrived at pickup location.
 
 **Constraints:**
 
+- **Geofence**: Must be within **500 meters** of pickup location.
+- **Time Window**: Cannot arrive more than **30 minutes** before `pickupTime`.
+
+**Error Responses:**
+
+- `400 Bad Request`: "You are Xm away from pickup. Please reach within 500m."
+- `400 Bad Request`: "Too early to mark Arrived. Please wait until 30 mins before pickup."
+- `403 Forbidden`: "Not authorized to update this trip"
+
+**Response:**
+
 - Must be within 30 minutes of pickup time
 - Must be within 500m radius of pickup location
 - Trip must be in `STARTED` status
@@ -2516,10 +2558,16 @@ Mark driver as arrived at pickup location.
 ```json
 {
   "success": true,
-  "message": "Arrival confirmed",
+  "statusCode": 200,
+  "message": "Driver marked as arrived",
   "data": {
     "tripId": "uuid",
-    "status": "ARRIVED"
+    "shortId": "TRP20260123001",
+    "status": "ARRIVED_EVENT_SENT",
+    "arrivedAt": "2026-01-24T05:53:24.389Z",
+    "pickupLocation": "Terminal 1, IGI Airport",
+    "pickupLat": 28.5550838,
+    "pickupLng": 77.0844015
   }
 }
 ```
@@ -2550,6 +2598,7 @@ Mark passenger as onboarded.
   "message": "Passenger onboarded successfully",
   "data": {
     "tripId": "uuid",
+    "shortId": "TRP20260123001",
     "status": "ONBOARDED"
   }
 }
@@ -2575,7 +2624,12 @@ Mark trip as no-show.
 
 **Constraints:**
 
-- Can only be marked after 30 minutes past pickup time
+- **Time Window**: Can only mark No Show **30 minutes** after `pickupTime`.
+
+**Error Responses:**
+
+- `400 Bad Request`: "Cannot mark No Show yet. Wait until 30 mins after pickup time."
+- `404 Not Found`: "Trip not found"
 
 **Response:**
 
@@ -2585,6 +2639,7 @@ Mark trip as no-show.
   "message": "Trip marked as no-show",
   "data": {
     "tripId": "uuid",
+    "shortId": "TRP20260123001",
     "status": "NO_SHOW"
   }
 }
@@ -2612,6 +2667,8 @@ Complete a trip.
 }
 ```
 
+**Note:** Extra charges (Waiting, Night, Airport) are **auto-calculated** by the backend based on timestamps and location. Manual values in `extraCharges` for these fields will be overridden.
+
 **Response:**
 
 ```json
@@ -2620,6 +2677,7 @@ Complete a trip.
   "message": "Trip completed successfully",
   "data": {
     "tripId": "uuid",
+    "shortId": "TRP20260123001",
     "status": "COMPLETED",
     "actualDistance": 26.2,
     "finalFare": 650
@@ -2642,6 +2700,7 @@ Get real-time trip tracking information.
   "success": true,
   "data": {
     "tripId": "uuid",
+    "shortId": "TRP20260123001",
     "status": "ONBOARDED",
     "driver": {
       "name": "Rajesh Kumar",
@@ -2688,6 +2747,7 @@ Get all trips (admin view).
   "data": [
     {
       "id": "uuid",
+      "shortId": "TRP20260123001",
       "pickupLocation": {
         "address": "Sector 29, Gurgaon"
       },
@@ -2789,6 +2849,34 @@ Reassign trip to different driver.
 
 ---
 
+#### POST `/admin/trips/detach`
+
+Detach a driver from a trip (Vendor Cancellation). This triggers an irreversible cancellation flow with external partners (e.g., MMT) if applicable.
+
+**Authentication:** Required  
+**Roles:** `SUPER_ADMIN`, `FLEET_ADMIN`, `OPERATIONS`, `MANAGER`
+
+**Request Body:**
+
+```json
+{
+  "tripId": "uuid",
+  "reason": "Driver vehicle breakdown",
+  "comment": "Optional comment for audit"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Driver detached and partner notified (if applicable)"
+}
+```
+
+---
+
 ### Pricing
 
 #### POST `/pricing/preview`
@@ -2801,16 +2889,13 @@ Get pricing preview for a trip.
 
 ```json
 {
-  "pickupLocation": {
-    "latitude": 28.4595,
-    "longitude": 77.0266
-  },
-  "dropLocation": {
-    "latitude": 28.5562,
-    "longitude": 77.1000
-  },
-  "pickupTime": "2025-12-26T14:00:00.000Z",
-  "vehicleType": "SEDAN"
+  "pickup": "Sector 29, Gurgaon",
+  "drop": "IGI Airport, Delhi",
+  "tripType": "AIRPORT",
+  "tripDate": "2025-12-26T14:00:00.000Z",
+  "bookingDate": "2025-12-25T14:00:00.000Z",
+  "vehicleType": "EV",
+  "vehicleSku": "TATA_TIGOR_EV" // Optional if vehicleType is provided
 }
 ```
 
@@ -2921,6 +3006,7 @@ Create a trip booking (no authentication required).
   "success": true,
   "data": {
     "tripId": "uuid",
+    "shortId": "TRP20260123001",
     "status": "CREATED",
     "vehicleSku": "TATA_TIGOR_EV",
     "vehicleType": "EV",

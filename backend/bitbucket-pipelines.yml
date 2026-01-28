@@ -58,7 +58,7 @@ pipelines:
                 AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
                 AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
                 APPLICATION_NAME: "driversklub-backend"
-                ENVIRONMENT_NAME: "driversklub-backend-staging-env"
+                ENVIRONMENT_NAME: "driversklub-backend-staging-v2"
                 ZIP_FILE: "deploy.zip"
                 S3_BUCKET: "elasticbeanstalk-ap-south-1-384694315351"
                 WAIT: "true"

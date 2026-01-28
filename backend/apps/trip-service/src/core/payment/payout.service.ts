@@ -1,6 +1,7 @@
+import { TransactionType, TransactionStatus, PaymentMethod, PaymentModel } from '@prisma/client';
 import { prisma } from "@driversklub/database";
 import { easebuzzAdapter } from '../../adapters/easebuzz/easebuzz.adapter.js';
-import { TransactionType, TransactionStatus, PaymentMethod, PaymentModel } from '@prisma/client';
+import { IdUtils, EntityType } from "@driversklub/common";
 
 export class PayoutService {
     /**
@@ -44,6 +45,7 @@ export class PayoutService {
                 updatedAt: new Date(),
             },
             create: {
+                shortId: await IdUtils.generateShortId(prisma, EntityType.COLLECTION),
                 driverId: data.driverId,
                 vehicleId: data.vehicleId,
                 virtualQRId: data.virtualQRId,
@@ -72,8 +74,8 @@ export class PayoutService {
         expectedRevenue?: number;
         reconciliationNotes?: string;
     }) {
-        const collection = await prisma.dailyCollection.findUnique({
-            where: { id: params.collectionId },
+        const collection = await prisma.dailyCollection.findFirst({
+            where: { OR: [{ id: params.collectionId }, { shortId: params.collectionId }] },
         });
 
         if (!collection) {
@@ -85,7 +87,7 @@ export class PayoutService {
             : null;
 
         const updatedCollection = await prisma.dailyCollection.update({
-            where: { id: params.collectionId },
+            where: { id: collection.id },
             data: {
                 expectedRevenue: params.expectedRevenue,
                 variance,
@@ -106,8 +108,8 @@ export class PayoutService {
      * Process payout for a daily collection
      */
     async processPayout(collectionId: string) {
-        const collection = await prisma.dailyCollection.findUnique({
-            where: { id: collectionId },
+        const collection = await prisma.dailyCollection.findFirst({
+            where: { OR: [{ id: collectionId }, { shortId: collectionId }] },
             include: {
                 driver: {
                     include: { user: true },
@@ -138,9 +140,12 @@ export class PayoutService {
             throw new Error('Driver bank details not configured');
         }
 
+        const shortId = await IdUtils.generateShortId(prisma, EntityType.TRANSACTION);
+
         // Create transaction record
         const transaction = await prisma.transaction.create({
             data: {
+                shortId: shortId,
                 driverId: driver.id,
                 type: TransactionType.PAYOUT,
                 amount: collection.netPayout,
@@ -180,7 +185,7 @@ export class PayoutService {
 
             // Mark collection as paid
             await prisma.dailyCollection.update({
-                where: { id: collectionId },
+                where: { id: collection.id },
                 data: {
                     isPaid: true,
                     paidAt: new Date(),
@@ -217,9 +222,15 @@ export class PayoutService {
         isReconciled?: boolean;
         isPaid?: boolean;
     }) {
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: driverId }, { shortId: driverId }] },
+            select: { id: true }
+        });
+        if (!driver) return [];
+
         return prisma.dailyCollection.findMany({
             where: {
-                driverId,
+                driverId: driver.id,
                 ...(filters?.startDate && {
                     date: { gte: filters.startDate },
                 }),
@@ -241,8 +252,10 @@ export class PayoutService {
      * Get collection by ID
      */
     async getCollectionById(id: string) {
-        return prisma.dailyCollection.findUnique({
-            where: { id },
+        return prisma.dailyCollection.findFirst({
+            where: {
+                OR: [{ id }, { shortId: id }]
+            },
             include: {
                 driver: true,
                 vehicle: true,
@@ -333,8 +346,31 @@ export class PayoutService {
      * Get driver payout summary
      */
     async getDriverPayoutSummary(driverId: string, startDate?: Date, endDate?: Date) {
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: driverId }, { shortId: driverId }] },
+            select: { id: true }
+        });
+        if (!driver) {
+            return {
+                totalDays: 0,
+                totalCollections: 0,
+                totalIncentives: 0,
+                totalPenalties: 0,
+                totalPayout: 0,
+                deductions: 0,
+                balance: 0,
+                totalRevShare: 0,
+                paidDays: 0,
+                unpaidDays: 0,
+                paidAmount: 0,
+                unpaidAmount: 0
+            };
+        }
+
+        const resolvedDriverId = driver.id;
+
         // 1. Get Collections (Gross Earnings)
-        const collections = await this.getDriverCollections(driverId, {
+        const collections = await this.getDriverCollections(resolvedDriverId, {
             startDate,
             endDate,
         });
@@ -342,7 +378,7 @@ export class PayoutService {
         // 2. Get Actual Payouts (Real Money Paid)
         const payouts = await prisma.transaction.findMany({
             where: {
-                driverId,
+                driverId: resolvedDriverId,
                 type: TransactionType.PAYOUT,
                 status: TransactionStatus.SUCCESS,
                 ...(startDate || endDate ? {
@@ -363,11 +399,11 @@ export class PayoutService {
         } : {};
 
         const incentives = await prisma.incentive.findMany({
-            where: { driverId, ...dateFilter }
+            where: { driverId: resolvedDriverId, ...dateFilter }
         });
 
         const penalties = await prisma.penalty.findMany({
-            where: { driverId, ...dateFilter }
+            where: { driverId: resolvedDriverId, ...dateFilter }
         });
 
         // 4. Calculate Summary adhering to User Equation:
@@ -499,8 +535,10 @@ export class PayoutService {
                             // This locks the intent to pay
                             let transaction = null;
                             if (amount > 0) {
+                                const shortId = await IdUtils.generateShortId(prisma, EntityType.TRANSACTION);
                                 transaction = await prisma.transaction.create({
                                     data: {
+                                        shortId: shortId,
                                         driverId: driver.id,
                                         type: TransactionType.PAYOUT,
                                         amount: amount,
@@ -564,8 +602,10 @@ export class PayoutService {
                             // 7. Handle Penalty (Record Tracking Only)
                             const penalty = parseFloat(row.penalty || '0');
                             if (penalty > 0) {
+                                const penaltyShortId = await IdUtils.generateShortId(prisma, EntityType.PENALTY);
                                 await prisma.penalty.create({
                                     data: {
+                                        shortId: penaltyShortId,
                                         driverId: driver.id,
                                         type: 'MONETARY',
                                         amount: penalty,
@@ -580,8 +620,10 @@ export class PayoutService {
                             // 8. Handle Incentive (Record Tracking Only)
                             const incentive = parseFloat(row.incentive || '0');
                             if (incentive > 0) {
+                                const incentiveShortId = await IdUtils.generateShortId(prisma, EntityType.INCENTIVE);
                                 await prisma.incentive.create({
                                     data: {
+                                        shortId: incentiveShortId,
                                         driverId: driver.id,
                                         amount: incentive,
                                         reason: `Bulk Incentive: ${description}`,

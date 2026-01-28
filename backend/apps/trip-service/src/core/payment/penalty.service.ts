@@ -1,5 +1,6 @@
 import { prisma } from "@driversklub/database";
 import { PenaltyType, TransactionType, TransactionStatus, PaymentMethod, PaymentModel } from "@prisma/client";
+import { IdUtils, EntityType } from "@driversklub/common";
 import { easebuzzAdapter } from "../../adapters/easebuzz/easebuzz.adapter.js";
 import { logger } from "@driversklub/common";
 
@@ -17,8 +18,8 @@ export class PenaltyService {
         suspensionStartDate?: Date;
         suspensionEndDate?: Date;
     }) {
-        const driver = await prisma.driver.findUnique({
-            where: { id: data.driverId },
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: data.driverId }, { shortId: data.driverId }] },
             include: { user: true },
         });
 
@@ -26,10 +27,13 @@ export class PenaltyService {
             throw new Error('Driver not found');
         }
 
+        const shortId = await IdUtils.generateShortId(prisma, EntityType.PENALTY);
+
         // Create penalty
         const penalty = await prisma.penalty.create({
             data: {
-                driverId: data.driverId,
+                shortId,
+                driverId: driver.id,
                 type: data.type,
                 amount: data.amount || 0,
                 reason: data.reason,
@@ -44,7 +48,7 @@ export class PenaltyService {
         // Handle monetary penalty with automatic deposit deduction for RENTAL model
         if (data.type === PenaltyType.MONETARY && data.amount && data.amount > 0) {
             if (driver.paymentModel === PaymentModel.RENTAL) {
-                const depositResult = await this.handleRentalModelPenalty(penalty.id, data.driverId, data.amount, driver);
+                const depositResult = await this.handleRentalModelPenalty(penalty.id, driver.id, data.amount, driver);
                 // Return the penalty with deposit processing details
                 const updatedPenalty = await prisma.penalty.findUnique({ where: { id: penalty.id } });
                 return {
@@ -57,12 +61,12 @@ export class PenaltyService {
 
         // Handle suspension
         if (data.type === PenaltyType.SUSPENSION) {
-            await this.applySuspension(data.driverId, data.suspensionStartDate!, data.suspensionEndDate!);
+            await this.applySuspension(driver.id, data.suspensionStartDate!, data.suspensionEndDate!);
         }
 
         // Handle blacklist
         if (data.type === PenaltyType.BLACKLIST) {
-            await this.applyBlacklist(data.driverId, driver);
+            await this.applyBlacklist(driver.id, driver);
         }
 
         return penalty;
@@ -99,8 +103,10 @@ export class PenaltyService {
                     },
                 });
                 // Create transaction record
+                const txnShortId = await IdUtils.generateShortId(tx, EntityType.TRANSACTION);
                 await tx.transaction.create({
                     data: {
+                        shortId: txnShortId,
                         driverId,
                         type: TransactionType.PENALTY,
                         amount: -amount, // Negative for deduction
@@ -135,8 +141,10 @@ export class PenaltyService {
                     },
                 });
                 // Create transaction for deducted amount
+                const txnShortId = await IdUtils.generateShortId(tx, EntityType.TRANSACTION);
                 await tx.transaction.create({
                     data: {
+                        shortId: txnShortId,
                         driverId,
                         type: TransactionType.PENALTY,
                         amount: -availableDeposit,
@@ -150,8 +158,10 @@ export class PenaltyService {
 
             // Create payment link for remaining amount
             try {
+                const txnShortId = await IdUtils.generateShortId(prisma, EntityType.TRANSACTION);
                 const transaction = await prisma.transaction.create({
                     data: {
+                        shortId: txnShortId,
                         driverId,
                         type: TransactionType.PENALTY,
                         amount: remainingAmount,
@@ -199,8 +209,10 @@ export class PenaltyService {
         } else {
             // No deposit available - Generate full payment link
             try {
+                const txnShortId = await IdUtils.generateShortId(prisma, EntityType.TRANSACTION);
                 const transaction = await prisma.transaction.create({
                     data: {
+                        shortId: txnShortId,
                         driverId,
                         type: TransactionType.PENALTY,
                         amount: amount,
@@ -302,8 +314,10 @@ export class PenaltyService {
                 // Assuming we have beneficiary details. If not, we just zero the balance and log manual refund needed.
                 // For now, we will create a 'PENDING_REFUND' transaction and zero the wallet.
 
+                const payoutShortId = await IdUtils.generateShortId(prisma, EntityType.TRANSACTION);
                 const payoutTransaction = await prisma.transaction.create({
                     data: {
+                        shortId: payoutShortId,
                         driverId,
                         type: TransactionType.PAYOUT, // Or REFUND
                         amount: driver.depositBalance,
@@ -334,8 +348,8 @@ export class PenaltyService {
      * Waive a penalty
      */
     async waivePenalty(penaltyId: string, waivedBy: string, waiverReason: string) {
-        const penalty = await prisma.penalty.findUnique({
-            where: { id: penaltyId },
+        const penalty = await prisma.penalty.findFirst({
+            where: { OR: [{ id: penaltyId }, { shortId: penaltyId }] },
             include: { driver: true },
         });
 
@@ -359,8 +373,10 @@ export class PenaltyService {
             });
 
             // Create refund transaction
+            const refundShortId = await IdUtils.generateShortId(prisma, EntityType.TRANSACTION);
             await prisma.transaction.create({
                 data: {
+                    shortId: refundShortId,
                     driverId: penalty.driverId,
                     type: TransactionType.PENALTY,
                     amount: penalty.depositDeductionAmount,
@@ -395,7 +411,7 @@ export class PenaltyService {
 
         // Update penalty
         const updatedPenalty = await prisma.penalty.update({
-            where: { id: penaltyId },
+            where: { id: penalty.id },
             data: {
                 isWaived: true,
                 waivedBy,
@@ -412,8 +428,11 @@ export class PenaltyService {
      * Review a penalty
      */
     async reviewPenalty(penaltyId: string, reviewedBy: string, reviewNotes: string) {
+        const penalty = await this.getPenaltyById(penaltyId);
+        if (!penalty) throw new Error('Penalty not found');
+
         return prisma.penalty.update({
-            where: { id: penaltyId },
+            where: { id: penalty.id },
             data: {
                 reviewedBy,
                 reviewedAt: new Date(),
@@ -430,9 +449,15 @@ export class PenaltyService {
         isPaid?: boolean;
         isWaived?: boolean;
     }) {
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: driverId }, { shortId: driverId }] },
+            select: { id: true }
+        });
+        if (!driver) return [];
+
         return prisma.penalty.findMany({
             where: {
-                driverId,
+                driverId: driver.id,
                 ...(filters?.type && { type: filters.type }),
                 ...(filters?.isPaid !== undefined && { isPaid: filters.isPaid }),
                 ...(filters?.isWaived !== undefined && { isWaived: filters.isWaived }),
@@ -445,8 +470,10 @@ export class PenaltyService {
      * Get penalty by ID
      */
     async getPenaltyById(id: string) {
-        return prisma.penalty.findUnique({
-            where: { id },
+        return prisma.penalty.findFirst({
+            where: {
+                OR: [{ id }, { shortId: id }]
+            },
             include: { driver: true },
         });
     }
@@ -455,9 +482,15 @@ export class PenaltyService {
      * Get unpaid penalties total for driver
      */
     async getUnpaidPenaltiesTotal(driverId: string) {
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: driverId }, { shortId: driverId }] },
+            select: { id: true }
+        });
+        if (!driver) return 0;
+
         const penalties = await prisma.penalty.findMany({
             where: {
-                driverId,
+                driverId: driver.id,
                 type: PenaltyType.MONETARY,
                 isPaid: false,
                 isWaived: false,

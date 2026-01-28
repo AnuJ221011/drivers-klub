@@ -37,7 +37,7 @@ export class TripCancelService {
             }
         });
 
-        // 🔥 fire-and-forget provider cancellation
+        // fire-and-forget provider cancellation
         ProviderCancellationService.cancelTripProviderBooking(tripId);
     }
 }

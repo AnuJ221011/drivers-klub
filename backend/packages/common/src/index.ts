@@ -16,3 +16,4 @@ export * from './utils/s3.service.js';
 export * from './utils/jwt.util';
 export * from './utils/sqs.producer';
 // export * from './utils/prisma'; // Deciding whether to keep this or use @driversklub/database
+export * from './utils/id.util';

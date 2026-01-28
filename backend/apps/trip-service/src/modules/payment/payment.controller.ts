@@ -19,7 +19,9 @@ async function assertDriverInScope(req: Request, driverId: string) {
     const { role, fleetId, hubIds } = getScope(req);
     if (role === 'SUPER_ADMIN') return;
     if (!fleetId) throw new Error('Fleet scope not set');
-    const driver = await prisma.driver.findUnique({ where: { id: driverId } });
+    const driver = await prisma.driver.findFirst({
+        where: { OR: [{ id: driverId }, { shortId: driverId }] }
+    });
     if (!driver) throw new Error('Driver not found');
     if (driver.fleetId !== fleetId) throw new Error('Access denied');
     if (role === 'OPERATIONS') {
@@ -31,7 +33,9 @@ async function assertVehicleInScope(req: Request, vehicleId: string) {
     const { role, fleetId, hubIds } = getScope(req);
     if (role === 'SUPER_ADMIN') return;
     if (!fleetId) throw new Error('Fleet scope not set');
-    const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
+    const vehicle = await prisma.vehicle.findFirst({
+        where: { OR: [{ id: vehicleId }, { shortId: vehicleId }] }
+    });
     if (!vehicle) throw new Error('Vehicle not found');
     if (vehicle.fleetId !== fleetId) throw new Error('Access denied');
     if (role === 'OPERATIONS') {
@@ -69,7 +73,7 @@ export const getBalance = async (req: Request, res: Response) => {
 export const getTransactions = async (req: Request, res: Response) => {
     try {
         const { id: userId } = req.user as any;
-        const { page = 1, limit = 20, type, status, startDate, endDate } = req.query;
+        const { page = 1, limit = 20, type, status, startDate, endDate, keyword } = req.query;
 
         const driver = await prisma.driver.findFirst({
             where: { userId },
@@ -86,6 +90,13 @@ export const getTransactions = async (req: Request, res: Response) => {
         const where: any = { driverId: driver.id };
         if (type) where.type = type;
         if (status) where.status = status;
+
+        if (keyword) {
+            where.OR = [
+                { id: { contains: keyword as string, mode: 'insensitive' } },
+                { shortId: { contains: keyword as string, mode: 'insensitive' } },
+            ];
+        }
 
         if (startDate || endDate) {
             where.createdAt = {};
@@ -558,7 +569,9 @@ export const waivePenalty = async (req: Request, res: Response) => {
     const scope = getScope(req);
     if (scope.role !== 'SUPER_ADMIN') {
         if (!scope.fleetId) return res.status(403).json({ message: 'Fleet scope not set for this user' });
-        const penaltyRow = await prisma.penalty.findUnique({ where: { id: penaltyId } });
+        const penaltyRow = await prisma.penalty.findFirst({
+            where: { OR: [{ id: penaltyId }, { shortId: penaltyId }] }
+        });
         if (!penaltyRow) return res.status(404).json({ message: 'Penalty not found' });
         try {
             await assertDriverInScope(req, penaltyRow.driverId);
@@ -610,7 +623,9 @@ export const payoutIncentive = async (req: Request, res: Response) => {
 
     const scope = getScope(req);
     if (scope.role !== 'SUPER_ADMIN') {
-        const incentive = await prisma.incentive.findUnique({ where: { id: incentiveId } });
+        const incentive = await prisma.incentive.findFirst({
+            where: { OR: [{ id: incentiveId }, { shortId: incentiveId }] }
+        });
         if (!incentive) return res.status(404).json({ message: 'Incentive not found' });
         try {
             await assertDriverInScope(req, incentive.driverId);

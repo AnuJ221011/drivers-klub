@@ -21,7 +21,7 @@ function validateOrigin(origin: string): ConstraintResult {
 
 function validatePrebookWindow(pickupTime: Date): ConstraintResult {
     const now = new Date();
-    
+
     // DEVELOPMENT: Allow booking if pickup is at least 1 minute from now
     if (process.env.NODE_ENV === "development") {
         const oneMinuteFromNow = new Date(now.getTime() + 60 * 1000);

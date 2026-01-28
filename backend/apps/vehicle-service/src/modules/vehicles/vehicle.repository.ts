@@ -8,12 +8,16 @@ import type {
 } from "./vehicle.types.js";
 
 export class VehicleRepository {
-  async create(data: CreateVehicleInput): Promise<VehicleEntity> {
+  async create(data: CreateVehicleInput & { shortId: string }): Promise<VehicleEntity> {
     return prisma.vehicle.create({ data });
   }
 
   async findById(id: string): Promise<VehicleEntity | null> {
-    return prisma.vehicle.findUnique({ where: { id } });
+    return prisma.vehicle.findFirst({
+      where: {
+        OR: [{ id }, { shortId: id }]
+      }
+    });
   }
 
   async findByFleet(fleetId: string): Promise<VehicleEntity[]> {

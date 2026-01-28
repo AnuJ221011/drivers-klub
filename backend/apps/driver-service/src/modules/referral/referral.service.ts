@@ -1,4 +1,4 @@
-import { ApiError } from "@driversklub/common";
+import { ApiError, IdUtils, EntityType } from "@driversklub/common";
 import { ReferralRepository } from "./referral.repository.js";
 import { createUniqueReferralCode } from "./referral.utils.js";
 
@@ -72,9 +72,11 @@ export class ReferralService {
     }
 
     try {
+      const shortId = await IdUtils.generateShortId(prisma, EntityType.REFERRAL);
       await this.referralRepository.createReferralRecord(
         referrerId,
-        referredUserId
+        referredUserId,
+        shortId
       );
     } catch (error: any) {
       // Check if it's a unique constraint violation (user already referred)
@@ -291,8 +293,10 @@ export class ReferralService {
     const config = getReferralConfig();
 
     // Get referral record
-    const referral = await prisma.referral.findUnique({
-      where: { id: referralId },
+    const referral = await prisma.referral.findFirst({
+      where: {
+        OR: [{ id: referralId }, { shortId: referralId }]
+      },
       include: {
         referredBy: {
           include: {
@@ -342,8 +346,10 @@ export class ReferralService {
     }
 
     // Create incentive for referrer
+    const incentiveShortId = await IdUtils.generateShortId(prisma, EntityType.INCENTIVE);
     const incentive = await prisma.incentive.create({
       data: {
+        shortId: incentiveShortId,
         driverId: referrerDriver.id,
         amount: config.rewardAmount,
         reason: `Referral reward for referring driver ${referral.referredTo.driver?.firstName || referral.referredToId}`,
@@ -355,7 +361,7 @@ export class ReferralService {
 
     // Update referral status
     await prisma.referral.update({
-      where: { id: referralId },
+      where: { id: referral.id },
       data: {
         status: ReferralStatus.COMPLETED,
         rewardedAt: new Date(),

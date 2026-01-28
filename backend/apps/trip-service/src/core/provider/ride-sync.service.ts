@@ -18,8 +18,8 @@ export class RideSyncService {
         // HOWEVER, the schema shows 'Ride' model has 'provider', 'providerBookingId', 'providerRideStatus'.
         // So I will use 'prisma.ride'.
 
-        const trip = await prisma.ride.findUnique({
-            where: { id: tripId },
+        const trip = await prisma.ride.findFirst({
+            where: { OR: [{ id: tripId }, { shortId: tripId }] },
         });
 
         if (!trip?.provider || !trip.providerBookingId) return;

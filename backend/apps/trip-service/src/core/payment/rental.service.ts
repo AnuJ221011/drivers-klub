@@ -1,6 +1,7 @@
+import { TransactionType, TransactionStatus, PaymentMethod, PaymentModel } from '@prisma/client';
 import { prisma } from "@driversklub/database";
 import { easebuzzAdapter } from '../../adapters/easebuzz/easebuzz.adapter.js';
-import { TransactionType, TransactionStatus, PaymentMethod, PaymentModel } from '@prisma/client';
+import { IdUtils, EntityType } from "@driversklub/common";
 
 export class RentalService {
     /**
@@ -13,8 +14,10 @@ export class RentalService {
         depositAmount: number;
         validityDays: number;
     }) {
+        const shortId = await IdUtils.generateShortId(prisma, EntityType.RENTAL_PLAN);
         const rentalPlan = await prisma.rentalPlan.create({
             data: {
+                shortId,
                 fleetId: data.fleetId,
                 name: data.name,
                 rentalAmount: data.rentalAmount,
@@ -44,8 +47,10 @@ export class RentalService {
      * Get rental plan by ID
      */
     async getRentalPlanById(id: string) {
-        return prisma.rentalPlan.findUnique({
-            where: { id },
+        return prisma.rentalPlan.findFirst({
+            where: {
+                OR: [{ id }, { shortId: id }]
+            },
             include: { fleet: true },
         });
     }
@@ -63,8 +68,11 @@ export class RentalService {
             isActive?: boolean;
         }
     ) {
+        const resolved = await this.getRentalPlanById(id);
+        if (!resolved) throw new Error('Rental plan not found');
+
         return prisma.rentalPlan.update({
-            where: { id },
+            where: { id: resolved.id },
             data,
         });
     }
@@ -78,8 +86,8 @@ export class RentalService {
         successUrl?: string;
         failureUrl?: string;
     }) {
-        const driver = await prisma.driver.findUnique({
-            where: { id: params.driverId },
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: params.driverId }, { shortId: params.driverId }] },
             include: { user: true, fleet: true },
         });
 
@@ -87,10 +95,13 @@ export class RentalService {
             throw new Error('Driver not found');
         }
 
+        const shortId = await IdUtils.generateShortId(prisma, EntityType.TRANSACTION);
+
         // Create transaction record
         const transaction = await prisma.transaction.create({
             data: {
-                driverId: params.driverId,
+                shortId: shortId,
+                driverId: driver.id,
                 type: TransactionType.DEPOSIT,
                 amount: params.amount,
                 status: TransactionStatus.PENDING,
@@ -116,7 +127,7 @@ export class RentalService {
                 params.successUrl || process.env.PAYMENT_SUCCESS_URL || 'http://localhost:3000/payment/success',
             failureUrl:
                 params.failureUrl || process.env.PAYMENT_FAILURE_URL || 'http://localhost:3000/payment/failure',
-            udf1: params.driverId,
+            udf1: driver.id,
             udf2: TransactionType.DEPOSIT,
         });
 
@@ -144,8 +155,8 @@ export class RentalService {
         successUrl?: string;
         failureUrl?: string;
     }) {
-        const driver = await prisma.driver.findUnique({
-            where: { id: params.driverId },
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: params.driverId }, { shortId: params.driverId }] },
             include: { user: true, fleet: true },
         });
 
@@ -153,8 +164,8 @@ export class RentalService {
             throw new Error('Driver not found');
         }
 
-        const rentalPlan = await prisma.rentalPlan.findUnique({
-            where: { id: params.rentalPlanId },
+        const rentalPlan = await prisma.rentalPlan.findFirst({
+            where: { OR: [{ id: params.rentalPlanId }, { shortId: params.rentalPlanId }] },
         });
 
         if (!rentalPlan || !rentalPlan.isActive) {
@@ -173,17 +184,20 @@ export class RentalService {
             );
         }
 
+        const shortId = await IdUtils.generateShortId(prisma, EntityType.TRANSACTION);
+
         // Create transaction record
         const transaction = await prisma.transaction.create({
             data: {
-                driverId: params.driverId,
+                shortId: shortId,
+                driverId: driver.id,
                 type: TransactionType.RENTAL,
                 amount: rentalPlan.rentalAmount,
                 status: TransactionStatus.PENDING,
                 paymentMethod: PaymentMethod.PG_UPI,
                 description: `Rental payment - ${rentalPlan.name}`,
                 metadata: {
-                    rentalPlanId: params.rentalPlanId,
+                    rentalPlanId: rentalPlan.id,
                     validityDays: rentalPlan.validityDays,
                 },
             },
@@ -206,9 +220,9 @@ export class RentalService {
                 params.successUrl || process.env.PAYMENT_SUCCESS_URL || 'http://localhost:3000/payment/success',
             failureUrl:
                 params.failureUrl || process.env.PAYMENT_FAILURE_URL || 'http://localhost:3000/payment/failure',
-            udf1: params.driverId,
+            udf1: driver.id,
             udf2: TransactionType.RENTAL,
-            udf3: params.rentalPlanId,
+            udf3: rentalPlan.id,
         });
 
         // Update transaction with Easebuzz txn ID
@@ -235,8 +249,14 @@ export class RentalService {
         rentalPlanId: string;
         transactionId: string;
     }) {
-        const rentalPlan = await prisma.rentalPlan.findUnique({
-            where: { id: params.rentalPlanId },
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: params.driverId }, { shortId: params.driverId }] },
+            select: { id: true }
+        });
+        if (!driver) throw new Error('Driver not found');
+
+        const rentalPlan = await prisma.rentalPlan.findFirst({
+            where: { OR: [{ id: params.rentalPlanId }, { shortId: params.rentalPlanId }] },
         });
 
         if (!rentalPlan) {
@@ -250,7 +270,7 @@ export class RentalService {
         // Deactivate any existing active rentals
         await prisma.driverRental.updateMany({
             where: {
-                driverId: params.driverId,
+                driverId: driver.id,
                 isActive: true,
             },
             data: {
@@ -258,11 +278,14 @@ export class RentalService {
             },
         });
 
+        const shortId = await IdUtils.generateShortId(prisma, EntityType.DRIVER_RENTAL);
+
         // Create new rental
         const driverRental = await prisma.driverRental.create({
             data: {
-                driverId: params.driverId,
-                rentalPlanId: params.rentalPlanId,
+                shortId,
+                driverId: driver.id,
+                rentalPlanId: rentalPlan.id,
                 startDate,
                 expiryDate,
                 isActive: true,
@@ -271,7 +294,7 @@ export class RentalService {
 
         // Set driver payment model to RENTAL
         await prisma.driver.update({
-            where: { id: params.driverId },
+            where: { id: driver.id },
             data: {
                 paymentModel: PaymentModel.RENTAL,
             },
@@ -284,9 +307,15 @@ export class RentalService {
      * Get active rental for driver
      */
     async getActiveRental(driverId: string) {
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: driverId }, { shortId: driverId }] },
+            select: { id: true }
+        });
+        if (!driver) return null;
+
         return prisma.driverRental.findFirst({
             where: {
-                driverId,
+                driverId: driver.id,
                 isActive: true,
                 expiryDate: {
                     gte: new Date(),
@@ -303,8 +332,14 @@ export class RentalService {
      * Get rental history for driver
      */
     async getRentalHistory(driverId: string) {
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: driverId }, { shortId: driverId }] },
+            select: { id: true }
+        });
+        if (!driver) return [];
+
         return prisma.driverRental.findMany({
-            where: { driverId },
+            where: { driverId: driver.id },
             include: {
                 rentalPlan: true,
             },
@@ -317,8 +352,14 @@ export class RentalService {
      * Called from webhook handler
      */
     async addDeposit(driverId: string, amount: number) {
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: driverId }, { shortId: driverId }] },
+            select: { id: true }
+        });
+        if (!driver) throw new Error('Driver not found');
+
         await prisma.driver.update({
-            where: { id: driverId },
+            where: { id: driver.id },
             data: {
                 depositBalance: {
                     increment: amount,
@@ -326,15 +367,15 @@ export class RentalService {
             },
         });
 
-        return { success: true, newBalance: await this.getDepositBalance(driverId) };
+        return { success: true, newBalance: await this.getDepositBalance(driver.id) };
     }
 
     /**
      * Deduct from deposit (for penalties in rental model)
      */
     async deductFromDeposit(driverId: string, amount: number, reason: string) {
-        const driver = await prisma.driver.findUnique({
-            where: { id: driverId },
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: driverId }, { shortId: driverId }] },
         });
 
         if (!driver) {
@@ -348,7 +389,7 @@ export class RentalService {
         }
 
         await prisma.driver.update({
-            where: { id: driverId },
+            where: { id: driver.id },
             data: {
                 depositBalance: {
                     decrement: amount,
@@ -356,10 +397,13 @@ export class RentalService {
             },
         });
 
+        const shortId = await IdUtils.generateShortId(prisma, EntityType.TRANSACTION);
+
         // Create transaction record
         await prisma.transaction.create({
             data: {
-                driverId,
+                shortId: shortId,
+                driverId: driver.id,
                 type: TransactionType.PENALTY,
                 amount: -amount, // Negative for deduction
                 status: TransactionStatus.SUCCESS,
@@ -368,15 +412,15 @@ export class RentalService {
             },
         });
 
-        return { success: true, newBalance: await this.getDepositBalance(driverId) };
+        return { success: true, newBalance: await this.getDepositBalance(driver.id) };
     }
 
     /**
      * Get deposit balance
      */
     async getDepositBalance(driverId: string) {
-        const driver = await prisma.driver.findUnique({
-            where: { id: driverId },
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: driverId }, { shortId: driverId }] },
             select: { depositBalance: true },
         });
 
@@ -387,20 +431,23 @@ export class RentalService {
      * Get driver rental status (for mobile app display)
      */
     async getDriverRentalStatus(driverId: string) {
-        const driver = await prisma.driver.findUnique({
-            where: { id: driverId },
+        const resolvedDriver = await prisma.driver.findFirst({
+            where: { OR: [{ id: driverId }, { shortId: driverId }] },
             select: {
+                id: true,
                 depositBalance: true,
                 paymentModel: true,
             },
         });
 
-        const activeRental = await this.getActiveRental(driverId);
+        if (!resolvedDriver) throw new Error('Driver not found');
+
+        const activeRental = await this.getActiveRental(resolvedDriver.id);
 
         if (!activeRental) {
             return {
-                depositBalance: driver?.depositBalance || 0,
-                paymentModel: driver?.paymentModel,
+                depositBalance: resolvedDriver?.depositBalance || 0,
+                paymentModel: resolvedDriver?.paymentModel,
                 hasActiveRental: false,
                 rental: null,
             };
@@ -414,7 +461,7 @@ export class RentalService {
         // Get active vehicle assignment
         const activeAssignment = await prisma.assignment.findFirst({
             where: {
-                driverId: driverId,
+                driverId: resolvedDriver.id,
                 status: 'ACTIVE',
                 endTime: null,
             },
@@ -424,8 +471,8 @@ export class RentalService {
         });
 
         return {
-            depositBalance: driver?.depositBalance || 0,
-            paymentModel: driver?.paymentModel,
+            depositBalance: resolvedDriver?.depositBalance || 0,
+            paymentModel: resolvedDriver?.paymentModel,
             hasActiveRental: true,
             rental: {
                 planName: activeRental.rentalPlan.name,

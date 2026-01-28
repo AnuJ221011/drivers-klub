@@ -6,11 +6,12 @@ import type {
 } from "./user.types.js";
 
 export class UserRepository {
-    async create(data: CreateUserInput): Promise<UserEntity> {
+    async create(data: CreateUserInput & { shortId: string }): Promise<UserEntity> {
         const hubIds = Array.from(new Set((data.hubIds || []).filter(Boolean)));
 
         return prisma.user.create({
             data: {
+                shortId: data.shortId,
                 name: data.name,
                 phone: data.phone,
                 role: data.role,
@@ -22,7 +23,11 @@ export class UserRepository {
     }
 
     async findById(id: string): Promise<UserEntity | null> {
-        return prisma.user.findUnique({ where: { id } });
+        return prisma.user.findFirst({
+            where: {
+                OR: [{ id }, { shortId: id }]
+            }
+        });
     }
 
     async findByPhone(phone: string): Promise<UserEntity | null> {

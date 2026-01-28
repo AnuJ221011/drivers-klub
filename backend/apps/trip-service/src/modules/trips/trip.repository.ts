@@ -5,6 +5,7 @@ export class TripRepository {
     // Mapping legacy fields to Ride Schema
     return prisma.ride.create({
       data: {
+        shortId: data.shortId,
         tripType: "INTER_CITY", // Default or passed? Service should pass.
         originCity: data.pickup?.split(" ")[0] || "Unknown", // Naive parsing or Service handles?
         destinationCity: data.drop?.split(" ")[0] || "Unknown",
@@ -25,8 +26,10 @@ export class TripRepository {
   }
 
   findById(id: string) {
-    return prisma.ride.findUnique({
-      where: { id },
+    return prisma.ride.findFirst({
+      where: {
+        OR: [{ id }, { shortId: id }]
+      },
       include: { tripAssignments: true }
     });
   }

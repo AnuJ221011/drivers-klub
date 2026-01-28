@@ -5,7 +5,7 @@ import {
   FleetRepository,
   HubManagerRepository,
 } from "./fleet.repository.js";
-import { ApiError } from "@driversklub/common";
+import { ApiError, IdUtils, EntityType } from "@driversklub/common";
 import type {
   CreateFleetInput,
   CreateFleetPayload,
@@ -74,8 +74,10 @@ export class FleetService {
     const fleetName = fleetPayload.name?.trim() || fleetPayload.name;
 
     return prisma.$transaction(async (tx) => {
+      const shortId = await IdUtils.generateShortId(tx, EntityType.FLEET);
       const fleet = await tx.fleet.create({
         data: {
+          shortId,
           ...fleetPayload,
           name: fleetName,
           mobile: fleetMobile,
@@ -84,8 +86,10 @@ export class FleetService {
         },
       });
 
+      const userShortId = await IdUtils.generateShortId(tx, EntityType.USER);
       const adminUser = await tx.user.create({
         data: {
+          shortId: userShortId,
           name: adminName,
           phone: fleetMobile,
           role: UserRole.FLEET_ADMIN,
@@ -114,8 +118,10 @@ export class FleetService {
   }
 
   async getFleetById(id: string): Promise<FleetWithAdmin> {
-    const fleet = await prisma.fleet.findUnique({
-      where: { id },
+    const fleet = await prisma.fleet.findFirst({
+      where: {
+        OR: [{ id }, { shortId: id }]
+      },
       include: {
         users: {
           where: { role: UserRole.FLEET_ADMIN },
@@ -135,7 +141,7 @@ export class FleetService {
       throw new ApiError(404, "Fleet not found");
     }
 
-    return this.fleetRepo.updateStatus(id, { status: "INACTIVE" });
+    return this.fleetRepo.updateStatus(fleet.id, { status: "INACTIVE" });
   }
 }
 
@@ -153,7 +159,9 @@ export class FleetHubService {
       throw new ApiError(404, "Fleet not found");
     }
 
-    return this.fleetHubRepo.create(fleetId, data);
+    const shortId = await IdUtils.generateShortId(prisma, EntityType.HUB);
+
+    return this.fleetHubRepo.create(fleet.id, { ...data, shortId });
   }
 
   async getAllFleetHubs(id: string) {
@@ -186,7 +194,7 @@ export class FleetHubService {
       );
     }
 
-    return this.fleetHubRepo.assign(id, data);
+    return this.fleetHubRepo.assign(fleetHub.id, { ...data, managerId: hubManager.id });
   }
 
   async addVehicle(id: string, data: VehicleInput) {
@@ -207,7 +215,7 @@ export class FleetHubService {
       );
     }
 
-    return this.fleetHubRepo.addVehicle(id, data);
+    return this.fleetHubRepo.addVehicle(fleetHub.id, { ...data, vehicleId: vehicle.id });
   }
 
   async addDriver(id: string, data: DriverInput) {
@@ -216,7 +224,11 @@ export class FleetHubService {
       throw new ApiError(404, "Fleet Hub not found");
     }
 
-    const driver = await prisma.driver.findUnique({ where: { id: data.driverId } });
+    const driver = await prisma.driver.findFirst({
+      where: {
+        OR: [{ id: data.driverId }, { shortId: data.driverId }]
+      }
+    });
     if (!driver) {
       throw new ApiError(404, "Driver not found");
     }
@@ -228,7 +240,7 @@ export class FleetHubService {
       );
     }
 
-    return this.fleetHubRepo.addDriver(id, data);
+    return this.fleetHubRepo.addDriver(fleetHub.id, { ...data, driverId: driver.id });
   }
 
   async removeVehicle(id: string, data: VehicleInput) {
@@ -242,11 +254,11 @@ export class FleetHubService {
       throw new ApiError(404, "Vehicle not found");
     }
 
-    if (vehicle.hubId !== id) {
+    if (vehicle.hubId !== fleetHub.id) {
       throw new ApiError(400, "Vehicle is not currently assigned to this Hub");
     }
 
-    return this.fleetHubRepo.removeVehicle(id, data);
+    return this.fleetHubRepo.removeVehicle(fleetHub.id, { ...data, vehicleId: vehicle.id });
   }
 
   async removeDriver(id: string, data: DriverInput) {
@@ -255,16 +267,20 @@ export class FleetHubService {
       throw new ApiError(404, "Fleet Hub not found");
     }
 
-    const driver = await prisma.driver.findUnique({ where: { id: data.driverId } });
+    const driver = await prisma.driver.findFirst({
+      where: {
+        OR: [{ id: data.driverId }, { shortId: data.driverId }]
+      }
+    });
     if (!driver) {
       throw new ApiError(404, "Driver not found");
     }
 
-    if (driver.hubId !== id) {
+    if (driver.hubId !== fleetHub.id) {
       throw new ApiError(400, "Driver is not currently assigned to this Hub");
     }
 
-    return this.fleetHubRepo.removeDriver(id, data);
+    return this.fleetHubRepo.removeDriver(fleetHub.id, { ...data, driverId: driver.id });
   }
 }
 
@@ -272,7 +288,8 @@ export class HubManagerService {
   private hubManagerRepo = new HubManagerRepository();
 
   async createHubManager(id: string, data: CreateHubManagerInput) {
-    return this.hubManagerRepo.create(id, data);
+    const shortId = await IdUtils.generateShortId(prisma, EntityType.HUB_MANAGER);
+    return this.hubManagerRepo.create(id, { ...data, shortId });
   }
 
   async getHubManagerById(id: string) {

@@ -1,4 +1,5 @@
 import { prisma } from "@driversklub/database";
+import { IdUtils, EntityType } from "@driversklub/common";
 import { ProviderType } from "@prisma/client";
 
 export class RideProviderMappingRepository {
@@ -9,8 +10,15 @@ export class RideProviderMappingRepository {
         providerStatus: string;
         rawPayload: any;
     }) {
+        const shortId = await IdUtils.generateShortId(
+            prisma,
+            EntityType.RIDE_PROVIDER_MAPPING
+        );
         return prisma.rideProviderMapping.create({
-            data: input,
+            data: {
+                ...input,
+                shortId,
+            },
         });
     }
 

@@ -5,15 +5,21 @@
 **Base URL (Development):** `http://localhost:3000` (API Gateway)  
 **Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
 **Auth:** Requires `Authorization: Bearer <TOKEN>` with Role `SUPER_ADMIN`, `OPERATIONS`, or `MANAGER`  
-**Version:** 4.5.0 (MMT Integration Complete)  
-**Last Updated:** January 23, 2026  
-**Last Verified:** January 23, 2026
+**Version:** 4.6.0 (MMT Smart ID + Pricing Cleanup)  
+**Last Updated:** January 27, 2026  
+**Last Verified:** January 27, 2026
+
+## What's New in v4.6.0
+
+- **MMT Smart ID Formatting** - Driver/Vehicle IDs compressed to 10 chars for MMT compliance
+- **Pricing Cleanup** - Consolidated pricing config, removed unused rules file
+- **Endpoint Fix** - MMT uses `/detach` (not `/unassign`), location uses `/update`
 
 ## What's New in v4.5.0
 
 - **MMT Integration Complete** - Full inbound + outbound tracking
   - Inbound: search, block, paid, cancel, reschedule
-  - Outbound: assign, reassign, unassign, start, arrived, boarded, alight, not-boarded, location
+  - Outbound: assign, reassign, detach, start, arrived, boarded, alight, not-boarded, location
   - Automatic `providerBookingId` storage from MMT paid endpoint
 - **FLEET_ADMIN Role** - Fleet-level administration with scoped access
 - **Public Booking API** - Customers can book trips without auth
@@ -57,6 +63,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
     "refreshToken": "def...",
     "user": {
       "id": "uuid",
+      "shortId": "USR20260123001",
       "role": "SUPER_ADMIN"
     }
   }
@@ -91,16 +98,31 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 ```json
 {
   "tripType": "AIRPORT",
+  "bookingType": "PREBOOK",
   "originCity": "Delhi",
   "destinationCity": "Gurgaon",
   "pickupLocation": "T3 Terminal, Gate 4",
   "pickupLat": 28.5562,
   "pickupLng": 77.1000,
   "dropLocation": "Cyber Hub, Gurgaon",
+  "dropLat": 28.4595,
+  "dropLng": 77.0266,
   "pickupTime": "2025-12-25T10:00:00Z",
-  "vehicleSku": "EV_SEDAN",
-  "distanceKm": 45
+  "vehicleSku": "TATA_TIGOR_EV",
+  "distanceKm": 45,
+  "passengerName": "Amit Sharma",
+  "passengerPhone": "9876543210"
 }
+```
+
+**Field Details:**
+
+- `tripType`: `AIRPORT`, `INTER_CITY`, `RENTAL`
+- `bookingType`: `PREBOOK` (future) or `INSTANT` (immediate)
+- `vehicleSku`: Specific vehicle model (e.g., `TATA_TIGOR_EV`) or use `vehicleType` ("EV")
+- `pickupTime`: ISO Date string. **Must be > 2.5 hours from now** for PREBOOK.
+- `passengerName` / `passengerPhone`: Optional if booking for someone else.
+
 ```
 
 > [!IMPORTANT]
@@ -117,6 +139,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "TRP20260123001",
     "status": "CREATED",
     "price": 1200,
     "tripType": "AIRPORT",
@@ -147,6 +170,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
     "trips": [
       {
         "id": "uuid",
+        "shortId": "TRP20260123001",
         "tripType": "AIRPORT",
         "pickupLocation": "T3 Terminal",
         "dropLocation": "Cyber Hub",
@@ -170,7 +194,7 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 
 ---
 
-### 3.2 Assign Driver (Dispatch)
+### 2.3 Assign Driver (Dispatch)
 
 **Endpoint:** `POST /admin/trips/assign`
 **Role:** `OPERATIONS`, `MANAGER`
@@ -191,25 +215,34 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
   "success": true,
   "message": "Driver assigned successfully",
   "data": {
-    "assignment": {
-      "id": "uuid",
-      "status": "ASSIGNED",
-      "tripId": "uuid-trip-id",
-      "driverId": "uuid-driver-id"
-    }
+    "id": "uuid-trip-id",
+    "shortId": "TRP20260123001",
+    "status": "DRIVER_ASSIGNED",
+    "tripType": "AIRPORT",
+    "pickupLocation": "T3 Terminal, Gate 4",
+    "dropLocation": "Cyber Hub, Gurgaon",
+    "pickupTime": "2025-12-25T10:00:00Z",
+    "price": 1200,
+    "driverId": "uuid-driver-id",
+    "vehicleSku": "TATA_TIGOR_EV"
   }
 }
 ```
 
 ---
 
-### 3.3 Reassign Driver
+### 2.4 Reassign Driver
 
 **Endpoint:** `POST /admin/trips/reassign`
 **Role:** `OPERATIONS`, `MANAGER`
 
 **Use Case:** Switch driver for an already assigned trip (before or during trip).
-**Logic:** Atomically unassigns current driver and assigns new driver.
+
+**Logic:**
+
+- Atomically swaps current driver with new driver
+- **For MMT trips:** Sends MMT `reassign` event (NOT unassign + assign)
+- Keeps trip status as `DRIVER_ASSIGNED`
 
 **Request Body:**
 
@@ -227,27 +260,41 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
   "success": true,
   "message": "Driver reassigned successfully",
   "data": {
-    "assignment": {
-      "id": "uuid-new-assignment",
-      "status": "ASSIGNED"
-    }
+    "id": "uuid-trip-id",
+    "shortId": "TRP20260123001",
+    "status": "DRIVER_ASSIGNED",
+    "tripType": "AIRPORT",
+    "pickupLocation": "T3 Terminal, Gate 4",
+    "dropLocation": "Cyber Hub, Gurgaon",
+    "pickupTime": "2025-12-25T10:00:00Z",
+    "price": 1200,
+    "driverId": "uuid-new-driver-id",
+    "vehicleSku": "TATA_TIGOR_EV"
   }
 }
 ```
 
+**Side Effects:**
+
+- Old driver becomes available
+- New driver becomes unavailable
+- **MMT Trip:** Calls `POST /dispatch/{booking_id}/reassign` to MMT
+
 ---
 
-### 3.4 Unassign Driver (Detach)
+### 2.5 Unassign Driver
 
 **Endpoint:** `POST /admin/trips/unassign`
 **Role:** `OPERATIONS`, `MANAGER`
 
 **Use Case:** Remove driver from trip without assigning a new one immediately.
+
 **Logic:**
 
 - Reverts trip status to `CREATED`
-- Triggers `unassign` webhook to MMT (if applicable)
+- Makes driver available for other trips
 - Supports detaching even if trip status is `STARTED` (useful for breakdown scenarios)
+- **Does NOT** send MMT unassign event (as per MMT integration requirements)
 
 **Request Body:**
 
@@ -266,6 +313,56 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 }
 ```
 
+**Note:** For MMT trips during testing, use `/detach` endpoint instead if you need to notify MMT.
+
+---
+
+### 2.6 Detach Driver (MMT Only)
+
+**Endpoint:** `POST /admin/trips/detach`
+**Role:** `OPERATIONS`, `MANAGER`
+
+**Use Case:** For MMT trips only - send detach event to MMT without changing internal trip state.
+
+**Description:** This endpoint is specifically for MMT integration testing scenarios (Test Cases 4, 5, 6). It sends the MMT `detach/unassign` event while optionally keeping the trip available for reassignment internally.
+
+**Request Body:**
+
+```json
+{
+  "tripId": "uuid-trip-id",
+  "reason": "Driver unavailable"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Driver detached and partner notified (if applicable)"
+}
+```
+
+**Side Effects:**
+
+- **MMT Trip:** Calls `POST /dispatch/{booking_id}/unassign` to MMT (if configured) or detach.
+- **Internal:** No change to trip status (trip remains available).
+
+> [!NOTE]
+> **Vendor Cancellation**: This endpoint maps to MMT's **Vendor Cancellation** flow (`/detach`). Use this when you cannot fulfill the booking.
+
+**How Detach Flow Matches Our System**:
+
+- **Manual Process**: Currently, this is a **manual admin process**. When an admin determines a trip cannot be serviced (e.g., no drivers available), they must use the "Detach Driver" function.
+- **Automation Gap**: There is currently **no auto-detach** logic (e.g., timeout). If required, this logic would need to call this same `detachBooking` method.
+
+**Test Cases:**
+
+- Test Case 4: Assign > Start > Arrived > Detach
+- Test Case 5: Assign > Detach
+- Test Case 6: Detach (no prior assignment)
+
 **Side Effects:**
 
 - Status: Reverts to `CREATED` (trip available for re-dispatch)
@@ -283,34 +380,6 @@ Same as driver authentication but requires `SUPER_ADMIN` or `OPERATIONS` role.
 > Cannot detach after passenger has boarded (`BOARDED` status) or trip is completed/cancelled.
 
 ---
-
-### 2.5 Reassign Driver
-
-**Endpoint:** `POST /admin/trips/reassign`  
-**Role:** `SUPER_ADMIN`  
-**Description:** Change assigned driver (e.g., when driver cancels or car breaks down)
-
-**Request Body:**
-
-```json
-{
-  "tripId": "uuid",
-  "driverId": "uuid-new-driver"
-}
-```
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "message": "Driver reassigned successfully"
-}
-```
-
-**Side Effects:**
-
-- **If MMT Trip**: Calls `POST /dispatch/{booking_id}/reassign` to MMT with new driver & vehicle details
 
 ---
 
@@ -413,6 +482,7 @@ MMT_TRACKING_PASS=your_mmt_tracking_password
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "FLT20260123001",
     "name": "Delhi Cabs Pvt Ltd",
     "city": "DELHI"
   }
@@ -513,6 +583,7 @@ MMT_TRACKING_PASS=your_mmt_tracking_password
   "data": [
     {
       "id": "uuid",
+      "shortId": "VEH20260123001",
       "vehicleNumber": "DL10CA1234",
       "vehicleName": "Tata Tigor EV",
       "fuelType": "ELECTRIC",
@@ -589,6 +660,7 @@ MMT_TRACKING_PASS=your_mmt_tracking_password
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "DRV20260123001",
     "firstName": "Raj",
     "lastName": "Kumar",
     "mobile": "9812345678"
@@ -671,6 +743,7 @@ MMT_TRACKING_PASS=your_mmt_tracking_password
   "data": [
     {
       "id": "uuid",
+      "shortId": "DRV20260123001",
       "firstName": "Raj",
       "lastName": "Kumar",
       "mobile": "9812345678",
@@ -839,6 +912,7 @@ const documentUrl = data.url;
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "ASN20260123001",
     "driverId": "uuid",
     "vehicleId": "uuid",
     "startDate": "2025-12-25T00:00:00Z"
@@ -863,6 +937,7 @@ const documentUrl = data.url;
   "data": [
     {
       "id": "uuid",
+      "shortId": "ASN20260123001",
       "driver": {
         "firstName": "Raj",
         "lastName": "Kumar"
@@ -903,6 +978,7 @@ const documentUrl = data.url;
   "data": [
     {
       "id": "bd3c2df9-d58d-4b5a-8d20-2ecd8db1b63e",
+      "shortId": "REQ20260123001",
       "driverId": "ad8324ca-2dea-4618-ba5e-3095fa123d06",
       "currentPreference": {
         "accept_rentals": false,
@@ -1056,6 +1132,7 @@ const documentUrl = data.url;
 ```json
 {
   "id": "uuid",
+  "shortId": "PLN20260123001",
   "fleetId": "uuid",
   "name": "Weekly Plan",
   "rentalAmount": 3500,
@@ -1111,6 +1188,7 @@ const documentUrl = data.url;
 ```json
 {
   "id": "uuid",
+  "shortId": "PNL20260123001",
   "driverId": "uuid",
   "type": "MONETARY",
   "amount": 500,
@@ -1181,6 +1259,7 @@ const documentUrl = data.url;
 ```json
 {
   "id": "uuid",
+  "shortId": "INC20260123001",
   "driverId": "uuid",
   "amount": 500,
   "reason": "Completed 50 trips this month",
@@ -1350,6 +1429,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
   "reconciliations": [
     {
       "id": "uuid",
+      "shortId": "REC20260123001",
       "driver": {
         "firstName": "Raj",
         "lastName": "Kumar"
@@ -1380,6 +1460,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
   "payouts": [
     {
       "id": "uuid",
+      "shortId": "PAY20260123001",
       "driver": {
         "firstName": "Raj",
         "lastName": "Kumar",
@@ -1409,6 +1490,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
 ```json
 {
   "id": "uuid",
+  "shortId": "VQR20260123001",
   "vehicleId": "uuid",
   "virtualAccountId": "VA123456",
   "virtualAccountNumber": "1234567890123456",
@@ -1435,6 +1517,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
 ```json
 {
   "id": "uuid",
+  "shortId": "VQR20260123001",
   "vehicleId": "uuid",
   "qrCodeBase64": "data:image/png;base64,...",
   "upiId": "driversklub.va123456@easebuzz",
@@ -1473,6 +1556,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
   "success": true,
   "data": {
     "id": "uuid-order-id",
+    "shortId": "ORD20260123001",
     "totalAmount": 2500,
     "collectedAmount": 0,
     "remainingAmount": 2500,
@@ -1500,6 +1584,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
   "success": true,
   "data": {
     "id": "uuid-order-id",
+    "shortId": "ORD20260123001",
     "customerName": "John Doe",
     "customerPhone": "9876543210",
     "description": "Advance Payment",
@@ -1542,6 +1627,7 @@ Generate and manage Easebuzz virtual account QR codes for vehicles.
   "data": [
     {
       "id": "uuid-order-1",
+      "shortId": "ORD20260123001",
       "customerName": "Alice Smith",
       "totalAmount": 5000,
       "collectedAmount": 5000,

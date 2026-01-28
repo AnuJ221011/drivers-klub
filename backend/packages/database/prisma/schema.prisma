@@ -10,6 +10,7 @@ datasource db {
 
 model User {
   id            String         @id @default(uuid())
+  shortId       String?        @unique
   name          String
   phone         String         @unique
   role          UserRole
@@ -71,6 +72,7 @@ model Otp {
 
 model Fleet {
   id            String         @id @default(uuid())
+  shortId       String?        @unique
   name          String
   mobile        String         @unique
   email         String?
@@ -100,6 +102,7 @@ model Fleet {
 
 model Vehicle {
   id               String             @id @default(uuid())
+  shortId          String?            @unique
   fleetId          String?
   hubId            String?
   vehicleNumber    String             @unique
@@ -144,6 +147,7 @@ model Vehicle {
 
 model Driver {
   id                 String           @id @default(uuid())
+  shortId            String?          @unique
   userId             String           @unique
   fleetId            String?
   hubId              String?
@@ -212,6 +216,7 @@ model Driver {
 
 model Assignment {
   id        String           @id @default(uuid())
+  shortId   String?          @unique
   fleetId   String
   driverId  String
   vehicleId String
@@ -231,6 +236,7 @@ model Assignment {
 
 model RideProviderMapping {
   id                String       @id @default(uuid())
+  shortId           String?      @unique
   rideId            String       @unique
   providerType      ProviderType
   externalBookingId String
@@ -243,6 +249,7 @@ model RideProviderMapping {
 
 model Ride {
   id                 String                 @id @default(uuid())
+  shortId            String?                @unique
   tripType           TripType
   originCity         String
   destinationCity    String                 @default("Unknown")
@@ -263,6 +270,8 @@ model Ride {
   dropLocation       String?
   pickupLocation     String?
   startedAt          DateTime?
+  arrivedAt          DateTime?      // Added for waiting charge calculation
+  boardedAt          DateTime?      // Added for waiting charge calculation
   status             TripStatus             @default(CREATED)
   dropLat            Float?
   dropLng            Float?
@@ -279,6 +288,7 @@ model Ride {
 
 model TripAssignment {
   id                  String           @id @default(uuid())
+  shortId             String?          @unique
   tripId              String
   driverId            String
   status              AssignmentStatus @default(ASSIGNED)
@@ -298,6 +308,7 @@ model TripAssignment {
 
 model Attendance {
   id           String           @id @default(uuid())
+  shortId      String?          @unique
   driverId     String
   checkInTime  DateTime         @default(now())
   checkOutTime DateTime?
@@ -323,6 +334,7 @@ model Attendance {
 
 model Break {
   id           String     @id @default(uuid())
+  shortId      String?    @unique
   attendanceId String
   startTime    DateTime
   endTime      DateTime?
@@ -335,6 +347,7 @@ model Break {
 
 model RentalPlan {
   id            String         @id @default(uuid())
+  shortId       String?        @unique
   fleetId       String
   fleet         Fleet          @relation(fields: [fleetId], references: [id], onDelete: Cascade)
   name          String
@@ -353,6 +366,7 @@ model RentalPlan {
 
 model DriverRental {
   id           String     @id @default(uuid())
+  shortId      String?    @unique
   driverId     String
   driver       Driver     @relation(fields: [driverId], references: [id], onDelete: Cascade)
   rentalPlanId String
@@ -377,6 +391,7 @@ enum OrderStatus {
 
 model PaymentOrder {
   id                    String   @id @default(uuid())
+  shortId               String?  @unique
   // Metadata
   userId                String?  // Optional link to system user (Driver/Admin)
   customerName          String
@@ -406,6 +421,7 @@ model PaymentOrder {
 
 model Transaction {
   id                String            @id @default(uuid())
+  shortId           String?           @unique
   driverId          String?           // Optional for Order payments
   driver            Driver?           @relation(fields: [driverId], references: [id])
   amount            Float
@@ -449,6 +465,7 @@ model Transaction {
 
 model Payout {
   id              String            @id @default(uuid())
+  shortId         String?           @unique
   driverId        String
   driver          Driver            @relation(fields: [driverId], references: [id])
   amount          Float
@@ -467,6 +484,7 @@ model Payout {
 
 model RentalPayment {
   id              String            @id @default(uuid())
+  shortId         String?           @unique
   driverId        String
   driver          Driver            @relation(fields: [driverId], references: [id])
   rentalPlanId    String
@@ -486,6 +504,7 @@ model RentalPayment {
 
 model Incentive {
   id            String    @id @default(uuid())
+  shortId       String?   @unique
   driverId      String
   driver        Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
   amount        Float
@@ -506,6 +525,7 @@ model Incentive {
 
 model Penalty {
   id                    String       @id @default(uuid())
+  shortId               String?      @unique
   driverId              String
   driver                Driver       @relation(fields: [driverId], references: [id], onDelete: Cascade)
   
@@ -554,6 +574,7 @@ model Penalty {
 
 model VirtualQR {
   id                   String            @id @default(uuid())
+  shortId              String?           @unique
   vehicleId            String            @unique
   vehicle              Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   virtualAccountId     String            @unique
@@ -573,6 +594,7 @@ model VirtualQR {
 
 model DailyCollection {
   id                   String     @id @default(uuid())
+  shortId              String?    @unique
   driverId             String
   driver               Driver     @relation(fields: [driverId], references: [id], onDelete: Cascade)
   vehicleId            String
@@ -635,6 +657,7 @@ enum FleetStatus {
 
 model FleetHub {
   id           String  @id @default(uuid())
+  shortId      String? @unique
   fleetId      String
   fleet        Fleet   @relation(fields: [fleetId], references: [id], onDelete: Cascade)
   location     Json
@@ -650,6 +673,7 @@ enum HubManagerStatus {
 
 model HubManager {
   id             String           @id @default(uuid())
+  shortId        String?          @unique
   name           String
   mobile         String
   city           String
@@ -727,6 +751,7 @@ enum Provider {
   MOJOBOXX
   MMT
   RAPIDO
+  INTERNAL
 }
 
 enum ProviderBookingStatus {
@@ -800,6 +825,7 @@ enum PaymentMethod {
 
 model DriverPreference {
   id          String @id @default(uuid())
+  shortId     String? @unique
   driverId    String @unique
   preferences Json @default("{}")
   approvedBy  String?
@@ -813,6 +839,7 @@ model DriverPreference {
 
 model DriverPreferenceRequest {
   id                String                   @id @default(uuid())
+  shortId           String?                  @unique
   driverId          String
   currentPreference Json
   requestedPreference Json
@@ -829,6 +856,7 @@ model DriverPreferenceRequest {
 
 model PreferenceDefination {
   key             String   @id
+  shortId         String?  @unique
   displayName     String
   description     String
   category        String
@@ -849,10 +877,9 @@ enum PreferencesRequestStatus {
 
 
 model Referral {
-
-id            String         @id @default(uuid())
-
-referredById  String
+  id            String         @id @default(uuid())
+  shortId       String?        @unique
+  referredById  String
 referredToId  String         @unique
 
 referredBy    User           @relation("Referrer", fields:[referredById], references:[id])
@@ -872,4 +899,11 @@ PENDING
 COMPLETED
 CANCELLED
 EXPIRED
+}
+model IdSequence {
+  entity    String
+  date      String
+  lastValue Int      @default(0)
+
+  @@id([entity, date])
 }

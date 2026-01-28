@@ -1,9 +1,8 @@
 import { TripAllocationService } from "../services/trip-allocation.service.js";
-
-
 import { ProviderRegistry } from "./provider.registry.js";
 import { RideProviderMappingRepository } from "../repositories/ride-provider-mapping.repo.js";
 import { TripCreateService } from "../services/trip-create.service.js";
+import { Provider, prisma } from "@driversklub/database"; // Import prisma for direct update
 
 export class TripOrchestrator {
   constructor(
@@ -21,7 +20,16 @@ export class TripOrchestrator {
     // Using TripCreateService which has the full logic (Validation, Pricing, DB)
     const ride = await TripCreateService.create(input);
 
-    // 3. Delegate to provider
+    // 3. Handle INTERNAL provider
+    if (providerType === Provider.INTERNAL) {
+      await prisma.ride.update({
+        where: { id: ride.id },
+        data: { provider: Provider.INTERNAL }
+      });
+      return ride;
+    }
+
+    // 4. Delegate to external provider
     // Defer both MMT and MojoBoxx for manual assignment flow (Safety First)
     if (providerType === "MMT" || providerType === "MOJOBOXX") {
       // Persist the intent so Assignment Service knows which provider to trigger

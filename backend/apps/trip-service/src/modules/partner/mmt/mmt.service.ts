@@ -100,7 +100,7 @@ export class MMTService {
                                     is_applicable: true
                                 },
                                 toll_charges: {
-                                    amount: 100, // Fixed toll estimate
+                                    amount: 0, // Fixed toll estimate
                                     is_included_in_base_fare: (input.mandatory_inclusions || []).includes("TOLL"),
                                     is_included_in_grand_total: (input.mandatory_inclusions || []).includes("TOLL"),
                                     is_applicable: true
@@ -237,7 +237,11 @@ export class MMTService {
 
         // First try partner_reference_number (our internal ID)
         if (input.partner_reference_number) {
-            trip = await prisma.ride.findUnique({ where: { id: input.partner_reference_number } });
+            trip = await prisma.ride.findFirst({
+                where: {
+                    OR: [{ id: input.partner_reference_number }, { shortId: input.partner_reference_number }]
+                }
+            });
         }
 
         // If not found and order_reference_number provided, search by external ID
@@ -251,7 +255,11 @@ export class MMTService {
 
         // Fallback to bookingId as internal ID
         if (!trip && input.bookingId) {
-            trip = await prisma.ride.findUnique({ where: { id: input.bookingId } });
+            trip = await prisma.ride.findFirst({
+                where: {
+                    OR: [{ id: input.bookingId }, { shortId: input.bookingId }]
+                }
+            });
         }
 
         if (!trip) throw new ApiError(404, "Booking not found");
@@ -295,7 +303,11 @@ export class MMTService {
         let trip;
 
         if (input.partner_reference_number) {
-            trip = await prisma.ride.findUnique({ where: { id: input.partner_reference_number } });
+            trip = await prisma.ride.findFirst({
+                where: {
+                    OR: [{ id: input.partner_reference_number }, { shortId: input.partner_reference_number }]
+                }
+            });
         }
 
         if (!trip && input.order_reference_number) {
@@ -307,7 +319,11 @@ export class MMTService {
         }
 
         if (!trip && input.bookingId) {
-            trip = await prisma.ride.findUnique({ where: { id: input.bookingId } });
+            trip = await prisma.ride.findFirst({
+                where: {
+                    OR: [{ id: input.bookingId }, { shortId: input.bookingId }]
+                }
+            });
         }
 
         if (!trip) throw new ApiError(404, "Booking not found");
@@ -346,7 +362,11 @@ export class MMTService {
         let trip;
 
         if (input.partner_reference_number) {
-            trip = await prisma.ride.findUnique({ where: { id: input.partner_reference_number } });
+            trip = await prisma.ride.findFirst({
+                where: {
+                    OR: [{ id: input.partner_reference_number }, { shortId: input.partner_reference_number }]
+                }
+            });
         }
 
         if (!trip && input.order_reference_number) {
@@ -438,7 +458,11 @@ export class MMTService {
         let trip;
 
         if (input.partner_reference_number) {
-            trip = await prisma.ride.findUnique({ where: { id: input.partner_reference_number } });
+            trip = await prisma.ride.findFirst({
+                where: {
+                    OR: [{ id: input.partner_reference_number }, { shortId: input.partner_reference_number }]
+                }
+            });
         }
 
         if (!trip && input.order_reference_number) {
@@ -493,8 +517,10 @@ export class MMTService {
             externalRefId = mapping?.externalBookingId || null;
         } else {
             // Search by our internal booking ID
-            trip = await prisma.ride.findUnique({
-                where: { id: bookingId },
+            trip = await prisma.ride.findFirst({
+                where: {
+                    OR: [{ id: bookingId }, { shortId: bookingId }]
+                },
                 include: { providerMapping: true }
             });
             externalRefId = trip?.providerMapping?.externalBookingId || null;

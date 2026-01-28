@@ -14,13 +14,14 @@ import type {
 } from "./driver.types.js";
 
 export class DriverRepository {
-  async create(data: CreateDriverInput): Promise<DriverEntity> {
+  async create(data: CreateDriverInput & { shortId: string }): Promise<DriverEntity> {
     return prisma.driver.create({ data });
   }
 
-  async createNewDriver(fleetId: string, data: CreateNewDriverInput): Promise<DriverEntity> {
+  async createNewDriver(fleetId: string, shortId: string, data: CreateNewDriverInput): Promise<DriverEntity> {
     return prisma.driver.create({
       data: {
+        shortId: shortId,
         userId: data.userId,
         firstName: data.firstName,
         lastName: data.lastName,
@@ -48,7 +49,11 @@ export class DriverRepository {
   }
 
   async findById(id: string): Promise<DriverEntity | null> {
-    return prisma.driver.findUnique({ where: { id } });
+    return prisma.driver.findFirst({
+      where: {
+        OR: [{ id }, { shortId: id }],
+      },
+    });
   }
 
   async findAllByFleet(fleetId: string): Promise<DriverEntity[]> {
@@ -149,8 +154,13 @@ export class DriverRepository {
     id: string,
     status: PreferencesRequestStatus
   ): Promise<DriverPreferenceRequestEntity | null> {
-    return prisma.driverPreferenceRequest.findUnique({
-      where: { id, status },
+    return prisma.driverPreferenceRequest.findFirst({
+      where: {
+        AND: [ // Ensure status match
+          { status },
+          { OR: [{ id }, { shortId: id }] } // ID match
+        ]
+      },
     });
   }
 

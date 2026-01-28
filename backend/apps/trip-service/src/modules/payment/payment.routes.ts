@@ -47,7 +47,11 @@ router.use(async (req: Request, _res: Response, next: NextFunction) => {
         const role = String((req.user as any)?.role || '');
         if (!req.user || role === 'SUPER_ADMIN') return next();
         if ((req.user as any).fleetId) return next();
-        const user = await prisma.user.findUnique({ where: { id: (req.user as any).id } });
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [{ id: (req.user as any).id }, { shortId: (req.user as any).id }]
+            }
+        });
         if (user) {
             (req.user as any).fleetId = user.fleetId ?? null;
             (req.user as any).hubIds = Array.isArray(user.hubIds) ? user.hubIds : [];

@@ -1,6 +1,7 @@
 import { prisma } from "@driversklub/database";
 import { easebuzzAdapter } from '../../adapters/easebuzz/easebuzz.adapter.js';
 import { TransactionType, TransactionStatus, PaymentMethod } from '@prisma/client';
+import { IdUtils, EntityType } from "@driversklub/common";
 
 export class IncentiveService {
     /**
@@ -13,8 +14,8 @@ export class IncentiveService {
         category?: string;
         createdBy: string;
     }) {
-        const driver = await prisma.driver.findUnique({
-            where: { id: data.driverId },
+        const driver = await prisma.driver.findFirst({
+            where: { OR: [{ id: data.driverId }, { shortId: data.driverId }] },
             include: { user: true },
         });
 
@@ -22,9 +23,12 @@ export class IncentiveService {
             throw new Error('Driver not found');
         }
 
+        const shortId = await IdUtils.generateShortId(prisma, EntityType.INCENTIVE);
+
         const incentive = await prisma.incentive.create({
             data: {
-                driverId: data.driverId,
+                shortId: shortId,
+                driverId: driver.id,
                 amount: data.amount,
                 reason: data.reason,
                 category: data.category,
@@ -40,8 +44,8 @@ export class IncentiveService {
      * Pay out an incentive to driver
      */
     async payoutIncentive(incentiveId: string) {
-        const incentive = await prisma.incentive.findUnique({
-            where: { id: incentiveId },
+        const incentive = await prisma.incentive.findFirst({
+            where: { OR: [{ id: incentiveId }, { shortId: incentiveId }] },
             include: {
                 driver: {
                     include: { user: true },
@@ -64,9 +68,12 @@ export class IncentiveService {
             throw new Error('Driver bank details not configured');
         }
 
+        const shortId = await IdUtils.generateShortId(prisma, EntityType.TRANSACTION);
+
         // Create transaction record
         const transaction = await prisma.transaction.create({
             data: {
+                shortId: shortId,
                 driverId: driver.id,
                 type: TransactionType.INCENTIVE,
                 amount: incentive.amount,
@@ -106,7 +113,7 @@ export class IncentiveService {
 
             // Mark incentive as paid
             await prisma.incentive.update({
-                where: { id: incentiveId },
+                where: { id: incentive.id },
                 data: {
                     isPaid: true,
                     paidAt: new Date(),
@@ -168,8 +175,10 @@ export class IncentiveService {
      * Get incentive by ID
      */
     async getIncentiveById(id: string) {
-        return prisma.incentive.findUnique({
-            where: { id },
+        return prisma.incentive.findFirst({
+            where: {
+                OR: [{ id }, { shortId: id }]
+            },
             include: { driver: true },
         });
     }

@@ -11,8 +11,8 @@ export class VirtualQRService {
     async generateVehicleQR(vehicleId: string) {
         console.log(`[VirtualQR] Starting generation for vehicle: ${vehicleId}`);
 
-        const vehicle = await prisma.vehicle.findUnique({
-            where: { id: vehicleId },
+        const vehicle = await prisma.vehicle.findFirst({
+            where: { OR: [{ id: vehicleId }, { shortId: vehicleId }] },
             include: { fleet: true },
         });
 
@@ -22,7 +22,7 @@ export class VirtualQRService {
 
         // 1. Check if QR already exists (Early check)
         const existingQR = await prisma.virtualQR.findFirst({
-            where: { vehicleId },
+            where: { vehicleId: vehicle.id },
         });
 
         if (existingQR) {
@@ -108,8 +108,14 @@ export class VirtualQRService {
      * Adds fallback QR URL if qrCodeBase64 is empty
      */
     async getVehicleQR(vehicleId: string) {
+        const vehicle = await prisma.vehicle.findFirst({
+            where: { OR: [{ id: vehicleId }, { shortId: vehicleId }] },
+            select: { id: true }
+        });
+        if (!vehicle) return null;
+
         const qr = await prisma.virtualQR.findFirst({
-            where: { vehicleId },
+            where: { vehicleId: vehicle.id },
             include: { vehicle: true },
         });
 
@@ -132,8 +138,14 @@ export class VirtualQRService {
      * Deactivate virtual QR
      */
     async deactivateVehicleQR(vehicleId: string) {
+        const vehicle = await prisma.vehicle.findFirst({
+            where: { OR: [{ id: vehicleId }, { shortId: vehicleId }] },
+            select: { id: true }
+        });
+        if (!vehicle) throw new ApiError(404, 'Vehicle not found');
+
         return prisma.virtualQR.updateMany({
-            where: { vehicleId },
+            where: { vehicleId: vehicle.id },
             data: { isActive: false },
         });
     }
@@ -142,8 +154,14 @@ export class VirtualQRService {
      * Reactivate virtual QR
      */
     async reactivateVehicleQR(vehicleId: string) {
+        const vehicle = await prisma.vehicle.findFirst({
+            where: { OR: [{ id: vehicleId }, { shortId: vehicleId }] },
+            select: { id: true }
+        });
+        if (!vehicle) throw new ApiError(404, 'Vehicle not found');
+
         return prisma.virtualQR.updateMany({
-            where: { vehicleId },
+            where: { vehicleId: vehicle.id },
             data: { isActive: true },
         });
     }
@@ -179,8 +197,14 @@ export class VirtualQRService {
      * Bulk generate QR codes for all vehicles in a fleet
      */
     async bulkGenerateFleetQRs(fleetId: string) {
+        const fleet = await prisma.fleet.findFirst({
+            where: { OR: [{ id: fleetId }, { shortId: fleetId }] },
+            select: { id: true }
+        });
+        if (!fleet) throw new ApiError(404, 'Fleet not found');
+
         const vehicles = await prisma.vehicle.findMany({
-            where: { fleetId },
+            where: { fleetId: fleet.id },
         });
 
         const results = [];
@@ -201,10 +225,16 @@ export class VirtualQRService {
      * Get all virtual QRs for a fleet
      */
     async getFleetQRs(fleetId: string) {
+        const fleet = await prisma.fleet.findFirst({
+            where: { OR: [{ id: fleetId }, { shortId: fleetId }] },
+            select: { id: true }
+        });
+        if (!fleet) return [];
+
         return prisma.virtualQR.findMany({
             where: {
                 vehicle: {
-                    fleetId,
+                    fleetId: fleet.id,
                 },
             },
             include: {

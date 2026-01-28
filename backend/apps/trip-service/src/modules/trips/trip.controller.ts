@@ -6,6 +6,8 @@ import { ApiResponse, logger } from "@driversklub/common";
 import { mmtTracking } from "../partner/mmt/mmt.tracking.js";
 import { TripService } from "./trip.service.js";
 import { GoogleMapsAdapter } from "../../adapters/providers/google/google.adapter.js";
+import { WaitingCharges } from "../pricing/waiting-charges.util.js";
+import { ExtraCharges } from "../pricing/extra-charges.util.js";
 
 export class TripController {
   private tripService = new TripService();
@@ -217,19 +219,22 @@ export class TripController {
     try {
       const { id } = req.params as { id: string };
 
-      const trip = await prisma.ride.findUnique({
-        where: { id },
+      const trip = await prisma.ride.findFirst({
+        where: {
+          OR: [{ id }, { shortId: id }]
+        },
       });
 
       if (!trip) {
         return res.status(404).json({ message: "Trip not found" });
       }
 
-      const mapping = await this.mappingRepo.findByRideId(id);
+      const mapping = await this.mappingRepo.findByRideId(trip.id);
 
       const mappedTrip = {
         ...trip,
-        provider: mapping?.providerType,
+        // Only override if mapping exists (for external providers)
+        provider: mapping?.providerType || trip.provider,
       };
       return ApiResponse.send(res, 200, mappedTrip, "Trip retrieved successfully");
     } catch (error: any) {
@@ -243,13 +248,17 @@ export class TripController {
       const { id } = req.params as { id: string };
       const { driverId } = req.body;
 
-      const ride = await prisma.ride.findUnique({ where: { id } });
+      const ride = await prisma.ride.findFirst({
+        where: {
+          OR: [{ id }, { shortId: id }]
+        }
+      });
       if (!ride) return res.status(404).json({ message: "Trip not found" });
 
       // 1. Create Assignment
       await prisma.tripAssignment.create({
         data: {
-          tripId: id,
+          tripId: ride.id,
           driverId: driverId,
           status: "ASSIGNED"
         }
@@ -257,13 +266,15 @@ export class TripController {
 
       // 2. Update Status
       const updated = await prisma.ride.update({
-        where: { id },
+        where: { id: ride.id },
         data: { status: "DRIVER_ASSIGNED" }
       });
 
       // 3. MMT Tracking - Assign Chauffeur
-      const driver = await prisma.driver.findUnique({ where: { id: driverId } });
-      const mapping = await this.mappingRepo.findByRideId(id);
+      const driver = await prisma.driver.findFirst({
+        where: { OR: [{ id: driverId }, { shortId: driverId }] }
+      });
+      const mapping = await this.mappingRepo.findByRideId(ride.id);
 
       if (mapping && mapping.providerType === "MMT" && driver) {
         await mmtTracking.assignChauffeur(mapping.externalBookingId, driver);
@@ -289,9 +300,9 @@ export class TripController {
       const driver = await prisma.driver.findUnique({ where: { userId } });
 
       // MMT Tracking - Start Trip
-      const mapping = await this.mappingRepo.findByRideId(id);
+      const mapping = await this.mappingRepo.findByRideId(updated.id);
       if (mapping && mapping.providerType === "MMT") {
-        await mmtTracking.trackStart(mapping.externalBookingId, lat || 0, lng || 0, driver?.id);
+        await mmtTracking.trackStart(mapping.externalBookingId, lat || 0, lng || 0, driver?.shortId || driver?.id);
       }
 
       return ApiResponse.send(res, 200, updated, "Trip started successfully");
@@ -307,15 +318,29 @@ export class TripController {
       const { lat, lng } = req.body;
       const userId = (req.user as any)?.id;
 
-      await this.tripService.arriveTrip(id, userId, lat, lng);
+      const resArrive = await this.tripService.arriveTrip(id, userId, lat, lng);
+      // arriveTrip returns { success, message }, we need to resolve trip for MMT tracking
+      const trip = await prisma.ride.findFirst({
+        where: { OR: [{ id }, { shortId: id }] },
+        select: { id: true }
+      });
 
       // Get driver for MMT tracking
       const driver = await prisma.driver.findUnique({ where: { userId } });
 
       // MMT Tracking - Arrived
-      const mapping = await this.mappingRepo.findByRideId(id);
+      const mapping = trip ? await this.mappingRepo.findByRideId(trip.id) : null;
+
+      // Update arrivedAt timestamp for waiting charge calculation
+      if (trip) {
+        await prisma.ride.update({
+          where: { id: trip.id },
+          data: { arrivedAt: new Date() }
+        });
+      }
+
       if (mapping && mapping.providerType === "MMT") {
-        await mmtTracking.trackArrived(mapping.externalBookingId, lat || 0, lng || 0, driver?.id);
+        await mmtTracking.trackArrived(mapping.externalBookingId, lat || 0, lng || 0, driver?.shortId || driver?.id);
       }
       return ApiResponse.send(res, 200, { id, status: "ARRIVED_EVENT_SENT" }, "Driver marked as arrived");
     } catch (error: any) {
@@ -328,18 +353,31 @@ export class TripController {
     const { lat, lng } = req.body;
     const userId = (req.user as any)?.id;
 
+    // Resolve trip ID if shortId is provided
+    const ride = await prisma.ride.findFirst({
+      where: {
+        OR: [{ id }, { shortId: id }]
+      },
+      select: { id: true }
+    });
+
+    if (!ride) return res.status(404).json({ message: "Trip not found" });
+
     const updated = await prisma.ride.update({
-      where: { id },
-      data: { status: "STARTED" } // Re-confirming start
+      where: { id: ride.id },
+      data: {
+        status: "STARTED",
+        boardedAt: new Date() // Store boarded time for waiting charge calculation
+      }
     });
 
     // Get driver for MMT tracking
     const driver = await prisma.driver.findUnique({ where: { userId } });
 
     // MMT Tracking - Boarded
-    const mapping = await this.mappingRepo.findByRideId(id);
+    const mapping = await this.mappingRepo.findByRideId(ride.id);
     if (mapping && mapping.providerType === "MMT") {
-      await mmtTracking.trackBoarded(mapping.externalBookingId, lat || 0, lng || 0, driver?.id);
+      await mmtTracking.trackBoarded(mapping.externalBookingId, lat || 0, lng || 0, driver?.shortId || driver?.id);
     }
     return ApiResponse.send(res, 200, updated, "Passenger boarded");
   }
@@ -356,9 +394,9 @@ export class TripController {
       const driver = await prisma.driver.findUnique({ where: { userId } });
 
       // MMT Tracking - Not Boarded (No Show)
-      const mapping = await this.mappingRepo.findByRideId(id);
+      const mapping = await this.mappingRepo.findByRideId(updated.id);
       if (mapping && mapping.providerType === "MMT") {
-        await mmtTracking.trackNotBoarded(mapping.externalBookingId, lat || 0, lng || 0, driver?.id, reason);
+        await mmtTracking.trackNotBoarded(mapping.externalBookingId, lat || 0, lng || 0, driver?.shortId || driver?.id, reason);
       }
       return ApiResponse.send(res, 200, updated, "Trip marked as No Show");
     } catch (error: any) {
@@ -373,15 +411,80 @@ export class TripController {
       const userId = (req.user as any)?.id;
 
       // Use TripService
+      // First fetch trip to calculate waiting charges if applicable
+      const ride = await prisma.ride.findFirst({
+        where: { OR: [{ id }, { shortId: id }] },
+        select: {
+          id: true,
+          arrivedAt: true,
+          boardedAt: true,
+          price: true,
+          pickupTime: true,  // For Night Charge calc (mapped to tripDate)
+          tripType: true   // For Airport Charge calc
+        }
+      });
+
+      let waitingCharge = 0;
+      if (ride?.arrivedAt && ride?.boardedAt) {
+        waitingCharge = WaitingCharges.calculate(ride.arrivedAt, ride.boardedAt);
+      }
+
+      // Calculate Auto Night & Airport Charges
+      // pickupTime is usually the pickup time
+      const nightCharge = ride?.pickupTime
+        ? ExtraCharges.calculateNightCharge(new Date(ride.pickupTime), ride.price ?? 0)
+        : 0;
+
+      const airportEntryCharge = ride?.tripType
+        ? ExtraCharges.calculateAirportCharge(ride.tripType)
+        : 0;
+
+      // Merge calculated charges with manual extra charges
+      // Note: Manual entries like toll, stateTax, parking come from 'extraCharges' input
+      // We override 'night' and 'airportEntry' with auto values, and 'waiting' with auto value
+      const finalExtraCharges = {
+        ...extraCharges, // Keep manual: toll, stateTax, parking
+        night: nightCharge,
+        airportEntry: airportEntryCharge,
+        ...(waitingCharge > 0 && { waiting: waitingCharge })
+      };
+
+      // Add waiting charge to final fare if not already included
+      // Note: TripService.completeTrip usually updates the status and price. 
+      // We might need to adjust the price passed to it or update after.
+      // Here passing fare + waitingCharge might be appropriate if 'fare' is total amount
+      // But typically 'fare' input is base+distance. Let's add waiting charge to DB after.
+
       const updated = await this.tripService.completeTrip(id, userId, fare);
+
+      // Add auto-calculated charges to the total price
+      // 'fare' (from body) + waiting + night + airport
+      // Warning: 'updated.price' might already include 'fare'. 
+      // Safe to add the *additional* charges.
+
+      const additionalCharges = waitingCharge + nightCharge + airportEntryCharge;
+
+      if (additionalCharges > 0) {
+        await prisma.ride.update({
+          where: { id: ride?.id },
+          data: {
+            price: (updated.price || 0) + additionalCharges,
+            // You might want to store breakdown too, but typically 'price' is the simple total.
+            // If there's an 'extraCharges' field in Ride model, update it here too?
+            // Assuming we just track total price for now or it's handled elsewhere.
+          }
+        });
+        // Update local object to return correct total
+        updated.price = (updated.price || 0) + additionalCharges;
+      }
 
       // Get driver for MMT tracking
       const driver = await prisma.driver.findUnique({ where: { userId } });
 
       // MMT Tracking - Alight (Complete)
-      const mapping = await this.mappingRepo.findByRideId(id);
+      const mapping = await this.mappingRepo.findByRideId(updated.id);
       if (mapping && mapping.providerType === "MMT") {
-        await mmtTracking.trackAlight(mapping.externalBookingId, lat || 0, lng || 0, driver?.id, extraCharges);
+        await mmtTracking.trackAlight(mapping.externalBookingId, lat || 0, lng || 0, driver?.shortId || driver?.id, finalExtraCharges);
       }
 
       return ApiResponse.send(res, 200, updated, "Trip completed successfully");
@@ -436,7 +539,17 @@ export class TripController {
   async getTracking(req: Request, res: Response) {
     const { id } = req.params as { id: string };
 
-    const mapping = await this.mappingRepo.findByRideId(id);
+    // Resolve trip ID if shortId is provided
+    const ride = await prisma.ride.findFirst({
+      where: {
+        OR: [{ id }, { shortId: id }]
+      },
+      select: { id: true }
+    });
+
+    if (!ride) return res.status(404).json({ message: "Trip not found" });
+
+    const mapping = await this.mappingRepo.findByRideId(ride.id);
     if (!mapping) {
       return res.status(404).json({ message: "Tracking not available" });
     }
@@ -470,10 +583,20 @@ export class TripController {
       // Get driver for MMT tracking
       const driver = await prisma.driver.findUnique({ where: { userId } });
 
+      // Resolve trip ID if shortId is provided
+      const ride = await prisma.ride.findFirst({
+        where: {
+          OR: [{ id }, { shortId: id }]
+        },
+        select: { id: true }
+      });
+
+      if (!ride) return res.status(404).json({ message: "Trip not found" });
+
       // MMT Tracking - Location Update (called every 30 seconds during trip)
-      const mapping = await this.mappingRepo.findByRideId(id);
+      const mapping = await this.mappingRepo.findByRideId(ride.id);
       if (mapping && mapping.providerType === "MMT") {
-        await mmtTracking.updateLocation(mapping.externalBookingId, lat, lng, driver?.id);
+        await mmtTracking.updateLocation(mapping.externalBookingId, lat, lng, driver?.shortId || driver?.id);
       }
 
       return ApiResponse.send(res, 200, null, "Location updated successfully");

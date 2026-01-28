@@ -9,9 +9,10 @@ export class ReferralRepository {
    * @param referredToId - The ID of the user who was referred
    * @returns The created referral record
    */
-  async createReferralRecord(referredById: string, referredToId: string) {
+  async createReferralRecord(referredById: string, referredToId: string, shortId: string) {
     return prisma.referral.create({
       data: {
+        shortId,
         referredById,
         referredToId,
       },

@@ -1,6 +1,7 @@
 import { prisma } from "@driversklub/database";
 import { easebuzzAdapter } from '../../adapters/easebuzz/easebuzz.adapter.js';
 import { PaymentOrder, OrderStatus, Transaction, TransactionStatus, PaymentMethod, TransactionType } from '@prisma/client';
+import { IdUtils, EntityType } from "@driversklub/common";
 
 export class OrderService {
     /**
@@ -30,9 +31,12 @@ export class OrderService {
             type: 'ORDER', // Critical: Signals this is an Order QR
         });
 
+        const shortId = await IdUtils.generateShortId(prisma, EntityType.BOOKING);
+
         // 2. Create PaymentOrder Record
         const order = await prisma.paymentOrder.create({
             data: {
+                shortId: shortId,
                 userId: data.userId,
                 customerName: data.customerName,
                 customerPhone: data.customerPhone,
@@ -58,8 +62,10 @@ export class OrderService {
      * Get Order by ID
      */
     async getOrder(id: string): Promise<(PaymentOrder & { transactions: Transaction[] }) | null> {
-        return prisma.paymentOrder.findUnique({
-            where: { id },
+        return prisma.paymentOrder.findFirst({
+            where: {
+                OR: [{ id }, { shortId: id }]
+            },
             include: {
                 transactions: true, // Show history
             }
@@ -70,8 +76,13 @@ export class OrderService {
      * List Orders for a User
      */
     async listOrders(userId: string): Promise<PaymentOrder[]> {
+        const user = await prisma.user.findFirst({
+            where: { OR: [{ id: userId }, { shortId: userId }] },
+            select: { id: true }
+        });
+        if (!user) return [];
         return prisma.paymentOrder.findMany({
-            where: { userId },
+            where: { userId: user.id },
             orderBy: { createdAt: 'desc' },
         });
     }
@@ -99,8 +110,10 @@ export class OrderService {
         }
 
         // 2. Create Transaction Record
+        const txnShortId = await IdUtils.generateShortId(prisma, EntityType.TRANSACTION);
         await prisma.transaction.create({
             data: {
+                shortId: txnShortId,
                 paymentOrderId: order.id,
                 driverId: order.userId, // Link to creator if available
                 type: TransactionType.ORDER_PAYMENT,

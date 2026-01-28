@@ -5,9 +5,15 @@
 **Base URL (Development):** `http://localhost:3000` (API Gateway)  
 **Base URL (Production):** AWS Elastic Beanstalk `driversklub-backend-env`  
 **Auth Header:** `Authorization: Bearer <ACCESS_TOKEN>`  
-**Version:** 4.5.0 (MMT Integration Complete)  
-**Last Updated:** January 23, 2026  
-**Last Verified:** January 23, 2026
+**Version:** 4.6.0 (MMT Smart ID + Pricing Cleanup)  
+**Last Updated:** January 27, 2026  
+**Last Verified:** January 27, 2026
+
+## What's New in v4.6.0
+
+- **MMT Smart ID Formatting** - Driver/Vehicle IDs compressed to 10 chars for MMT compliance
+- **Pricing Cleanup** - Consolidated pricing config, removed unused rules file
+- **Pricing Formula**: `(billableKm × ₹25) × tripMultiplier × bookingMultiplier × vehicleMultiplier`
 
 ## What's New in v4.5.0
 
@@ -30,8 +36,18 @@
 2. [Daily Attendance](#2-daily-attendance)
 3. [Trip Management](#3-trip-management)
 4. [Driver Profile](#4-driver-profile)
+   - [4.1 Get My Profile](#41-get-my-profile)
+   - [4.2 Get Profile by ID](#42-get-driver-profile-by-id)
+   - [4.3 Update Profile](#43-update-driver-profile)
+   - [4.4 Get My Plans (Rental History)](#44-get-my-plans-rental-history)
+   - [4.5 Driver Preferences](#45-driver-preferences)
+   - [4.6 Get Upload URL](#46-get-upload-url-s3-image-upload)
 5. [Error Handling](#5-error-handling)
 6. [Finance & Rental Plans](#6-finance--rental-plans)
+   - [6.1 Balance & Status](#61-get-balance--financial-status)
+   - [6.2 Rental Management](#62-rental-management)
+   - [6.3 Security Deposit](#63-security-deposit)
+   - [6.4 Transactions & Summary](#64-transactions--summary)
 7. [Rapido Status Management](#7-rapido-status-management)
 8. [Pricing & Utilities](#8-pricing--utilities)
 9. [Google Maps Service](#9-google-maps-service)
@@ -95,9 +111,10 @@ Creates the `User` and empty `Driver` profile. Does NOT require Auth token (Publ
 // Response
 {
     "id": "u-123",
+    "shortId": "USR20260123001",
     "name": "Amit Kumar",
     "role": "DRIVER",
-    "token": "..." // Auto-login after signup
+    "token": "..." 
 }
 ```
 
@@ -157,6 +174,7 @@ Once signup is complete, use the dedicated onboarding endpoint to submit full KY
   "success": true,
   "data": {
     "id": "driver-uuid",
+    "shortId": "DRV20260123001",
     "firstName": "Raj",
     "lastName": "Kumar",
     "kycStatus": "PENDING"
@@ -264,6 +282,7 @@ x-client-type: app
     "refreshToken": "8f8e23...",
     "user": {
       "id": "uuid-user-id",
+      "shortId": "USR20260123001",
       "phone": "9876543210",
       "role": "DRIVER"
     }
@@ -344,6 +363,7 @@ x-client-type: app
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "ATT20260123001",
     "status": "PENDING_APPROVAL",
     "checkInTime": "2025-12-25T08:00:00Z"
   }
@@ -425,6 +445,7 @@ x-client-type: app
     "message": "Break started successfully",
     "data": {
         "id": "1d0c84d0-a593-4079-8ed3-2ce274ad378d",
+        "shortId": "BRK20260123001",
         "driverId": "b16dd8ec-a030-44a9-9175-ebd77013dbd0",
         "checkInTime": "2025-12-25T10:06:20.674Z",
         "checkOutTime": null,
@@ -469,6 +490,7 @@ x-client-type: app
     "message": "Break ended successfully",
     "data": {
         "id": "1d0c84d0-a593-4079-8ed3-2ce274ad378d",
+        "shortId": "BRK20260123001",
         "driverId": "b16dd8ec-a030-44a9-9175-ebd77013dbd0",
         "checkInTime": "2025-12-25T10:06:20.674Z",
         "checkOutTime": null,
@@ -503,6 +525,7 @@ x-client-type: app
   "data": [
     {
       "id": "uuid",
+      "shortId": "ATT20260123001",
       "checkInTime": "2025-12-25T08:00:00Z",
       "checkOutTime": "2025-12-25T18:00:00Z",
       "status": "APPROVED",
@@ -531,6 +554,7 @@ x-client-type: app
   "data": [
     {
       "id": "uuid-trip-id",
+      "shortId": "TRP20260123001",
       "tripType": "AIRPORT",
       "originCity": "Delhi",
       "pickupLocation": "T3 Terminal, Gate 4",
@@ -560,6 +584,7 @@ x-client-type: app
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "TRP20260123001",
     "tripType": "AIRPORT",
     "pickupLocation": "T3 Terminal, Gate 4",
     "pickupLat": 28.5562,
@@ -617,6 +642,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
   "message": "Trip started successfully",
   "data": {
     "id": "uuid-trip-id",
+    "shortId": "TRP20260123001",
     "tripType": "AIRPORT",
     "originCity": "Delhi",
     "destinationCity": "Noida",
@@ -630,7 +656,10 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
     "status": "STARTED",
     "startedAt": "2026-01-24T05:44:45.105Z",
     "provider": null,
-    "providerBookingId": null
+    "providerBookingId": null,
+    "customerName": "Amit Sharma",
+    "customerPhone": "9876543210",
+    "paymentMethod": "CASH"
   }
 }
 ```
@@ -644,6 +673,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
   "message": "Trip started successfully",
   "data": {
     "id": "uuid-trip-id",
+    "shortId": "TRP20260123001",
     "tripType": "AIRPORT",
     "originCity": "Delhi",
     "destinationCity": "Noida",
@@ -705,6 +735,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
   "message": "Driver marked as arrived",
   "data": {
     "id": "uuid-trip-id",
+    "shortId": "TRP20260123001",
     "status": "ARRIVED_EVENT_SENT",
     "arrivedAt": "2026-01-24T05:53:24.389Z",
     "pickupLocation": "Terminal 1, IGI Airport",
@@ -723,6 +754,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
   "message": "Driver marked as arrived",
   "data": {
     "id": "uuid-trip-id",
+    "shortId": "TRP20260123001",
     "status": "ARRIVED_EVENT_SENT",
     "arrivedAt": "2026-01-24T05:53:24.389Z",
     "pickupLocation": "Terminal 1, IGI Airport",
@@ -774,6 +806,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
   "message": "Passenger boarded",
   "data": {
     "id": "uuid-trip-id",
+    "shortId": "TRP20260123001",
     "status": "STARTED",
     "boardedAt": "2026-01-24T05:54:15.234Z"
   }
@@ -789,6 +822,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
   "message": "Passenger boarded",
   "data": {
     "id": "uuid-trip-id",
+    "shortId": "TRP20260123001",
     "status": "STARTED",
     "boardedAt": "2026-01-24T05:54:15.234Z",
     "provider": "MMT",
@@ -842,6 +876,17 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
   - `parking` (number): Parking charges in rupees
   - `extraKms` (number): Extra kilometer charges
   - `extraMinutes` (number): Extra time charges
+**Auto-Calculated Extra Charges:**
+
+| Charge Type | Calculation Logic |
+| :--- | :--- |
+| **Waiting Charges** | `(Boarded Time - Arrived Time - 45 mins free) * ₹100/30min` |
+| **Night Charges** | **Auto-detected**. If pickup is 11 PM - 5 AM: `Max(25% of Base Fare, ₹250)` |
+| **Airport Fees** | **Auto-detected**. If Trip Type is `AIRPORT`: Fixed `₹270` |
+| **Toll / Parking** | **Manual**. Passed from driver app input. |
+| **State Tax** | **Manual**. Passed from driver app input. |
+
+**Note:** Extra charges (Waiting, Night, Airport) are **auto-calculated** by the backend based on timestamps and location. Manual values in `extraCharges` for these fields will be overridden.
 
 **Response (200) - Internal Trip:**
 
@@ -852,6 +897,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
   "message": "Trip completed successfully",
   "data": {
     "id": "uuid-trip-id",
+    "shortId": "TRP20260123001",
     "tripType": "AIRPORT",
     "originCity": "Delhi",
     "destinationCity": "Noida",
@@ -878,6 +924,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
   "message": "Trip completed successfully",
   "data": {
     "id": "uuid-trip-id",
+    "shortId": "TRP20260123001",
     "tripType": "AIRPORT",
     "originCity": "Delhi",
     "destinationCity": "Noida",
@@ -945,6 +992,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
   "message": "Trip marked as No Show",
   "data": {
     "id": "uuid-trip-id",
+    "shortId": "TRP20260123001",
     "status": "NO_SHOW",
     "pickupLocation": "Terminal 1, IGI Airport"
   }
@@ -960,6 +1008,7 @@ Perform these actions **strictly in order**. Send GPS coordinates with every sta
   "message": "Trip marked as No Show",
   "data": {
     "id": "uuid-trip-id",
+    "shortId": "TRP20260123001",
     "status": "NO_SHOW",
     "pickupLocation": "Terminal 1, IGI Airport",
     "provider": "MMT",
@@ -1062,21 +1111,17 @@ Trips assigned from MakeMyTrip can be identified by:
 
 **MMT Trip Event Flow**:
 
-```
-1. Admin assigns driver → MMT receives /dispatch/{booking_id}/assign
-2. Driver taps "Start" → MMT receives /track/{booking_id}/start
-3. Driver taps "Arrived" → MMT receives /track/{booking_id}/arrived
-4. Driver enters OTP, taps "Onboard" → MMT receives /track/{booking_id}/boarded
-5. Every 30 seconds during trip → MMT receives /track/{booking_id}/location
-6. Driver taps "Complete" → MMT receives /track/{booking_id}/alight
-```
+1. **Admin assigns driver** → MMT receives `/dispatch/{booking_id}/assign` (Driver Details)
+2. **Driver taps "Start"** → MMT receives `/track/{booking_id}/start` (Journey Begins)
+3. **Driver taps "Arrived"** → MMT receives `/track/{booking_id}/arrived` (At Pickup)
+4. **Driver enters OTP, taps "Onboard"** → MMT receives `/track/{booking_id}/boarded` (Ride Begins)
+5. **Every 30 seconds during trip** → MMT receives `/track/{booking_id}/location` (Live Tracking)
+6. **Driver taps "Complete"** → MMT receives `/track/{booking_id}/alight` (Ride Ends + Extra Charges)
 
 **No-Show Flow**:
 
-```
-1. Driver arrives, waits 30+ minutes after pickup time
-2. Driver taps "No Show" → MMT receives /track/{booking_id}/not-boarded
-```
+1. Driver arrives, waits 30+ minutes past pickup time.
+2. **Driver taps "No Show"** → MMT receives `/track/{booking_id}/not-boarded` (Cancellation)
 
 ---
 
@@ -1095,6 +1140,7 @@ Trips assigned from MakeMyTrip can be identified by:
   "success": true,
   "data": {
     "id": "uuid",
+    "shortId": "DRV20260123001",
     "firstName": "Raj",
     "lastName": "Kumar",
     "mobile": "9876543210",
@@ -1109,10 +1155,12 @@ Trips assigned from MakeMyTrip can be identified by:
     "assignments": [
       {
         "id": "assignment-uuid",
+        "shortId": "ASN20260123001",
         "status": "ACTIVE",
         "startDate": "2026-01-12T00:00:00Z",
         "vehicle": {
           "id": "vehicle-uuid",
+          "shortId": "VEH20260123001",
           "vehicleNumber": "DL10CA1234",
           "vehicleName": "Tata Tigor EV",
           "fuelType": "ELECTRIC",
@@ -1146,6 +1194,7 @@ Trips assigned from MakeMyTrip can be identified by:
    "success": true,
    "data": {
      "id": "uuid",
+     "shortId": "DRV20260123001",
      "firstName": "Raj",
      "lastName": "Kumar",
      // ... other fields
@@ -1219,9 +1268,37 @@ Trips assigned from MakeMyTrip can be identified by:
 ```json
 {
   "success": true,
+  "data": {
+    "id": "uuid",
+    "shortId": "DRV20260123001",
+    "firstName": "Rajesh",
+    "lastName": "Kumar",
+    "mobile": "9876543210",
+    "email": "rajesh@example.com",
+    "kycStatus": "APPROVED",
+    "status": "ACTIVE"
+  },
+  "message": "Profile updated successfully"
+}
+```
+
+---
+
+### 4.4 Get My Plans (Rental History)
+
+**Endpoint:** `GET /payments/rental/history`
+**Auth Required:** Yes
+**Role:** DRIVER
+
+**Response (200):**
+
+```json
+{
+  "success": true,
   "data": [
     {
       "id": "uuid",
+      "shortId": "RNT20260123001",
       "planName": "Weekly Plan",
       "rentalAmount": 3000,
       "depositAmount": 5000,
@@ -1233,6 +1310,7 @@ Trips assigned from MakeMyTrip can be identified by:
     },
     {
       "id": "uuid-2",
+      "shortId": "RNT20251201001",
       "planName": "Monthly Plan",
       "rentalAmount": 10000,
       "depositAmount": 5000,
@@ -1261,7 +1339,7 @@ Trips assigned from MakeMyTrip can be identified by:
 
 ---
 
-### 4.6 Driver Preferences
+### 4.5 Driver Preferences
 
 #### Get My Preferences
 
@@ -1319,7 +1397,7 @@ Trips assigned from MakeMyTrip can be identified by:
 
 ---
 
-### 4.7 Get Upload URL (S3 Image Upload)
+### 4.6 Get Upload URL (S3 Image Upload)
 
 **Endpoint:** `GET /drivers/upload-url`  
 **Auth Required:** Yes  
@@ -1453,6 +1531,8 @@ final imageUrl = data['url'];
     "paymentModel": "RENTAL",
     "hasActiveRental": true,
     "rental": {
+      "id": "uuid",
+      "shortId": "RNT20260123001",
       "planName": "Weekly Starter",
       "amount": 2500,
       "startDate": "2026-01-15T00:00:00Z",
@@ -1460,6 +1540,8 @@ final imageUrl = data['url'];
       "daysRemaining": 30,
       "isExpired": false,
       "vehicle": {
+        "id": "vehicle-uuid",
+        "shortId": "VEH20260123001",
         "number": "BR34 QW 1234",
         "model": "TATA Tigor EV"
       }
@@ -1485,6 +1567,7 @@ final imageUrl = data['url'];
   "data": [
     {
       "id": "uuid",
+      "shortId": "PLN20260123001",
       "name": "Weekly Starter",
       "rentalAmount": 3000,
       "depositAmount": 5000,
@@ -1536,6 +1619,7 @@ final imageUrl = data['url'];
   "success": true,
   "data": {
     "id": "uuid-rental-id",
+    "shortId": "RNT20260123001",
     "planName": "Weekly Starter",
     "rentalAmount": 2500,
     "depositAmount": 5000,
@@ -1545,6 +1629,8 @@ final imageUrl = data['url'];
     "isActive": true,
     "daysRemaining": 5,
     "vehicle": {
+      "id": "vehicle-uuid",
+      "shortId": "VEH20260123001",
       "number": "BR34 QW 1234",
       "model": "TATA Tigor EV"
     }
@@ -1603,6 +1689,7 @@ final imageUrl = data['url'];
     "transactions": [
       {
         "id": "uuid",
+        "shortId": "TXN20260123001",
         "type": "DEPOSIT",
         "amount": 5000,
         "status": "SUCCESS",
@@ -1805,9 +1892,12 @@ Your referral code is available in your profile response (`GET /drivers/me`):
   "success": true,
   "data": {
     "id": "driver-uuid",
+    "shortId": "DRV20260123001",
     "firstName": "Raj",
     // ... other fields
     "user": {
+      "id": "user-uuid",
+      "shortId": "USR20260123001",
       "referralCode": "RAJ123XYZ"
     }
   }
