@@ -7,7 +7,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Modal from '../components/layout/Modal';
 import AddTrip from '../components/trip/AddTrip';
-import { getTrips } from '../api/trip.api';
+import { getAdminTripsPage } from '../api/trip.api';
 import type { TripEntity } from '../models/trip/trip';
 import { useNavigate } from 'react-router-dom';
 
@@ -30,18 +30,22 @@ export default function Trips() {
   const [showFilters, setShowFilters] = useState(false);
   const [searchPickup, setSearchPickup] = useState('');
   const [searchStatus, setSearchStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalTrips, setTotalTrips] = useState<number | null>(null);
+  const limit = 10;
 
   const refreshTrips = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getTrips();
-      setTrips(data || []);
+      const data = await getAdminTripsPage({ page, limit });
+      setTrips(data.trips || []);
+      setTotalTrips(typeof data.total === 'number' ? data.total : null);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to load trips'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [limit, page]);
 
   useEffect(() => {
     void refreshTrips();
@@ -126,6 +130,10 @@ export default function Trips() {
     },
   ];
 
+  const totalPages = totalTrips != null ? Math.max(1, Math.ceil(totalTrips / limit)) : 1;
+  const canGoPrev = page > 1;
+  const canGoNext = page < totalPages;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -172,7 +180,31 @@ export default function Trips() {
       {loading ? (
         <div className="text-sm text-black/60">Loading trips…</div>
       ) : (
-        <Table columns={columns} data={filteredTrips} />
+        <div className="space-y-4">
+          <Table columns={columns} data={filteredTrips} />
+          <div className="flex items-center justify-between text-sm text-black/70">
+            <div>
+              Page {page} of {totalPages}
+              {totalTrips != null ? ` • ${totalTrips} trips` : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                disabled={!canGoPrev || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={!canGoNext || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

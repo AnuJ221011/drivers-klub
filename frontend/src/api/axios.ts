@@ -35,6 +35,8 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 type RetryableRequestConfig = AxiosRequestConfig & { _retry?: boolean };
 
+let refreshPromise: Promise<string | null> | null = null;
+
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return null;
@@ -76,7 +78,13 @@ api.interceptors.response.use(
   if (status === 401 && originalConfig && !originalConfig._retry) {
     originalConfig._retry = true;
 
-    const nextAccess = await refreshAccessToken();
+    if (!refreshPromise) {
+      refreshPromise = refreshAccessToken().finally(() => {
+        refreshPromise = null;
+      });
+    }
+
+    const nextAccess = await refreshPromise;
     if (nextAccess) {
       originalConfig.headers = originalConfig.headers || {};
       (originalConfig.headers as Record<string, string>).Authorization = `Bearer ${nextAccess}`;

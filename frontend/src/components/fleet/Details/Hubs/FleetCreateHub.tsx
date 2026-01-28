@@ -206,13 +206,6 @@ export default function FleetCreateHub() {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
   const hasGoogleKey = Boolean((apiKey || "").trim());
 
-  const errorMaskStyle = `
-    .gm-err-container,
-    .gm-err-content {
-      display: none !important;
-    }
-  `;
-
   /* ---------- Reverse Geocoding ---------- */
   const fetchAddress = async (lat: number, lng: number) => {
     if (!window.google?.maps) return;
@@ -288,7 +281,6 @@ export default function FleetCreateHub() {
             </div>
           ) : (
             <APIProvider apiKey={apiKey!}>
-              <style>{errorMaskStyle}</style>
               <div className="relative h-full w-full">
                 <div className="absolute top-3 left-3 right-3 z-10 max-w-xl">
                   <PlaceSearch
