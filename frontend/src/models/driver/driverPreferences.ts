@@ -16,7 +16,9 @@ export type DriverPreferenceChangeRequestStatus = 'PENDING' | 'APPROVED' | 'REJE
 
 export type DriverPreferenceChangeRequest = {
   id: string;
+  shortId?: string | null;
   driverId: string;
+  driverShortId?: string | null;
   currentPreference: DriverPreference;
   requestedPreference: Partial<DriverPreference>;
   status: DriverPreferenceChangeRequestStatus;

@@ -3,6 +3,7 @@ export type FleetStatus = 'ACTIVE' | 'INACTIVE';
 
 export type Fleet = {
   id: string;
+  shortId?: string | null;
   name: string;
   mobile: string;
   email: string | null;

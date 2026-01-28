@@ -2,6 +2,7 @@ import api from './axios';
 
 export type FleetHubEntity = {
   id: string;
+  shortId?: string | null;
   fleetId: string;
   location: unknown;
   address: string;

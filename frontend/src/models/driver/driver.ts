@@ -2,6 +2,7 @@ export type DriverStatus = 'ACTIVE' | 'INACTIVE';
 
 export type Driver = {
   id: string;
+  shortId?: string | null;
   name: string;
   phone: string;
   isActive: boolean;
@@ -13,6 +14,7 @@ export type Driver = {
 
 export type DriverEntity = {
   id: string;
+  shortId?: string | null;
   userId: string;
   fleetId: string;
   hubId?: string | null;

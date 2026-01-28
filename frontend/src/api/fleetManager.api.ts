@@ -2,6 +2,7 @@ import api from './axios';
 
 export type FleetManagerEntity = {
   id: string;
+  shortId?: string | null;
   name: string;
   mobile: string;
   city: string;

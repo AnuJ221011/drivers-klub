@@ -5,6 +5,7 @@ import type { Driver, DriverEntity } from '../models/driver/driver';
 function toUiDriver(entity: DriverEntity): Driver {
   return {
     id: entity.id,
+    shortId: entity.shortId ?? null,
     name: `${entity.firstName} ${entity.lastName}`.trim(),
     phone: entity.mobile,
     isActive: entity.status === 'ACTIVE',

@@ -77,6 +77,7 @@ export default function DriverCheckoutHistory() {
 
   const headerName = sorted[0]?.driverName;
   const headerPhone = sorted[0]?.driverPhone;
+  const headerDriverId = sorted[0]?.driverShortId || driverId || "-";
 
   return (
     <div className="space-y-6">
@@ -84,7 +85,7 @@ export default function DriverCheckoutHistory() {
         <div>
           <h1 className="text-xl font-semibold">Attendance History</h1>
           <div className="text-sm text-black/60">
-            Driver: <span className="text-black">{headerName && headerName !== "-" ? headerName : driverId || "-"}</span>
+            Driver: <span className="text-black">{headerName && headerName !== "-" ? headerName : headerDriverId}</span>
             {headerPhone ? ` • ${headerPhone}` : ""}
           </div>
         </div>

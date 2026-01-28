@@ -25,6 +25,7 @@ import {
 
 type Props = {
   driverId: string;
+  driverShortId?: string | null;
 };
 
 function buildPendingByKey(
@@ -58,7 +59,7 @@ function buildPendingByKey(
   return out;
 }
 
-export default function DriverPreferencesDrawer({ driverId }: Props) {
+export default function DriverPreferencesDrawer({ driverId, driverShortId }: Props) {
   const [loading, setLoading] = useState(false);
   const [pref, setPref] = useState<DriverPreference | null>(null);
   const [pending, setPending] = useState<DriverPreferenceChangeRequest[]>([]);
@@ -119,8 +120,11 @@ export default function DriverPreferencesDrawer({ driverId }: Props) {
         <div className="space-y-1">
           <div className="text-sm text-black/60">Driver ID</div>
           <div className="text-sm font-semibold text-black break-all">
-            {driverId}
+            {driverShortId || driverId}
           </div>
+          {driverShortId ? (
+            <div className="text-xs text-black/40 break-all">UUID: {driverId}</div>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2">

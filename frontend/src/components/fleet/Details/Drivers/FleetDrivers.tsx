@@ -375,6 +375,11 @@ export default function FleetDrivers() {
           data={drivers}
           columns={[
             { key: 'index', label: 'S.No', render: (_, i) => i + 1 },
+            {
+              key: 'shortId',
+              label: 'Driver ID',
+              render: (d) => d.shortId || d.id,
+            },
             { key: 'name', label: 'Name' },
             { key: 'phone', label: 'Phone' },
             {
@@ -500,6 +505,7 @@ export default function FleetDrivers() {
         {prefDriver && (
           <DriverPreferencesDrawer
             driverId={prefDriver.id}
+            driverShortId={prefDriver.shortId}
           />
         )}
       </Drawer>

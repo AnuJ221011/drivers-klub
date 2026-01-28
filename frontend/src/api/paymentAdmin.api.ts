@@ -2,6 +2,7 @@ import api from './axios';
 
 export type RentalPlan = {
   id: string;
+  shortId?: string | null;
   fleetId: string;
   name: string;
   rentalAmount: number;
@@ -17,6 +18,7 @@ export type PenaltyCategory = 'BEHAVIOR' | 'SAFETY' | 'DAMAGE' | 'OTHER';
 
 export type Penalty = {
   id: string;
+  shortId?: string | null;
   driverId: string;
   type: PenaltyType;
   amount: number;
@@ -37,6 +39,7 @@ export type IncentiveCategory = 'MILESTONE' | 'PERFORMANCE' | 'OTHER';
 
 export type Incentive = {
   id: string;
+  shortId?: string | null;
   driverId: string;
   amount: number;
   reason: string;
@@ -57,6 +60,7 @@ export type PayoutResult = {
 
 export type PendingReconciliation = {
   id: string;
+  shortId?: string | null;
   driverId: string;
   vehicleId: string;
   date: string;
@@ -64,6 +68,7 @@ export type PendingReconciliation = {
   isReconciled: boolean;
   driver?: {
     id: string;
+    shortId?: string | null;
     firstName: string;
     lastName: string;
     mobile?: string;
@@ -75,12 +80,14 @@ export type PendingReconciliation = {
 
 export type PendingPayout = {
   id: string;
+  shortId?: string | null;
   driverId: string;
   date: string;
   netPayout: number | null;
   isPaid: boolean;
   driver?: {
     id: string;
+    shortId?: string | null;
     firstName: string;
     lastName: string;
     bankAccountNumber?: string | null;
@@ -91,6 +98,7 @@ export type PendingPayout = {
 
 export type VehicleQr = {
   id: string;
+  shortId?: string | null;
   vehicleId: string;
   virtualAccountId?: string | null;
   virtualAccountNumber?: string | null;

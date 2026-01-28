@@ -12,6 +12,7 @@ export async function getAssignmentsByFleet(fleetId: string): Promise<Assignment
  */
 export type TripAssignmentEntity = {
   id: string;
+  shortId?: string | null;
   driverId: string;
   vehicleId: string;
   status?: string;

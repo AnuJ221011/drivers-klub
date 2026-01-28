@@ -5,6 +5,7 @@ type AttendanceStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CHECKED_OUT';
 
 type AttendanceEntity = {
   id: string;
+  shortId?: string | null;
   driverId: string;
   checkInTime: string;
   checkOutTime?: string | null;
@@ -20,14 +21,16 @@ type AttendanceEntity = {
   updatedAt: string;
   driver?: {
     id: string;
+    shortId?: string | null;
     firstName: string;
     lastName: string;
     mobile: string;
-    fleet?: { id: string; name: string } | null;
+    fleet?: { id: string; shortId?: string | null; name: string } | null;
     assignments?: Array<{
       id: string;
+      shortId?: string | null;
       status: string;
-      vehicle?: { id: string; vehicleNumber: string; vehicleName?: string; vehicleModel?: string } | null;
+      vehicle?: { id: string; shortId?: string | null; vehicleNumber: string; vehicleName?: string; vehicleModel?: string } | null;
     }>;
   } | null;
 };
@@ -66,7 +69,9 @@ function toUiCheckin(entity: AttendanceEntity): DriverCheckin {
 
   return {
     id: entity.id,
+    shortId: entity.shortId ?? undefined,
     driverId: entity.driverId,
+    driverShortId: driver?.shortId ?? undefined,
     driverName: name,
     driverPhone: phone,
     vehicleNumber: activeVehicleNumber,

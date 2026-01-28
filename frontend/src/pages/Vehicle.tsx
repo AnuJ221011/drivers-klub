@@ -113,6 +113,11 @@ export default function VehicleManagement() {
       label: "S.No",
       render: (_, index) => index + 1,
     },
+    {
+      key: "shortId",
+      label: "Vehicle ID",
+      render: (v) => v.shortId || v.id,
+    },
     { key: "number", label: "Vehicle Number" },
     { key: "brand", label: "Brand" },
     { key: "model", label: "Model" },

@@ -8,6 +8,7 @@ export type VehicleStatus = 'ACTIVE' | 'INACTIVE';
  */
 export type Vehicle = {
   id: string;
+  shortId?: string | null;
   number: string;
   brand: string;
   model: string;
@@ -30,6 +31,7 @@ export type Vehicle = {
 
 export type VehicleEntity = {
   id: string;
+  shortId?: string | null;
   fleetId: string;
   hubId?: string | null;
   vehicleNumber: string;

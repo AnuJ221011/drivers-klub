@@ -63,9 +63,10 @@ function fmtMoney(n: number) {
   return Number(n || 0).toLocaleString('en-IN');
 }
 
-function driverLabel(d?: { firstName?: string; lastName?: string } | null) {
+function driverLabel(d?: { firstName?: string; lastName?: string; shortId?: string | null } | null) {
   if (!d) return '—';
-  return `${d.firstName || ''} ${d.lastName || ''}`.trim() || '—';
+  const name = `${d.firstName || ''} ${d.lastName || ''}`.trim() || '—';
+  return d.shortId ? `${name} (${d.shortId})` : name;
 }
 
 type ApiErrorLike = {
@@ -113,7 +114,16 @@ export default function PaymentPricing() {
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const driverNameById = useMemo(() => new Map(drivers.map((d) => [d.id, d.name])), [drivers]);
+  const driverNameById = useMemo(
+    () =>
+      new Map(
+        drivers.map((d) => [
+          d.id,
+          d.shortId ? `${d.name} (${d.shortId})` : d.name,
+        ])
+      ),
+    [drivers]
+  );
   const driverIdsForSelectedFleet = useMemo(() => new Set(drivers.map((d) => d.id)), [drivers]);
 
   const [driversLoading, setDriversLoading] = useState(false);
@@ -334,6 +344,7 @@ export default function PaymentPricing() {
   // ===== Columns =====
   const rentalPlanColumns: Column<RentalPlan>[] = [
     { key: 'index', label: 'S.No', render: (_, i) => i + 1 },
+    { key: 'shortId', label: 'Plan ID', render: (p) => p.shortId || p.id },
     { key: 'name', label: 'Name' },
     { key: 'rentalAmount', label: 'Rental Amount', render: (p) => fmtMoney(p.rentalAmount) },
     { key: 'depositAmount', label: 'Deposit Amount', render: (p) => fmtMoney(p.depositAmount) },
@@ -351,6 +362,7 @@ export default function PaymentPricing() {
 
   const penaltyColumns: Column<Penalty>[] = [
     { key: 'index', label: 'S.No', render: (_, i) => i + 1 },
+    { key: 'shortId', label: 'Penalty ID', render: (p) => p.shortId || p.id },
     { key: 'driver', label: 'Driver', render: (p) => driverNameById.get(p.driverId) || p.driverId },
     { key: 'type', label: 'Type' },
     { key: 'category', label: 'Category', render: (p) => p.category || '—' },
@@ -386,6 +398,7 @@ export default function PaymentPricing() {
 
   const incentiveColumns: Column<IncentiveWithPayout>[] = [
     { key: 'index', label: 'S.No', render: (_, i) => i + 1 },
+    { key: 'shortId', label: 'Incentive ID', render: (x) => x.shortId || x.id },
     { key: 'driver', label: 'Driver', render: (x) => driverNameById.get(x.driverId) || x.driverId },
     { key: 'category', label: 'Category', render: (x) => x.category || '—' },
     { key: 'amount', label: 'Amount', render: (x) => fmtMoney(x.amount) },
@@ -441,6 +454,7 @@ export default function PaymentPricing() {
 
   const reconciliationColumns: Column<PendingReconciliation>[] = [
     { key: 'index', label: 'S.No', render: (_, i) => i + 1 },
+    { key: 'shortId', label: 'Reconciliation ID', render: (c) => c.shortId || c.id },
     { key: 'driver', label: 'Driver', render: (c) => driverLabel(c.driver) },
     { key: 'vehicle', label: 'Vehicle', render: (c) => c.vehicle?.vehicleNumber || '—' },
     { key: 'date', label: 'Date', render: (c) => new Date(c.date).toLocaleDateString() },
@@ -465,6 +479,7 @@ export default function PaymentPricing() {
 
   const payoutColumns: Column<PendingPayout>[] = [
     { key: 'index', label: 'S.No', render: (_, i) => i + 1 },
+    { key: 'shortId', label: 'Payout ID', render: (c) => c.shortId || c.id },
     { key: 'driver', label: 'Driver', render: (c) => driverLabel(c.driver) },
     { key: 'bank', label: 'Bank Account', render: (c) => c.driver?.bankAccountNumber || '—' },
     { key: 'date', label: 'Date', render: (c) => new Date(c.date).toLocaleDateString() },
@@ -494,6 +509,7 @@ export default function PaymentPricing() {
 
   const vehicleQrColumns: Column<Vehicle>[] = [
     { key: 'index', label: 'S.No', render: (_, i) => i + 1 },
+    { key: 'shortId', label: 'Vehicle ID', render: (v) => v.shortId || v.id },
     { key: 'number', label: 'Vehicle', render: (v) => (v.model ? `${v.number} (${v.model})` : v.number) },
     {
       key: 'status',

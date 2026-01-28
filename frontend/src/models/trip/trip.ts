@@ -18,6 +18,7 @@ export type ProviderType = 'MOJOBOXX' | 'MMT' | 'INTERNAL' | (string & {});
 
 export type ProviderMapping = {
   id: string;
+  shortId?: string | null;
   rideId: string;
   providerType: ProviderType;
   providerStatus?: string | null;
@@ -30,6 +31,7 @@ export type ProviderMapping = {
 
 export type TripAssignment = {
   id: string;
+  shortId?: string | null;
   driverId?: string | null;
   vehicleId?: string | null;
   status?: string;
@@ -45,6 +47,7 @@ export type TripAssignment = {
  */
 export type TripEntity = {
   id: string;
+  shortId?: string | null;
 
   // Fleet / dispatch context (may or may not be present on list responses)
   fleetId?: string | null;

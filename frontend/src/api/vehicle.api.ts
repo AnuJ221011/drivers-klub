@@ -19,6 +19,7 @@ function toUiVehicle(entity: VehicleEntity): Vehicle {
 
   return {
     id: entity.id,
+    shortId: entity.shortId ?? null,
     number: entity.vehicleNumber,
     brand: entity.vehicleName,
     model: entity.vehicleModel,
