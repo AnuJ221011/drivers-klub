@@ -171,6 +171,7 @@ export default function TripDetails() {
   }, [drivers, fleetAssignments, vehicles]);
 
   const hasAssignedDriver = Boolean(assignedTripAssignment?.driverId);
+  const canEditAssignments = (trip?.status || '').toUpperCase() === 'CREATED';
 
   const onOpenAssign = useCallback(() => {
     setSelectedDriverId('');
@@ -235,11 +236,26 @@ export default function TripDetails() {
             Back
           </Button>
           {hasAssignedDriver ? (
-            <Button variant="secondary" onClick={() => void onUnassign()} disabled={assignLoading}>
+            <Button
+              variant="secondary"
+              onClick={() => void onUnassign()}
+              disabled={assignLoading || !canEditAssignments}
+              title={!canEditAssignments ? 'Assignments can only be changed when status is CREATED.' : ''}
+            >
               Unassign
             </Button>
           ) : null}
-          <Button onClick={onOpenAssign} disabled={metaLoading || !resolvedFleetId} title={!resolvedFleetId ? 'Fleet not resolved for this trip' : ''}>
+          <Button
+            onClick={onOpenAssign}
+            disabled={metaLoading || !resolvedFleetId || !canEditAssignments}
+            title={
+              !canEditAssignments
+                ? 'Assignments can only be changed when status is CREATED.'
+                : !resolvedFleetId
+                  ? 'Fleet not resolved for this trip'
+                  : ''
+            }
+          >
             {hasAssignedDriver ? 'Reassign Driver' : 'Assign Driver'}
           </Button>
         </div>
@@ -346,7 +362,12 @@ export default function TripDetails() {
               <Button variant="secondary" onClick={() => setAssignOpen(false)} disabled={assignLoading}>
                 Cancel
               </Button>
-              <Button onClick={() => void onSubmitAssign()} loading={assignLoading} disabled={!selectedDriverId}>
+              <Button
+                onClick={() => void onSubmitAssign()}
+                loading={assignLoading}
+                disabled={!selectedDriverId || !canEditAssignments}
+                title={!canEditAssignments ? 'Assignments can only be changed when status is CREATED.' : ''}
+              >
                 {hasAssignedDriver ? 'Reassign' : 'Assign'}
               </Button>
             </div>
