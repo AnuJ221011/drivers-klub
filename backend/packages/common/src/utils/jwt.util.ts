@@ -9,10 +9,15 @@ const {
     JWT_ACCESS_SECRET,
     JWT_REFRESH_SECRET,
     ACCESS_TOKEN_EXPIRES_IN,
+    JWT_ACCESS_EXPIRES_IN,
 } = process.env;
 
-if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET || !ACCESS_TOKEN_EXPIRES_IN) {
-    throw new Error("JWT secrets or Expiry time are not configured in environment variables");
+const resolvedAccessExpiry = ACCESS_TOKEN_EXPIRES_IN || JWT_ACCESS_EXPIRES_IN;
+
+if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET || !resolvedAccessExpiry) {
+    throw new Error(
+        "JWT secrets or Expiry time are not configured in environment variables (JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, ACCESS_TOKEN_EXPIRES_IN or JWT_ACCESS_EXPIRES_IN)"
+    );
 }
 
 // Token Expiration Times
@@ -22,7 +27,7 @@ if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET || !ACCESS_TOKEN_EXPIRES_IN) {
 // Generate Access + Refresh tokens
 export const generateTokens = (payload: JwtPayload, refreshExpiresIn: string): TokenPair => {
     const accessToken = jwt.sign(payload, JWT_ACCESS_SECRET as string, {
-        expiresIn: ACCESS_TOKEN_EXPIRES_IN as ExpiresIn
+        expiresIn: resolvedAccessExpiry as ExpiresIn
     });
 
     const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET as string, {
