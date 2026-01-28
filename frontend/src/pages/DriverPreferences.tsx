@@ -96,7 +96,16 @@ export default function DriverPreferencesPage() {
 
   const adminColumns: Column<DriverPreferenceChangeRequest>[] = [
     { key: 'index', label: 'S.No', render: (_, i) => i + 1 },
-    { key: 'driverId', label: 'Driver ID' },
+    {
+      key: 'shortId',
+      label: 'Request ID',
+      render: (r) => r.shortId || r.id,
+    },
+    {
+      key: 'driverId',
+      label: 'Driver ID',
+      render: (r) => r.driverShortId || r.driverId,
+    },
     {
       key: 'requestedPreference',
       label: 'Requested changes',

@@ -82,6 +82,11 @@ const hubLabelById = useMemo(() => {
         <Table
           columns={[
             { key: "index", label: "S.No", render: (_v, i) => i + 1 },
+            {
+              key: "shortId",
+              label: "Vehicle ID",
+              render: (v) => v.shortId || v.id,
+            },
             { key: "number", label: "Vehicle Number" },
             { key: "brand", label: "Brand" },
             { key: "model", label: "Model" },

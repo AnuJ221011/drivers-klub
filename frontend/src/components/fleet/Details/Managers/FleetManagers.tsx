@@ -52,6 +52,7 @@ export default function FleetManagers() {
         <Table
           columns={[
             { key: "index", label: "S.No", render: (_m, i) => i + 1 },
+            { key: "shortId", label: "Manager ID", render: (m) => m.shortId || m.id },
             { key: "name", label: "Name" },
             {
               key: "role",

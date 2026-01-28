@@ -62,6 +62,8 @@ export default function TripDetails() {
   const [assignLoading, setAssignLoading] = useState(false);
 
   const tripId = id || '';
+  const tripDisplayId = trip?.shortId || tripId || '-';
+  const showTripUuid = Boolean(tripId && trip?.shortId && trip?.shortId !== tripId);
 
   const resolvedFleetId = trip?.fleetId || effectiveFleetId || null;
 
@@ -227,7 +229,12 @@ export default function TripDetails() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">Trip Details</h1>
-          <div className="text-sm text-black/60">Trip ID: {tripId}</div>
+          <div className="text-sm text-black/60">
+            Trip ID: {tripDisplayId}
+            {showTripUuid ? (
+              <span className="ml-2 text-xs text-black/40">UUID: {tripId}</span>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

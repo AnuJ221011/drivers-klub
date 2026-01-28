@@ -20,6 +20,11 @@ export function useCheckinColumns(): Column<DriverCheckin>[] {
       label: "S.No",
       render: (_, i) => i + 1,
     },
+    {
+      key: "shortId",
+      label: "Check-in ID",
+      render: (c) => c.shortId || c.id,
+    },
     // These keys map directly to properties on the `DriverCheckin` model.
     { key: "driverName", label: "Driver" },
     { key: "driverPhone", label: "Phone" },
@@ -51,6 +56,11 @@ export function useCheckoutColumns(): Column<DriverCheckin>[] {
 
   return [
     { key: "index", label: "S.No", render: (_, i) => i + 1 },
+    {
+      key: "shortId",
+      label: "Check-in ID",
+      render: (c) => c.shortId || c.id,
+    },
     { key: "driverName", label: "Driver" },
     { key: "driverPhone", label: "Phone" },
     { key: "vehicleNumber", label: "Vehicle" },

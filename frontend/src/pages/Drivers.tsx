@@ -190,6 +190,11 @@ export default function DriverManagement() {
 
   const columns: Column<Driver>[] = [
     { key: 'index', label: 'S.No', render: (_, i) => i + 1 },
+    {
+      key: 'shortId',
+      label: 'Driver ID',
+      render: (d) => d.shortId || d.id,
+    },
     { key: 'name', label: 'Driver Name' },
     { key: 'phone', label: 'Phone Number' },
     {
@@ -335,7 +340,10 @@ export default function DriverManagement() {
         title="Driver Preferences"
       >
         {prefDriver && (
-          <DriverPreferencesDrawer driverId={prefDriver.id} />
+          <DriverPreferencesDrawer
+            driverId={prefDriver.id}
+            driverShortId={prefDriver.shortId}
+          />
         )}
       </Drawer>
 

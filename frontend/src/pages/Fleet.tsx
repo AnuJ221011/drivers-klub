@@ -64,6 +64,11 @@ export default function FleetManagement() {
       label: "S.No",
       render: (_, i) => i + 1,
     },
+    {
+      key: "shortId",
+      label: "Fleet ID",
+      render: (f) => f.shortId || f.id,
+    },
     { key: "name", label: "Fleet Name" },
     {
       key: "fleetAdminName",

@@ -115,6 +115,7 @@ export default function Team() {
       const hubIds = assigned.map((h) => h.id);
       return {
         id: u.id,
+        shortId: u.shortId ?? null,
         name: u.name,
         phone: u.phone,
         email: "", // backend does not expose email in User model currently
@@ -165,6 +166,11 @@ export default function Team() {
       key: "index",
       label: "S.No",
       render: (_, i) => i + 1,
+    },
+    {
+      key: "shortId",
+      label: "User ID",
+      render: (m) => m.shortId || m.id,
     },
     { key: "name", label: "Name" },
     { key: "phone", label: "Phone" },

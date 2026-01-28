@@ -2,6 +2,7 @@ export type UserRole = 'SUPER_ADMIN' | 'FLEET_ADMIN' | 'OPERATIONS' | 'MANAGER' 
 
 export type User = {
   id: string;
+  shortId?: string | null;
   name: string;
   phone: string;
   role: UserRole;

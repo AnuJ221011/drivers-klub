@@ -70,6 +70,11 @@ export default function Trips() {
       render: (_, i) => i + 1,
     },
     {
+      key: 'shortId',
+      label: 'Trip ID',
+      render: (t) => t.shortId || t.id,
+    },
+    {
       key: 'pickup',
       label: 'Pickup',
       render: (t) => t.pickupLocation || t.pickup || t.originCity || '-',

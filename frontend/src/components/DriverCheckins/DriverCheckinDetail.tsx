@@ -47,6 +47,8 @@ export default function DriverCheckinDetail() {
 
   // Convert the raw attendance entity into the UI-friendly `DriverCheckin` model.
   const ui = useMemo(() => (attendance ? attendanceEntityToDriverCheckin(attendance) : null), [attendance]);
+  const displayId = ui?.shortId || id || '-';
+  const showUuid = Boolean(id && ui?.shortId && ui.shortId !== id);
 
   const assignedVehicle = useMemo(() => {
     const v = attendance?.driver?.assignments?.[0]?.vehicle;
@@ -120,7 +122,10 @@ export default function DriverCheckinDetail() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">
-          Driver Check-in #{id}
+          Driver Check-in #{displayId}
+          {showUuid ? (
+            <span className="ml-2 text-xs text-black/40">UUID: {id}</span>
+          ) : null}
         </h1>
         <Button variant="secondary" onClick={() => navigate(-1)}>
           Back

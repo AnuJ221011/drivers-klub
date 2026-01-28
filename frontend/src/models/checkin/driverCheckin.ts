@@ -2,11 +2,13 @@ export type CheckinStatus = "PENDING" | "APPROVED" | "REJECTED" | "CHECKED_OUT";
 
 export type DriverCheckin = {
   id: string;
+  shortId?: string | null;
   /**
    * Driver id (UUID on backend). Needed for admin views where we want to open
    * the driver's full attendance history.
    */
   driverId?: string;
+  driverShortId?: string | null;
   driverName: string;
   driverPhone: string;
   vehicleNumber: string;

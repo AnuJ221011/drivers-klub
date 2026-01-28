@@ -2,6 +2,7 @@ export type AssignmentStatus = 'ACTIVE' | 'ENDED';
 
 export type AssignmentEntity = {
   id: string;
+  shortId?: string | null;
   fleetId: string;
   driverId: string;
   vehicleId: string;
