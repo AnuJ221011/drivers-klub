@@ -243,6 +243,7 @@ model RideProviderMapping {
 
 model Ride {
   id                 String                 @id @default(uuid())
+  shortId            String?                @unique
   tripType           TripType
   originCity         String
   destinationCity    String                 @default("Unknown")

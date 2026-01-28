@@ -217,15 +217,20 @@ export class TripController {
     try {
       const { id } = req.params as { id: string };
 
-      const trip = await prisma.ride.findUnique({
+      let trip = await prisma.ride.findUnique({
         where: { id },
       });
+      if (!trip) {
+        trip = await prisma.ride.findUnique({
+          where: { shortId: id },
+        });
+      }
 
       if (!trip) {
         return res.status(404).json({ message: "Trip not found" });
       }
 
-      const mapping = await this.mappingRepo.findByRideId(id);
+      const mapping = await this.mappingRepo.findByRideId(trip.id);
 
       const mappedTrip = {
         ...trip,

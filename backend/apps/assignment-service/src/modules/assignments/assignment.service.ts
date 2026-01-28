@@ -71,10 +71,14 @@ export class AssignmentService {
    */
   async getAssignmentsByTrip(tripId: string, userScope?: any) {
     // If trip doesn't exist, return empty list (keeps API simple for UI)
-    const trip = await prisma.ride.findUnique({ where: { id: tripId }, select: { id: true } });
+    let trip = await prisma.ride.findUnique({ where: { id: tripId }, select: { id: true } });
+    if (!trip) {
+      trip = await prisma.ride.findUnique({ where: { shortId: tripId }, select: { id: true } });
+    }
     if (!trip) return [];
 
-    const tripAssignments: TripAssignmentRow[] = await this.repo.findTripAssignments(tripId);
+    const resolvedTripId = trip.id;
+    const tripAssignments: TripAssignmentRow[] = await this.repo.findTripAssignments(resolvedTripId);
     let driverIds: string[] = [...new Set(tripAssignments.map((a) => a.driverId))];
 
     // Scope filter driverIds for non-super roles
